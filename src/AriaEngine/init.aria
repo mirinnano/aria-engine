@@ -1,0 +1,11 @@
+window 1280, 720, "ARIA Engine"
+font "assets/fonts/NotoSansJP-Regular.ttf"
+font_atlas_size 192
+font_filter "anisotropic"
+script "assets/scripts/main.aria"
+debug on
+
+textbox 50, 500, 1180, 200
+fontsize 32
+textcolor "#ffffff"
+textbox_color "#000000", 180
