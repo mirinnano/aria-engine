@@ -91,8 +91,10 @@ public class GameState
     public int AutoModeWaitTimeMs { get; set; } = 2000;
     public float AutoModeTimerMs { get; set; } = 0f;
     public bool SkipMode { get; set; } = false;
+    public bool SkipUnread { get; set; } = false;
 
     public string RightMenuLabel { get; set; } = "*rmenu";
+    public bool SaveMode { get; set; } = true;  // セーブ/ロードモード切替
 
     public float DelayTimerMs { get; set; } = 0f;
     public float ScriptTimerMs { get; set; } = 0f;

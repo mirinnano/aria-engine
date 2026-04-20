@@ -2,15 +2,53 @@ using Raylib_cs;
 using System.Collections.Generic;
 using System.Linq;
 using AriaEngine.Core;
+using AriaEngine.Utility;
 using System.Numerics;
 
 namespace AriaEngine.Rendering;
 
 public class SpriteRenderer
 {
-    private Dictionary<string, Texture2D> _textureCache = new();
+    private LRUCache<string, Texture2D> _textureCache;
+    private ColorCache _colorCache;
+    private ZIndexSpriteManager _spriteManager;
     private Font _font;
     private bool _fontLoaded = false;
+    private readonly object _renderLock = new();
+
+    // パフォーマンス統計
+    public long TotalDrawCalls { get; private set; }
+    public long TotalTextureLoads { get; private set; }
+    public long TotalColorParses { get; private set; }
+
+    // GameStateの参照（最適化用）
+    private GameState? _currentState;
+
+    public SpriteRenderer()
+    {
+        // LRUキャッシュの初期化（最大100テクスチャ、500MB上限）
+        _textureCache = new LRUCache<string, Texture2D>(100, 500 * 1024 * 1024, OnTextureEvicted);
+
+        // 色キャッシュの初期化
+        _colorCache = new ColorCache(256);
+        _colorCache.PreloadCommonColors();
+
+        // Zインデックスマネージャーの初期化
+        _spriteManager = new ZIndexSpriteManager(id =>
+        {
+            Sprite? sprite = null;
+            if (_currentState != null && _currentState.Sprites.TryGetValue(id, out var foundSprite))
+            {
+                sprite = foundSprite;
+            }
+            return sprite;
+        });
+    }
+
+    private void OnTextureEvicted(Texture2D texture)
+    {
+        Raylib.UnloadTexture(texture);
+    }
 
     public void LoadFont(string fontPath, int atlasSize, string[] scriptLines, TextureFilter filter = TextureFilter.Bilinear)
     {
@@ -23,240 +61,294 @@ public class SpriteRenderer
 
         int[] codepoints = chars.ToArray();
         _font = Raylib.LoadFontEx(fontPath, atlasSize, codepoints, codepoints.Length);
-        Raylib.SetTextureFilter(_font.Texture, filter); // 動的なフィルター設定
+        Raylib.SetTextureFilter(_font.Texture, filter);
         _fontLoaded = true;
     }
 
     public void Draw(GameState state, TransitionManager transition)
     {
-        int qx = 0, qy = 0;
-        if (state.QuakeTimerMs > 0)
+        lock (_renderLock)
         {
-            // Simple random shake
-            if ((int)(Raylib.GetTime() * 60) % 2 == 0) 
+            // 現在のGameStateをキャッシュ
+            _currentState = state;
+
+            // スプライトマネージャーを更新
+            foreach (var sprite in state.Sprites.Values)
             {
-                qx = Raylib.GetRandomValue(-state.QuakeAmplitude, state.QuakeAmplitude);
-                qy = Raylib.GetRandomValue(-state.QuakeAmplitude, state.QuakeAmplitude);
-            }
-        }
-
-        var sortedSprites = state.Sprites.Values
-            .Where(s => s.Visible)
-            .OrderBy(s => s.Z)
-            .ToList();
-
-        foreach (var sp in sortedSprites)
-        {
-            Color baseColor = new Color(255, 255, 255, (int)(sp.Opacity * 255));
-
-            if (sp.Type == SpriteType.Image && !string.IsNullOrEmpty(sp.ImagePath))
-            {
-                if (!_textureCache.ContainsKey(sp.ImagePath))
+                if (sprite.Visible)
                 {
-                    _textureCache[sp.ImagePath] = Raylib.LoadTexture(sp.ImagePath);
-                }
-
-                var tex = _textureCache[sp.ImagePath];
-                Rectangle src = new Rectangle(0, 0, tex.Width, tex.Height);
-                float dw = sp.Width > 0 ? (sp.Width * sp.ScaleX) : (tex.Width * sp.ScaleX);
-                float dh = sp.Height > 0 ? (sp.Height * sp.ScaleY) : (tex.Height * sp.ScaleY);
-                
-                float hs = sp.IsHovered && sp.IsButton ? sp.HoverScale : 1.0f;
-                float rWidth = dw * hs;
-                float rHeight = dh * hs;
-                
-                Rectangle dst = new Rectangle(sp.X + qx + rWidth / 2f, sp.Y + qy + rHeight / 2f, rWidth, rHeight);
-                
-                if (sp.Width <= 0 || sp.Height <= 0) 
-                {
-                    sp.Width = tex.Width;
-                    sp.Height = tex.Height;
-                }
-
-                Raylib.DrawTexturePro(tex, src, dst, new Vector2(rWidth / 2f, rHeight / 2f), sp.Rotation, baseColor);
-            }
-            else if (sp.Type == SpriteType.Rect)
-            {
-                Color fillColor = sp.IsHovered && sp.IsButton && !string.IsNullOrEmpty(sp.HoverFillColor) 
-                    ? GetColorFromHex(sp.HoverFillColor, (int)(sp.FillAlpha * sp.Opacity)) 
-                    : GetColorFromHex(sp.FillColor, (int)(sp.FillAlpha * sp.Opacity));
-                
-                float hs = sp.IsHovered && sp.IsButton ? sp.HoverScale : 1.0f;
-                int rWidth = (int)(sp.Width * sp.ScaleX * hs);
-                int rHeight = (int)(sp.Height * sp.ScaleY * hs);
-                float rx = sp.X + qx - (rWidth - sp.Width * sp.ScaleX) / 2f; 
-                float ry = sp.Y + qy - (rHeight - sp.Height * sp.ScaleY) / 2f;
-
-                Rectangle rect = new Rectangle(rx, ry, rWidth, rHeight);
-
-                // Shadow
-                if (sp.ShadowOffsetX != 0 || sp.ShadowOffsetY != 0)
-                {
-                    Color shadColor = GetColorFromHex(sp.ShadowColor, (int)(sp.ShadowAlpha * sp.Opacity));
-                    Rectangle shadRect = new Rectangle(rx + sp.ShadowOffsetX, ry + sp.ShadowOffsetY, rWidth, rHeight);
-                    if (sp.CornerRadius > 0)
-                        Raylib.DrawRectangleRounded(shadRect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), 16, shadColor);
-                    else
-                        Raylib.DrawRectangleRec(shadRect, shadColor);
-                }
-
-                if (sp.CornerRadius > 0)
-                {
-                    float roundness = Math.Min((float)sp.CornerRadius / (Math.Max(rHeight, 1f) / 2f), 1f); 
-                    // roundness is 0.0-1.0 based on radius vs half-height in Raylib
-                    float r = Math.Min(sp.CornerRadius, rHeight / 2f);
-                    float normalizedRoundness = r / (rHeight / 2f);
-
-                    Raylib.DrawRectangleRounded(rect, normalizedRoundness, 16, fillColor);
-                    
-                    if (sp.BorderWidth > 0 && !string.IsNullOrEmpty(sp.BorderColor))
-                    {
-                        Color borderColor = GetColorFromHex(sp.BorderColor, (int)(255 * sp.Opacity));
-                        Raylib.DrawRectangleRoundedLinesEx(rect, normalizedRoundness, 16, sp.BorderWidth, borderColor);
-                    }
+                    _spriteManager.AddOrUpdate(sprite.Id, sprite.Z);
                 }
                 else
                 {
-                    if (!string.IsNullOrEmpty(sp.GradientTo))
-                    {
-                        Color gColor = GetColorFromHex(sp.GradientTo, (int)(sp.FillAlpha * sp.Opacity));
-                        if (sp.GradientDirection == "horizontal")
-                            Raylib.DrawRectangleGradientH((int)rx, (int)ry, rWidth, rHeight, fillColor, gColor);
-                        else
-                            Raylib.DrawRectangleGradientV((int)rx, (int)ry, rWidth, rHeight, fillColor, gColor);
-                    }
-                    else
-                    {
-                        Raylib.DrawRectangleRec(rect, fillColor);
-                    }
-
-                    if (sp.BorderWidth > 0 && !string.IsNullOrEmpty(sp.BorderColor))
-                    {
-                        Color borderColor = GetColorFromHex(sp.BorderColor, (int)(255 * sp.Opacity));
-                        Raylib.DrawRectangleLinesEx(rect, sp.BorderWidth, borderColor);
-                    }
+                    _spriteManager.Remove(sprite.Id);
                 }
             }
-            else if (sp.Type == SpriteType.Text && _fontLoaded)
+
+            int qx = 0, qy = 0;
+            if (state.QuakeTimerMs > 0)
             {
-                // フォントフィルターの動的適用
-                if (state.FontFilter != TextureFilter.Bilinear)
+                if ((int)(Raylib.GetTime() * 60) % 2 == 0)
                 {
-                    Raylib.SetTextureFilter(_font.Texture, state.FontFilter);
+                    qx = Raylib.GetRandomValue(-state.QuakeAmplitude, state.QuakeAmplitude);
+                    qy = Raylib.GetRandomValue(-state.QuakeAmplitude, state.QuakeAmplitude);
                 }
-
-                Color txtColor = GetColorFromHex(sp.Color, (int)(255 * sp.Opacity));
-                string drawText = sp.Text;
-                if (sp.Width > 0)
-                {
-                     drawText = WrapText(_font, sp.Text, sp.Width, sp.FontSize);
-                }
-
-                // スムーススケーリングを考慮したフォントサイズ
-                float scaledFontSize = sp.FontSize * Math.Max(sp.ScaleX, sp.ScaleY);
-
-                var textSize = Raylib.MeasureTextEx(_font, drawText, scaledFontSize, 2);
-                if (sp.Width <= 0 || sp.Height <= 0)
-                {
-                    sp.Width = (int)textSize.X;
-                    sp.Height = (int)textSize.Y;
-                }
-
-                float renderX = sp.X + qx;
-                if (sp.TextAlign == "center") renderX += (sp.Width - textSize.X) / 2f;
-                else if (sp.TextAlign == "right") renderX += (sp.Width - textSize.X);
-
-                Vector2 pos = new Vector2(renderX, sp.Y + qy);
-
-                if (sp.TextOutlineSize > 0 && !string.IsNullOrEmpty(sp.TextOutlineColor))
-                {
-                    Color outColor = GetColorFromHex(sp.TextOutlineColor, (int)(255 * sp.Opacity));
-                    int t = sp.TextOutlineSize;
-                    Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X - t, pos.Y - t), scaledFontSize, 2, outColor);
-                    Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + t, pos.Y - t), scaledFontSize, 2, outColor);
-                    Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X - t, pos.Y + t), scaledFontSize, 2, outColor);
-                    Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + t, pos.Y + t), scaledFontSize, 2, outColor);
-                }
-
-                if ((sp.TextShadowX != 0 || sp.TextShadowY != 0) && !string.IsNullOrEmpty(sp.TextShadowColor))
-                {
-                    Color shadowColor = GetColorFromHex(sp.TextShadowColor, (int)(255 * sp.Opacity));
-                    Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + sp.TextShadowX, pos.Y + sp.TextShadowY), scaledFontSize, 2, shadowColor);
-                }
-
-                Raylib.DrawTextEx(_font, drawText, pos, scaledFontSize, 2, txtColor);
             }
-            
-            if (state.DebugMode && sp.IsButton)
+
+            // Zインデックスマネージャーからソート済みスプライトを取得
+            var sortedSprites = _spriteManager.GetSortedSprites(includeInvisible: false);
+
+            foreach (var sp in sortedSprites)
             {
-                int bx = (int)(sp.X + qx + sp.ClickAreaX);
-                int by = (int)(sp.Y + qy + sp.ClickAreaY);
-                int bw = sp.ClickAreaW > 0 ? sp.ClickAreaW : sp.Width;
-                int bh = sp.ClickAreaH > 0 ? sp.ClickAreaH : sp.Height;
-                Raylib.DrawRectangleLines(bx, by, (int)(bw * sp.ScaleX), (int)(bh * sp.ScaleY), Color.Red);
+                byte alpha = (byte)(sp.Opacity * 255);
+                Color baseColor = ParseColor(sp.Color, alpha);
+
+                if (sp.Type == SpriteType.Image && !string.IsNullOrEmpty(sp.ImagePath))
+                {
+                    DrawImageSprite(sp, baseColor, qx, qy);
+                }
+                else if (sp.Type == SpriteType.Rect)
+                {
+                    DrawRectSprite(sp, baseColor, qx, qy);
+                }
+                else if (sp.Type == SpriteType.Text)
+                {
+                    DrawTextSprite(sp, baseColor, qx, qy);
+                }
             }
-        }
-        
-        transition.Draw(state);
-        
-        if (state.DebugMode)
-        {
-            Raylib.DrawFPS(10, 10);
-            Raylib.DrawText($"PC: {state.ProgramCounter}", 10, 30, 20, Color.Green);
-            Raylib.DrawText($"Sprites: {state.Sprites.Count}", 10, 50, 20, Color.Green);
+
+            transition.Draw(state);
+
+            if (state.DebugMode)
+            {
+                DrawDebugInfo(state);
+            }
         }
     }
 
-    private string WrapText(Font font, string text, float maxWidth, float fontSize)
+    private void DrawImageSprite(Sprite sp, Color baseColor, int qx, int qy)
     {
-        if (string.IsNullOrEmpty(text)) return "";
-        string result = "";
-        string currentLine = "";
-        float spacing = 2;
+        Texture2D tex;
 
-        for (int i = 0; i < text.Length; i++)
+        if (_textureCache.TryGetValue(sp.ImagePath, out tex))
         {
-            char c = text[i];
-            if (c == '\n')
+            // キャッシュヒット
+        }
+        else
+        {
+            tex = Raylib.LoadTexture(sp.ImagePath);
+            if (tex.Id != 0)
             {
-                result += currentLine + "\n";
-                currentLine = "";
-                continue;
+                _textureCache.AddOrUpdate(sp.ImagePath, tex, tex.Width * tex.Height * 4);
+                TotalTextureLoads++;
             }
+        }
 
-            string testLine = currentLine + c;
-            var size = Raylib.MeasureTextEx(font, testLine, fontSize, spacing);
-            if (size.X > maxWidth && currentLine.Length > 0)
+        if (tex.Id == 0) return;
+
+        TotalDrawCalls++;
+
+        Rectangle src = new Rectangle(0, 0, tex.Width, tex.Height);
+        float dw = sp.Width > 0 ? (sp.Width * sp.ScaleX) : (tex.Width * sp.ScaleX);
+        float dh = sp.Height > 0 ? (sp.Height * sp.ScaleY) : (tex.Height * sp.ScaleY);
+
+        float hs = sp.IsHovered && sp.IsButton ? sp.HoverScale : 1.0f;
+        float rWidth = dw * hs;
+        float rHeight = dh * hs;
+
+        Rectangle dst = new Rectangle(sp.X + qx + rWidth / 2f, sp.Y + qy + rHeight / 2f, rWidth, rHeight);
+
+        if (sp.Width <= 0 || sp.Height <= 0)
+        {
+            sp.Width = tex.Width;
+            sp.Height = tex.Height;
+        }
+
+        Raylib.DrawTexturePro(tex, src, dst, new Vector2(rWidth / 2f, rHeight / 2f), sp.Rotation, baseColor);
+    }
+
+    private void DrawRectSprite(Sprite sp, Color baseColor, int qx, int qy)
+    {
+        TotalDrawCalls++;
+
+        byte fillAlpha = (byte)(sp.FillAlpha * sp.Opacity);
+        Color fillColor = ParseColor(sp.FillColor, fillAlpha);
+
+        float hs = sp.IsHovered && sp.IsButton ? sp.HoverScale : 1.0f;
+        int rWidth = (int)(sp.Width * sp.ScaleX * hs);
+        int rHeight = (int)(sp.Height * sp.ScaleY * hs);
+        float rx = sp.X + qx - (rWidth - sp.Width * sp.ScaleX) / 2f;
+        float ry = sp.Y + qy - (rHeight - sp.Height * sp.ScaleY) / 2f;
+
+        Rectangle rect = new Rectangle(rx, ry, rWidth, rHeight);
+
+        // 影
+        if (sp.ShadowOffsetX != 0 || sp.ShadowOffsetY != 0)
+        {
+            byte shadowAlpha = (byte)(sp.ShadowAlpha * sp.Opacity);
+            Color shadowColor = ParseColor(sp.ShadowColor, shadowAlpha);
+            Rectangle shadowRect = new Rectangle(rx + sp.ShadowOffsetX, ry + sp.ShadowOffsetY, rWidth, rHeight);
+            if (sp.CornerRadius > 0)
+                Raylib.DrawRectangleRounded(shadowRect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), 16, shadowColor);
+            else
+                Raylib.DrawRectangleRec(shadowRect, shadowColor);
+        }
+
+        // 塗りつぶし
+        if (sp.CornerRadius > 0)
+            Raylib.DrawRectangleRounded(rect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), 16, fillColor);
+        else
+            Raylib.DrawRectangleRec(rect, fillColor);
+
+        // 枠線
+        if (sp.BorderWidth > 0)
+        {
+            byte borderAlpha = (byte)(sp.BorderOpacity * sp.Opacity);
+            Color borderColor = ParseColor(sp.BorderColor, borderAlpha);
+            if (sp.CornerRadius > 0)
             {
-                result += currentLine + "\n";
-                currentLine = c.ToString();
+                // 圆角边框需要手动绘制或使用简化版本
+                Rectangle borderRect = new Rectangle(rect.X + sp.BorderWidth / 2f, rect.Y + sp.BorderWidth / 2f,
+                    rect.Width - sp.BorderWidth, rect.Height - sp.BorderWidth);
+                Raylib.DrawRectangleLinesEx(borderRect, sp.BorderWidth, borderColor);
             }
             else
             {
-                currentLine = testLine;
+                // DrawRectangleLinesExを使用
+                Rectangle borderRect = new Rectangle(rect.X, rect.Y, rect.Width, rect.Height);
+                Raylib.DrawRectangleLinesEx(borderRect, sp.BorderWidth, borderColor);
             }
         }
-        result += currentLine;
-        return result;
     }
 
-    private Color GetColorFromHex(string hex, int alpha)
+    private void DrawTextSprite(Sprite sp, Color baseColor, int qx, int qy)
     {
-        hex = hex.Replace("#", "");
-        if (hex.Length == 6)
+        if (string.IsNullOrEmpty(sp.Text) || !_fontLoaded) return;
+
+        TotalDrawCalls++;
+
+        float scaledFontSize = sp.FontSize > 0 ? sp.FontSize * sp.ScaleX : 24 * sp.ScaleX;
+        float spacing = scaledFontSize / 10f;
+
+        var drawText = WrapText(_font, sp.Text, sp.Width > 0 ? sp.Width : 1280, scaledFontSize, spacing);
+        var textSize = Raylib.MeasureTextEx(_font, drawText, scaledFontSize, spacing);
+
+        int rWidth = sp.Width > 0 ? sp.Width : (int)textSize.X;
+        int rHeight = sp.Height > 0 ? sp.Height : (int)textSize.Y;
+
+        float rx = sp.X + qx - (rWidth - sp.Width) / 2f;
+        float ry = sp.Y + qy - (rHeight - sp.Height) / 2f;
+
+        Vector2 pos = new Vector2(rx, ry);
+
+        // テキストアウトライン
+        if (sp.TextOutlineSize > 0 && !string.IsNullOrEmpty(sp.TextOutlineColor))
         {
-            byte r = byte.Parse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber);
-            byte g = byte.Parse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber);
-            byte b = byte.Parse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber);
-            return new Color(r, g, b, alpha);
+            Color outColor = ParseColor(sp.TextOutlineColor, 255);
+            int t = sp.TextOutlineSize;
+            Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X - t, pos.Y - t), scaledFontSize, spacing, outColor);
+            Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + t, pos.Y - t), scaledFontSize, spacing, outColor);
+            Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X - t, pos.Y + t), scaledFontSize, spacing, outColor);
+            Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + t, pos.Y + t), scaledFontSize, spacing, outColor);
         }
-        return Color.White;
+
+        // テキスト描画
+        Raylib.DrawTextEx(_font, drawText, pos, scaledFontSize, spacing, baseColor);
+    }
+
+    private string WrapText(Font font, string text, float maxWidth, float fontSize, float spacing)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+
+        // StringBuilderプールを使用して効率的にラップ
+        var builder = StringHelper.RentStringBuilder();
+
+        try
+        {
+            string currentLine = "";
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+
+                if (c == '\n')
+                {
+                    builder.Append(currentLine).Append("\n");
+                    currentLine = "";
+                    continue;
+                }
+
+                string testLine = currentLine + c;
+                var size = Raylib.MeasureTextEx(font, testLine, fontSize, spacing);
+
+                if (size.X > maxWidth && currentLine.Length > 0)
+                {
+                    builder.Append(currentLine).Append("\n");
+                    currentLine = c.ToString();
+                }
+                else
+                {
+                    currentLine = testLine;
+                }
+            }
+
+            builder.Append(currentLine);
+            return builder.ToString();
+        }
+        finally
+        {
+            // StringBuilderプールに返却
+            StringHelper.ReturnStringBuilder(builder);
+        }
+    }
+
+    private Color ParseColor(string hex, int alpha)
+    {
+        // 色キャッシュから取得
+        return _colorCache.GetColor(hex, alpha);
+    }
+
+    private void DrawDebugInfo(GameState state)
+    {
+        Raylib.DrawFPS(10, 10);
+
+        // パフォーマンス統計
+        Raylib.DrawText($"PC: {state.ProgramCounter}", 10, 30, 20, Color.Green);
+        Raylib.DrawText($"Sprites: {state.Sprites.Count}", 10, 50, 20, Color.Green);
+        Raylib.DrawText($"Draw Calls: {TotalDrawCalls}", 10, 70, 20, Color.Yellow);
+        Raylib.DrawText($"Tex Loads: {TotalTextureLoads}", 10, 90, 20, Color.Yellow);
+
+        // キャッシュ統計
+        var cyanColor = new Color(0, 255, 255, 255);
+        Raylib.DrawText($"Color Cache: {_colorCache.Count}", 10, 110, 20, cyanColor);
+        Raylib.DrawText($"Tex Cache: {_textureCache.Count}", 10, 130, 20, cyanColor);
+
+        var texStats = _textureCache.GetStats();
+        Raylib.DrawText($"Tex Stats: {texStats.UtilizationPercent:F1}%", 10, 150, 16, cyanColor);
+
+        // スプライトマネージャー統計
+        var spriteStats = _spriteManager.Stats;
+        Raylib.DrawText($"Sorts: {spriteStats.SortCount}", 10, 170, 16, Color.Magenta);
+        Raylib.DrawText($"Cache Hit: {spriteStats.CacheHitRate:F1}%", 10, 190, 16, Color.Magenta);
     }
 
     public void Unload()
     {
-        foreach (var tex in _textureCache.Values) Raylib.UnloadTexture(tex);
-        _textureCache.Clear();
-        if (_fontLoaded) Raylib.UnloadFont(_font);
+        lock (_renderLock)
+        {
+            // キャッシュをクリア
+            _textureCache.Clear();
+            _colorCache.Clear();
+
+            if (_fontLoaded) Raylib.UnloadFont(_font);
+            _fontLoaded = false;
+
+            // 統計をリセット
+            TotalDrawCalls = 0;
+            TotalTextureLoads = 0;
+            TotalColorParses = 0;
+
+            _currentState = null;
+        }
     }
 }
