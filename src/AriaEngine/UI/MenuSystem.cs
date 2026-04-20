@@ -106,24 +106,43 @@ public class MenuSystem
 
     private void UpdateMainMenu()
     {
-        if (Raylib.IsKeyPressed(KeyboardKey.Up))
-        {
-            // 上キーで選択を移動
-        }
-        if (Raylib.IsKeyPressed(KeyboardKey.Down))
-        {
-            // 下キーで選択を移動
-        }
-        if (Raylib.IsKeyPressed(KeyboardKey.Enter))
-        {
-            // 選択項目を実行
-        }
-
-        // マウス操作
+        // キーボード操作は一旦省略（基本マウス操作とする）
         if (Raylib.IsMouseButtonPressed(MouseButton.Left))
         {
             var mousePos = Raylib.GetMousePosition();
-            // メニュー項目のヒットテスト
+            for (int i = 0; i < 5; i++)
+            {
+                int btnId = 10001 + i * 2;
+                if (_vm.State.Sprites.TryGetValue(btnId, out var btn) && btn.IsHovered)
+                {
+                    ExecuteMenuAction(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    private void ExecuteMenuAction(int index)
+    {
+        switch (index)
+        {
+            case 0: // Save
+                _vm.SaveGame(0);
+                CloseMenu();
+                break;
+            case 1: // Load
+                _vm.LoadGame(0);
+                CloseMenu();
+                break;
+            case 2: // Settings
+                break;
+            case 3: // Title
+                CloseMenu();
+                _vm.JumpTo("*title_start");
+                break;
+            case 4: // Close
+                CloseMenu();
+                break;
         }
     }
 

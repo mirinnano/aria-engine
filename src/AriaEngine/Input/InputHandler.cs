@@ -77,20 +77,5 @@ public class InputHandler
                 }
             }
         }
-        
-        // Right click menu globally
-        if (Raylib.IsMouseButtonPressed(MouseButton.Right))
-        {
-            if (vm.State.State == VmState.Running || vm.State.State == VmState.WaitingForClick || vm.State.State == VmState.WaitingForButton || vm.State.State == VmState.WaitingForAnimation)
-            {
-                // Go to right menu label
-                if (!string.IsNullOrEmpty(vm.State.RightMenuLabel))
-                {
-                    // Basically a soft gosub/jump
-                    vm.JumpTo(vm.State.RightMenuLabel);
-                    vm.State.State = VmState.Running;
-                }
-            }
-        }
     }
 }

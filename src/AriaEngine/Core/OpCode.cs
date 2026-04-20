@@ -3,7 +3,7 @@ namespace AriaEngine.Core;
 public enum OpCode
 {
     // 基本
-    Text, Wait, Add, Sub, Cmp, Beq, Bne, Bgt, Blt, Jmp, Choice, End,
+    Text, Wait, Add, Sub, Cmp, Beq, Bne, Bgt, Blt, Jmp, Choice, End, JumpIfFalse,
 
     // スクリプト制御・算術
     Let, Mov, Mul, Div, Mod, Gosub, Return, Defsub, Getparam, Alias, SystemCall,
