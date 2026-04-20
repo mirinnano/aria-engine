@@ -79,6 +79,7 @@ class Program
 
             vm.Update(dtMs);
             input.Update(vm);
+            vm.Menu.Update();  // メニューシステム更新
             audio.Update(vm.State);
             transition.Update(vm, dt);
             tweens.Update(vm.State, dtMs);
@@ -90,9 +91,10 @@ class Program
 
             Raylib.BeginDrawing();
             Raylib.ClearBackground(Color.Black);
-            
+
             renderer.Draw(vm.State, transition);
-            
+            vm.Menu.Draw();  // メニューシステム描画
+
             Raylib.EndDrawing();
         }
 

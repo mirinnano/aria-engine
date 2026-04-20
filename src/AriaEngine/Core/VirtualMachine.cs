@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using AriaEngine.Rendering;
+using AriaEngine.UI;
 using Raylib_cs;
 
 namespace AriaEngine.Core;
@@ -10,7 +11,7 @@ public class VirtualMachine
 {
     private List<Instruction> _instructions = new();
     private Dictionary<string, int> _labels = new();
-    public GameState State { get; private set; }
+    public GameState State { get; set; }
     private readonly ErrorReporter _reporter;
     private string _currentScriptFile = "";
     public string CurrentScriptFile => _currentScriptFile;
@@ -18,6 +19,7 @@ public class VirtualMachine
     public TweenManager Tweens { get; private set; }
     public SaveManager Saves { get; private set; }
     public ConfigManager Config { get; private set; }
+    public MenuSystem Menu { get; private set; }
 
     private Dictionary<string, string> _characterPaths = new();
 
@@ -28,6 +30,7 @@ public class VirtualMachine
         Saves = saves;
         Config = config;
         State = new GameState();
+        Menu = new MenuSystem(this);
 
         // Load initial config into GameState
         State.TextSpeedMs = Config.Config.GlobalTextSpeedMs;
@@ -1409,11 +1412,63 @@ public class VirtualMachine
         }
         return valStr;
     }
-    
+
     public void JumpTo(string labelNameArg)
     {
         string label = labelNameArg.TrimStart('*');
         if (_labels.TryGetValue(label, out int pc)) State.ProgramCounter = pc;
         else throw new Exception($"未定義のラベル '*{label}' にジャンプしようとしました。");
+    }
+
+    /// <summary>
+    /// サブルーチンを呼び出します。
+    /// </summary>
+    public void CallSub(string labelName)
+    {
+        string label = labelName.TrimStart('*');
+        if (_labels.TryGetValue(label, out int pc))
+        {
+            State.CallStack.Push(State.ProgramCounter + 1);
+            State.ProgramCounter = pc;
+        }
+        else
+        {
+            throw new Exception($"未定義のサブルーチン '*{label}' を呼び出そうとしました。");
+        }
+    }
+
+    /// <summary>
+    /// ゲームを終了します。
+    /// </summary>
+    public void QuitGame()
+    {
+        State.State = VmState.Ended;
+    }
+
+    /// <summary>
+    /// ゲームをセーブします。
+    /// </summary>
+    public void SaveGame(int slot)
+    {
+        Saves.Save(slot, State, _currentScriptFile);
+        Console.WriteLine($"Game saved to slot {slot}");
+    }
+
+    /// <summary>
+    /// ゲームをロードします。
+    /// </summary>
+    public void LoadGame(int slot)
+    {
+        var (data, success) = Saves.Load(slot);
+        if (success && data != null)
+        {
+            State = data.State;
+            State.ProgramCounter = 0;
+            Console.WriteLine($"Game loaded from slot {slot}");
+        }
+        else
+        {
+            Console.WriteLine($"Failed to load game from slot {slot}");
+        }
     }
 }

@@ -42,6 +42,7 @@ public class Sprite
     public int CornerRadius { get; set; } = 0;
     public string BorderColor { get; set; } = "";
     public int BorderWidth { get; set; } = 0;
+    public int BorderOpacity { get; set; } = 255;
     public string GradientTo { get; set; } = "";
     public string GradientDirection { get; set; } = "vertical"; // "vertical", "horizontal"
     
