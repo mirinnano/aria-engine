@@ -801,11 +801,17 @@ public class VirtualMachine
                 break;
             case OpCode.Div:
                 ValidateArgs(inst, 2);
-                SetReg(inst.Arguments[0], GetReg(inst.Arguments[0]) / GetVal(inst.Arguments[1]));
+                {
+                    int div = GetVal(inst.Arguments[1]);
+                    SetReg(inst.Arguments[0], div != 0 ? GetReg(inst.Arguments[0]) / div : 0);
+                }
                 break;
             case OpCode.Mod:
                 ValidateArgs(inst, 2);
-                SetReg(inst.Arguments[0], GetReg(inst.Arguments[0]) % GetVal(inst.Arguments[1]));
+                {
+                    int mod = GetVal(inst.Arguments[1]);
+                    SetReg(inst.Arguments[0], mod != 0 ? GetReg(inst.Arguments[0]) % mod : 0);
+                }
                 break;
             case OpCode.Cmp:
                 ValidateArgs(inst, 2);
@@ -835,6 +841,10 @@ public class VirtualMachine
                 ValidateArgs(inst, 1);
                 JumpTo(inst.Arguments[0]);
                 break;
+            case OpCode.JumpIfFalse:
+                ValidateArgs(inst, 1);
+                if (!EvaluateCondition(inst.Condition)) JumpTo(inst.Arguments[0]);
+                break;
                 
             case OpCode.Delay:
                 ValidateArgs(inst, 1);
@@ -854,28 +864,27 @@ public class VirtualMachine
                 SetReg(inst.Arguments[0], GetReg(inst.Arguments[0]) - 1);
                 break;
             case OpCode.For:
-                // Emulate for loop 
                 ValidateArgs(inst, 3);
                 SetReg(inst.Arguments[0], GetVal(inst.Arguments[1]));
-                // Push return address for `next` (primitive)
-                State.CallStack.Push(State.ProgramCounter);
-                State.ParamStack.Push(inst.Arguments[0]); // store variable name
-                State.ParamStack.Push(inst.Arguments[2]); // store target value
+                State.LoopStack.Push(new LoopState { 
+                    PC = State.ProgramCounter, 
+                    VarName = inst.Arguments[0], 
+                    TargetValue = GetVal(inst.Arguments[2]) 
+                });
                 break;
             case OpCode.Next:
-                if (State.ParamStack.Count >= 2 && State.CallStack.Count > 0)
+                if (State.LoopStack.Count > 0)
                 {
-                    int endVal = GetVal(State.ParamStack.Pop());
-                    string varName = State.ParamStack.Pop();
-                    int pc = State.CallStack.Pop();
-                    int currVal = GetReg(varName) + 1;
-                    SetReg(varName, currVal);
-                    if (currVal <= endVal)
+                    var loop = State.LoopStack.Peek();
+                    int currVal = GetReg(loop.VarName) + 1;
+                    SetReg(loop.VarName, currVal);
+                    if (currVal <= loop.TargetValue)
                     {
-                        State.CallStack.Push(pc);
-                        State.ParamStack.Push(varName);
-                        State.ParamStack.Push(endVal.ToString());
-                        State.ProgramCounter = pc;
+                        State.ProgramCounter = loop.PC;
+                    }
+                    else
+                    {
+                        State.LoopStack.Pop();
                     }
                 }
                 break;
@@ -1364,7 +1373,6 @@ public class VirtualMachine
                 }
                 break;
 
-            // フォントフィルター設定
             case OpCode.FontFilter:
                 ValidateArgs(inst, 1);
                 string filterType = GetString(inst.Arguments[0]).ToLowerInvariant();
@@ -1374,6 +1382,8 @@ public class VirtualMachine
                     State.FontFilter = TextureFilter.Trilinear;
                 else if (filterType == "point")
                     State.FontFilter = TextureFilter.Point;
+                else if (filterType == "anisotropic")
+                    State.FontFilter = TextureFilter.Trilinear; // このバージョンではAnisotropic未定義のためフォールバック
                 else
                     State.FontFilter = TextureFilter.Bilinear;
                 break;
@@ -1462,9 +1472,38 @@ public class VirtualMachine
         var (data, success) = Saves.Load(slot);
         if (success && data != null)
         {
-            State = data.State;
-            State.ProgramCounter = 0;
+            State.ProgramCounter = data.State.ProgramCounter;
+            State.State = data.State.State;
+            State.CurrentScene = data.State.CurrentScene;
+            
+            State.Registers = new Dictionary<string, int>(data.State.Registers);
+            State.StringRegisters = new Dictionary<string, string>(data.State.StringRegisters);
+            State.Flags = new Dictionary<string, bool>(data.State.Flags);
+            State.Counters = new Dictionary<string, int>(data.State.Counters);
+            
+            State.Sprites = new Dictionary<int, Sprite>(data.State.Sprites);
+            State.CallStack = new Stack<int>(data.State.CallStack.Reverse());
+            State.ParamStack = new Stack<string>(data.State.ParamStack.Reverse());
+            if (data.State.LoopStack != null) State.LoopStack = new Stack<LoopState>(data.State.LoopStack.Reverse());
+            
+            State.CurrentBgm = data.State.CurrentBgm;
+            State.BgmVolume = data.State.BgmVolume;
+            State.SeVolume = data.State.SeVolume;
+            
+            State.TextboxVisible = data.State.TextboxVisible;
+            State.CurrentTextBuffer = data.State.CurrentTextBuffer;
+            State.DisplayedTextLength = data.State.DisplayedTextLength;
+            
+            State.CurrentChapter = data.State.CurrentChapter;
+
             Console.WriteLine($"Game loaded from slot {slot}");
+            
+            // "load_restore"ラベルが存在すればそちらに飛ぶことで初期化をスクリプトから行う
+            if (_labels.ContainsKey("*load_restore")) JumpTo("*load_restore");
+            else
+            {
+                // Fallback: If no custom setup is provided, attempt to update the renderer if needed
+            }
         }
         else
         {

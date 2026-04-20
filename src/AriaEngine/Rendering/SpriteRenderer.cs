@@ -172,7 +172,8 @@ public class SpriteRenderer
         TotalDrawCalls++;
 
         byte fillAlpha = (byte)(sp.FillAlpha * sp.Opacity);
-        Color fillColor = ParseColor(sp.FillColor, fillAlpha);
+        string currentFillColorHex = sp.IsHovered && sp.IsButton && !string.IsNullOrEmpty(sp.HoverFillColor) ? sp.HoverFillColor : sp.FillColor;
+        Color fillColor = ParseColor(currentFillColorHex, fillAlpha);
 
         float hs = sp.IsHovered && sp.IsButton ? sp.HoverScale : 1.0f;
         int rWidth = (int)(sp.Width * sp.ScaleX * hs);
@@ -189,16 +190,28 @@ public class SpriteRenderer
             Color shadowColor = ParseColor(sp.ShadowColor, shadowAlpha);
             Rectangle shadowRect = new Rectangle(rx + sp.ShadowOffsetX, ry + sp.ShadowOffsetY, rWidth, rHeight);
             if (sp.CornerRadius > 0)
-                Raylib.DrawRectangleRounded(shadowRect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), 16, shadowColor);
+                Raylib.DrawRectangleRounded(shadowRect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), 48, shadowColor);
             else
                 Raylib.DrawRectangleRec(shadowRect, shadowColor);
         }
 
         // 塗りつぶし
         if (sp.CornerRadius > 0)
-            Raylib.DrawRectangleRounded(rect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), 16, fillColor);
+        {
+            Raylib.DrawRectangleRounded(rect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), 48, fillColor);
+        }
+        else if (!string.IsNullOrEmpty(sp.GradientTo))
+        {
+            Color gradColor = ParseColor(sp.GradientTo, fillAlpha);
+            if (sp.GradientDirection == "horizontal")
+                Raylib.DrawRectangleGradientH((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height, fillColor, gradColor);
+            else
+                Raylib.DrawRectangleGradientV((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height, fillColor, gradColor);
+        }
         else
+        {
             Raylib.DrawRectangleRec(rect, fillColor);
+        }
 
         // 枠線
         if (sp.BorderWidth > 0)
@@ -207,14 +220,12 @@ public class SpriteRenderer
             Color borderColor = ParseColor(sp.BorderColor, borderAlpha);
             if (sp.CornerRadius > 0)
             {
-                // 圆角边框需要手动绘制或使用简化版本
-                Rectangle borderRect = new Rectangle(rect.X + sp.BorderWidth / 2f, rect.Y + sp.BorderWidth / 2f,
-                    rect.Width - sp.BorderWidth, rect.Height - sp.BorderWidth);
-                Raylib.DrawRectangleLinesEx(borderRect, sp.BorderWidth, borderColor);
+                Rectangle borderRect = new Rectangle(rect.X, rect.Y, rect.Width, rect.Height);
+                float roundness = Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f);
+                Raylib.DrawRectangleRoundedLinesEx(borderRect, roundness, 48, sp.BorderWidth, borderColor);
             }
             else
             {
-                // DrawRectangleLinesExを使用
                 Rectangle borderRect = new Rectangle(rect.X, rect.Y, rect.Width, rect.Height);
                 Raylib.DrawRectangleLinesEx(borderRect, sp.BorderWidth, borderColor);
             }
@@ -236,10 +247,29 @@ public class SpriteRenderer
         int rWidth = sp.Width > 0 ? sp.Width : (int)textSize.X;
         int rHeight = sp.Height > 0 ? sp.Height : (int)textSize.Y;
 
-        float rx = sp.X + qx - (rWidth - sp.Width) / 2f;
-        float ry = sp.Y + qy - (rHeight - sp.Height) / 2f;
+        float rx = sp.X + qx;
+        float ry = sp.Y + qy;
+
+        // TextAlign implementation
+        if (sp.Width > 0)
+        {
+            if (sp.TextAlign == "center") rx += (sp.Width - textSize.X) / 2f;
+            else if (sp.TextAlign == "right") rx += (sp.Width - textSize.X);
+        }
+        else
+        {
+            if (sp.TextAlign == "center") rx -= textSize.X / 2f;
+            else if (sp.TextAlign == "right") rx -= textSize.X;
+        }
 
         Vector2 pos = new Vector2(rx, ry);
+
+        // テキストシャドウ
+        if (!string.IsNullOrEmpty(sp.TextShadowColor) && (sp.TextShadowX != 0 || sp.TextShadowY != 0))
+        {
+            Color tShadowColor = ParseColor(sp.TextShadowColor, baseColor.A);
+            Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + sp.TextShadowX, pos.Y + sp.TextShadowY), scaledFontSize, spacing, tShadowColor);
+        }
 
         // テキストアウトライン
         if (sp.TextOutlineSize > 0 && !string.IsNullOrEmpty(sp.TextOutlineColor))
@@ -340,8 +370,10 @@ public class SpriteRenderer
             _textureCache.Clear();
             _colorCache.Clear();
 
-            if (_fontLoaded) Raylib.UnloadFont(_font);
-            _fontLoaded = false;
+            if (_fontLoaded) {
+                Raylib.UnloadFont(_font);
+                _fontLoaded = false;
+            }
 
             // 統計をリセット
             TotalDrawCalls = 0;

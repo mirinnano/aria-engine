@@ -29,6 +29,13 @@ public enum VmState
     Ended
 }
 
+public struct LoopState
+{
+    public int PC;
+    public string VarName;
+    public int TargetValue;
+}
+
 public class GameState
 {
     public int ProgramCounter { get; set; } = 0;
@@ -39,6 +46,9 @@ public class GameState
     // コールスタック (gosub / return 用)
     public Stack<int> CallStack { get; set; } = new();
     public Stack<string> ParamStack { get; set; } = new();
+
+    // for/next 用ループスタック
+    public Stack<LoopState> LoopStack { get; set; } = new();
 
     // ボタンのタイムアウト関連
     public int ButtonTimeoutMs { get; set; } = 0;

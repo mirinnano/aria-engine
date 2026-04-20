@@ -7,6 +7,7 @@ namespace AriaEngine.Core;
 public class Parser
 {
     private readonly ErrorReporter _reporter;
+    private static readonly System.Text.RegularExpressions.Regex DialogRegex = new System.Text.RegularExpressions.Regex(@"^([^「]+?)「(.*?)」(\\?|@?)$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     public Parser(ErrorReporter reporter)
     {
@@ -167,6 +168,9 @@ public class Parser
         var instructions = new List<Instruction>();
         var labels = new Dictionary<string, int>();
         var defsubs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        
+        int ifCounter = 0;
+        var ifStack = new Stack<(string elseLabel, string endLabel, IReadOnlyList<string> cond)>();
 
         // Pre-pass for Defsubs and Labels
         for (int i = 0; i < lines.Length; i++)
@@ -235,6 +239,38 @@ public class Parser
                         else if (defsubs.Contains(cmdToken))
                             instructions.Add(new Instruction(OpCode.Gosub, new List<string> { cmdToken }.Concat(opArgs).ToList(), i + 1, condTokens));
                     }
+                    else
+                    {
+                        // ブロックif文
+                        var condTokens = parts.Skip(1).ToList();
+                        string elseLbl = $"__if_else_{ifCounter}";
+                        string endLbl = $"__if_end_{ifCounter}";
+                        ifCounter++;
+                        
+                        instructions.Add(new Instruction(OpCode.JumpIfFalse, new List<string> { elseLbl }, i + 1, condTokens));
+                        ifStack.Push((elseLbl, endLbl, condTokens));
+                    }
+                    continue;
+                }
+                else if (firstToken.Equals("else", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (ifStack.Count > 0)
+                    {
+                        var popped = ifStack.Pop();
+                        instructions.Add(new Instruction(OpCode.Jmp, new List<string> { popped.endLabel }, i + 1));
+                        labels[popped.elseLabel] = instructions.Count;
+                        ifStack.Push(("", popped.endLabel, null!));
+                    }
+                    continue;
+                }
+                else if (firstToken.Equals("endif", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (ifStack.Count > 0)
+                    {
+                        var popped = ifStack.Pop();
+                        if (!string.IsNullOrEmpty(popped.elseLabel)) labels[popped.elseLabel] = instructions.Count;
+                        labels[popped.endLabel] = instructions.Count;
+                    }
                     continue;
                 }
 
@@ -250,7 +286,7 @@ public class Parser
                 else
                 {
                     string textData = stmt.TrimEnd().Replace("\\n", "\n");
-                    var match = System.Text.RegularExpressions.Regex.Match(textData, @"^([^「]+?)「(.*?)」(\\?|@?)$");
+                    var match = DialogRegex.Match(textData);
                     
                     if (match.Success)
                     {
