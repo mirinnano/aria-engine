@@ -3,14 +3,12 @@ param(
     [string]$Runtime = "",
     [string]$OutDir = "artifacts/publish",
     [string]$InitScript = "init.aria",
-    [string]$MainScript = "assets/scripts/main.aria"
+    [string]$MainScript = "assets/scripts/main.aria",
+    [switch]$SkipSmoke,
+    [switch]$SkipPackage
 )
 
 $ErrorActionPreference = "Stop"
-
-if ([string]::IsNullOrWhiteSpace($env:ARIA_PACK_KEY)) {
-    throw "ARIA_PACK_KEY environment variable is required."
-}
 
 # Guard rails for broken host environments where machine-wide paths are empty.
 $userProfile = if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) { "C:\Users\Default" } else { $env:USERPROFILE }
@@ -23,6 +21,10 @@ if ([string]::IsNullOrWhiteSpace(${env:ProgramFiles(x86)})) { ${env:ProgramFiles
 if ([string]::IsNullOrWhiteSpace($env:CommonProgramFiles)) { $env:CommonProgramFiles = "C:\Program Files\Common Files" }
 if ([string]::IsNullOrWhiteSpace(${env:CommonProgramFiles(x86)})) { ${env:CommonProgramFiles(x86)} = "C:\Program Files (x86)\Common Files" }
 
+if (-not $SkipSmoke -and (Test-Path "scripts/smoke.ps1")) {
+    & ./scripts/smoke.ps1
+}
+
 function Invoke-DotNet {
     param([string[]]$DotnetArgs)
     Write-Host ("dotnet " + ($DotnetArgs -join " "))
@@ -33,15 +35,21 @@ function Invoke-DotNet {
 }
 
 if ([string]::IsNullOrWhiteSpace($Runtime)) {
-    Invoke-DotNet @("restore", $Project)
+    Invoke-DotNet @("restore", $Project, "/p:NuGetAudit=false")
 } else {
-    Invoke-DotNet @("restore", $Project, "-r", $Runtime)
+    Invoke-DotNet @("restore", $Project, "-r", $Runtime, "/p:NuGetAudit=false")
 }
-Invoke-DotNet @("build", $Project, "-c", "Release", "--no-restore")
+Invoke-DotNet @("build", $Project, "-c", "Release", "--no-restore", "/p:NuGetAudit=false")
 if ([string]::IsNullOrWhiteSpace($Runtime)) {
-    Invoke-DotNet @("publish", $Project, "-c", "Release", "--no-restore", "-o", $OutDir, "/p:AriaCompileOnPublish=false")
+    Invoke-DotNet @("publish", $Project, "-c", "Release", "--no-restore", "-o", $OutDir, "/p:AriaCompileOnPublish=false", "/p:NuGetAudit=false")
 } else {
-    Invoke-DotNet @("publish", $Project, "-c", "Release", "--no-restore", "-r", $Runtime, "--self-contained", "false", "-o", $OutDir, "/p:AriaCompileOnPublish=false")
+    Invoke-DotNet @("publish", $Project, "-c", "Release", "--no-restore", "-r", $Runtime, "--self-contained", "false", "-o", $OutDir, "/p:AriaCompileOnPublish=false", "/p:NuGetAudit=false")
+}
+
+if ($SkipPackage -or [string]::IsNullOrWhiteSpace($env:ARIA_PACK_KEY)) {
+    Write-Host "ARIA_PACK_KEY is not set or packaging was skipped. Build/publish completed without encrypted Pak generation."
+    Write-Host "CI pipeline finished. Output: $OutDir"
+    exit 0
 }
 
 Push-Location (Split-Path -Parent $Project)

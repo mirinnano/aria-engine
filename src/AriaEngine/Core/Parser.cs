@@ -50,6 +50,12 @@ public class Parser
 
             if (string.IsNullOrEmpty(line)) continue;
 
+            if (ShouldTreatAsPlainText(line, defsubs))
+            {
+                AddTextInstructions(instructions, line, i + 1);
+                continue;
+            }
+
             // Handle labels (multi-commands on same line via ":" is supported by NScripter, but we parse strictly. For ARIA we split by ":" if not in quotes)
             var statements = SplitStatements(line);
             foreach (var stmt in statements)
@@ -137,40 +143,7 @@ public class Parser
                 }
                 else
                 {
-                    string textData = stmt.TrimEnd().Replace("\\n", "\n");
-                    var match = DialogRegex.Match(textData);
-                    
-                    if (match.Success)
-                    {
-                        // 構文シュガー: Name「Text」 の場合、自動で textclear を挿入
-                        instructions.Add(new Instruction(OpCode.TextClear, new List<string>(), i + 1));
-                        
-                        // 末尾に \ や @ がなければ自動で \（クリック待ち＆改ページ）を付与
-                        if (match.Groups[3].Value == "") textData += "\\";
-                    }
-
-                    string buf = "";
-                    for (int c = 0; c < textData.Length; c++)
-                    {
-                        if (textData[c] == '\\') 
-                        {
-                            if (buf.Length > 0) { instructions.Add(new Instruction(OpCode.Text, new List<string> { buf }, i + 1)); buf = ""; }
-                            instructions.Add(new Instruction(OpCode.WaitClickClear, new List<string>(), i + 1));
-                        }
-                        else if (textData[c] == '@')
-                        {
-                            if (buf.Length > 0) { instructions.Add(new Instruction(OpCode.Text, new List<string> { buf }, i + 1)); buf = ""; }
-                            instructions.Add(new Instruction(OpCode.WaitClick, new List<string>(), i + 1));
-                        }
-                        else
-                        {
-                            buf += textData[c];
-                        }
-                    }
-                    if (buf.Length > 0)
-                    {
-                        instructions.Add(new Instruction(OpCode.Text, new List<string> { buf }, i + 1));
-                    }
+                    AddTextInstructions(instructions, stmt, i + 1);
                 }
             }
         }
@@ -196,6 +169,59 @@ public class Parser
         }
 
         return (instructions, labels);
+    }
+
+    private bool ShouldTreatAsPlainText(string line, HashSet<string> defsubs)
+    {
+        var firstStatement = SplitStatements(line).FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(firstStatement)) return false;
+
+        var parts = Tokenize(firstStatement);
+        if (parts.Count == 0) return false;
+
+        string firstToken = parts[0];
+        return !firstToken.StartsWith("*")
+            && !firstToken.Equals("if", StringComparison.OrdinalIgnoreCase)
+            && !firstToken.Equals("else", StringComparison.OrdinalIgnoreCase)
+            && !firstToken.Equals("endif", StringComparison.OrdinalIgnoreCase)
+            && !CommandRegistry.Contains(firstToken)
+            && !defsubs.Contains(firstToken);
+    }
+
+    private void AddTextInstructions(List<Instruction> instructions, string sourceText, int sourceLine)
+    {
+        string textData = sourceText.TrimEnd().Replace("\\n", "\n");
+        var match = DialogRegex.Match(textData);
+
+        if (match.Success)
+        {
+            instructions.Add(new Instruction(OpCode.TextClear, new List<string>(), sourceLine));
+            if (match.Groups[3].Value == "") textData += "\\";
+        }
+
+        string buf = "";
+        for (int c = 0; c < textData.Length; c++)
+        {
+            if (textData[c] == '\\')
+            {
+                if (buf.Length > 0) { instructions.Add(new Instruction(OpCode.Text, new List<string> { buf }, sourceLine)); buf = ""; }
+                instructions.Add(new Instruction(OpCode.WaitClickClear, new List<string>(), sourceLine));
+            }
+            else if (textData[c] == '@')
+            {
+                if (buf.Length > 0) { instructions.Add(new Instruction(OpCode.Text, new List<string> { buf }, sourceLine)); buf = ""; }
+                instructions.Add(new Instruction(OpCode.WaitClick, new List<string>(), sourceLine));
+            }
+            else
+            {
+                buf += textData[c];
+            }
+        }
+
+        if (buf.Length > 0)
+        {
+            instructions.Add(new Instruction(OpCode.Text, new List<string> { buf }, sourceLine));
+        }
     }
 
     private string StripComments(string line)

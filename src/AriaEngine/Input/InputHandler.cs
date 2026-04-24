@@ -1,6 +1,5 @@
 using Raylib_cs;
 using AriaEngine.Core;
-using System.Linq;
 
 namespace AriaEngine.Input;
 
@@ -61,14 +60,18 @@ public class InputHandler
             }
 
             var mousePoint = Raylib.GetMousePosition();
-            var buttons = vm.State.Sprites.Values
-                .Where(s => s.Visible && s.IsButton)
-                .OrderByDescending(s => s.Z);
-
             bool clicked = Raylib.IsMouseButtonPressed(MouseButton.Left);
+            Sprite? clickedButton = null;
+            int clickedZ = int.MinValue;
 
-            foreach (var btn in buttons)
+            foreach (var btn in vm.State.Sprites.Values)
             {
+                if (!btn.Visible || !btn.IsButton)
+                {
+                    btn.IsHovered = false;
+                    continue;
+                }
+
                 float scaleX = btn.ScaleX;
                 float scaleY = btn.ScaleY;
                 float bx = btn.X + btn.ClickAreaX;
@@ -84,9 +87,18 @@ public class InputHandler
 
                 if (clicked && btn.IsHovered)
                 {
-                    vm.ResumeFromButton(btn.Id);
-                    return; // Return immediately after handling the click
+                    if (btn.Z >= clickedZ)
+                    {
+                        clickedButton = btn;
+                        clickedZ = btn.Z;
+                    }
                 }
+            }
+
+            if (clickedButton != null)
+            {
+                vm.ResumeFromButton(clickedButton.Id);
+                return;
             }
         }
     }

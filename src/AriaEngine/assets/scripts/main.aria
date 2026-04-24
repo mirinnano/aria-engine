@@ -46,7 +46,7 @@ textbox_style 0, 1, "#ffffff", 90, 34, 30, 0, 0, "#000000", 0
 return
 
 *start
-cls
+gosub *cls
 erasetextwindow 0
 bg "#000000", 1
 get_pflag chapter_prologue %10
@@ -63,31 +63,55 @@ sp_fontsize 2, 18
 sp_text_align 2, "center"
 sp_color 2, "#bfbfbf"
 
-lsp_text 10, "START", 640, 342
+lsp_rect 30, 520, 324, 240, 42
+sp_fill 30, "#000000", 0
+sp_border 30, "#ffffff", 1
+sp_hover_color 30, "#151515"
+sp_z 30, 10
+lsp_text 10, "START", 640, 336
 sp_fontsize 10, 26
 sp_text_align 10, "center"
 sp_color 10, "#ffffff"
+sp_z 10, 20
 
-lsp_text 11, "LOAD", 640, 392
+lsp_rect 31, 520, 376, 240, 38
+sp_fill 31, "#000000", 0
+sp_border 31, "#ffffff", 1
+sp_hover_color 31, "#151515"
+sp_z 31, 10
+lsp_text 11, "LOAD", 640, 386
 sp_fontsize 11, 22
 sp_text_align 11, "center"
 sp_color 11, "#ffffff"
+sp_z 11, 20
 
-lsp_text 12, "CHAPTER", 640, 442
+lsp_rect 32, 520, 426, 240, 38
+sp_fill 32, "#000000", 0
+sp_border 32, "#ffffff", 1
+sp_hover_color 32, "#151515"
+sp_z 32, 10
+lsp_text 12, "CHAPTER", 640, 436
 sp_fontsize 12, 22
 sp_text_align 12, "center"
 sp_color 12, "#ffffff"
+sp_z 12, 20
 
-lsp_text 13, "EXIT", 640, 492
+lsp_rect 33, 520, 476, 240, 38
+sp_fill 33, "#000000", 0
+sp_border 33, "#ffffff", 1
+sp_hover_color 33, "#151515"
+sp_z 33, 10
+lsp_text 13, "EXIT", 640, 486
 sp_fontsize 13, 22
 sp_text_align 13, "center"
 sp_color 13, "#ffffff"
+sp_z 13, 20
 
 btndef clear
-spbtn 10, 1
-spbtn 11, 2
-spbtn 12, 3
-spbtn 13, 4
+spbtn 30, 1
+spbtn 31, 2
+spbtn 32, 3
+spbtn 33, 4
 print 1
 
 *title_loop
@@ -99,7 +123,7 @@ if %0 == 4 end
 goto *title_loop
 
 *chapter_select
-cls
+gosub *cls
 erasetextwindow 0
 bg "#000000", 1
 get_pflag chapter_prologue %10
@@ -111,35 +135,68 @@ sp_fontsize 20, 34
 sp_text_align 20, "center"
 sp_color 20, "#ffffff"
 
-lsp_text 21, "UNLOCK ALL", 1040, 86
+lsp_rect 221, 940, 62, 200, 44
+sp_fill 221, "#000000", 0
+sp_border 221, "#ffffff", 1
+sp_hover_color 221, "#151515"
+sp_z 221, 10
+lsp_text 21, "UNLOCK ALL", 1040, 74
 sp_fontsize 21, 18
 sp_text_align 21, "center"
 sp_color 21, "#ffffff"
+sp_z 21, 20
 
-if %10 == 1 lsp_text 100, "PROLOGUE", 640, 210 : sp_fontsize 100, 26 : sp_text_align 100, "center" : sp_color 100, "#ffffff"
-if %11 == 1 lsp_text 101, "DAY 1", 640, 280 : sp_fontsize 101, 26 : sp_text_align 101, "center" : sp_color 101, "#ffffff"
-if %12 == 1 lsp_text 102, "DAY 2", 640, 350 : sp_fontsize 102, 26 : sp_text_align 102, "center" : sp_color 102, "#ffffff"
+lsp_rect 300, 440, 188, 400, 50
+sp_fill 300, "#000000", 0
+sp_border 300, "#ffffff", 1
+sp_hover_color 300, "#151515"
+sp_z 300, 10
+lsp_text 100, "PROLOGUE", 640, 202
+sp_fontsize 100, 26
+sp_text_align 100, "center"
+sp_color 100, "#ffffff"
+sp_z 100, 20
 
-if %10 == 0 lsp_text 100, "PROLOGUE", 640, 210 : sp_fontsize 100, 26 : sp_text_align 100, "center" : sp_color 100, "#ffffff"
-if %11 == 0 lsp_text 101, "DAY 1  / LOCKED", 640, 280 : sp_fontsize 101, 22 : sp_text_align 101, "center" : sp_color 101, "#777777"
-if %12 == 0 lsp_text 102, "DAY 2  / LOCKED", 640, 350 : sp_fontsize 102, 22 : sp_text_align 102, "center" : sp_color 102, "#777777"
+lsp_rect 301, 440, 258, 400, 50
+sp_fill 301, "#000000", 0
+if %11 == 1 sp_border 301, "#ffffff", 1
+if %11 == 1 sp_hover_color 301, "#151515"
+if %11 == 0 sp_border 301, "#555555", 1
+sp_z 301, 10
+if %11 == 1 lsp_text 101, "DAY 1", 640, 272 : sp_fontsize 101, 26 : sp_text_align 101, "center" : sp_color 101, "#ffffff" : sp_z 101, 20
+if %11 == 0 lsp_text 101, "DAY 1  / LOCKED", 640, 274 : sp_fontsize 101, 22 : sp_text_align 101, "center" : sp_color 101, "#777777" : sp_z 101, 20
 
-lsp_text 199, "BACK", 640, 520
+lsp_rect 302, 440, 328, 400, 50
+sp_fill 302, "#000000", 0
+if %12 == 1 sp_border 302, "#ffffff", 1
+if %12 == 1 sp_hover_color 302, "#151515"
+if %12 == 0 sp_border 302, "#555555", 1
+sp_z 302, 10
+if %12 == 1 lsp_text 102, "DAY 2", 640, 342 : sp_fontsize 102, 26 : sp_text_align 102, "center" : sp_color 102, "#ffffff" : sp_z 102, 20
+if %12 == 0 lsp_text 102, "DAY 2  / LOCKED", 640, 344 : sp_fontsize 102, 22 : sp_text_align 102, "center" : sp_color 102, "#777777" : sp_z 102, 20
+
+lsp_rect 399, 540, 500, 200, 42
+sp_fill 399, "#000000", 0
+sp_border 399, "#ffffff", 1
+sp_hover_color 399, "#151515"
+sp_z 399, 10
+lsp_text 199, "BACK", 640, 512
 sp_fontsize 199, 22
 sp_text_align 199, "center"
 sp_color 199, "#ffffff"
+sp_z 199, 20
 
 btndef clear
-spbtn 21, 50
-spbtn 100, 100
-if %11 == 1 spbtn 101, 101
-if %12 == 1 spbtn 102, 102
-spbtn 199, 99
+spbtn 221, 50
+spbtn 300, 100
+if %11 == 1 spbtn 301, 101
+if %12 == 1 spbtn 302, 102
+spbtn 399, 99
 print 1
 
 *chapter_loop
 btnwait %0
-if %0 == 50 gosub *unlock_all : goto *chapter_select
+if %0 == 50 goto *unlock_all
 if %0 == 99 goto *start
 if %0 == 100 goto *prologue
 if %0 == 101 goto *day1
@@ -150,9 +207,11 @@ goto *chapter_loop
 set_pflag chapter_prologue, 1
 set_pflag chapter_day1, 1
 set_pflag chapter_day2, 1
-return
+gosub *cls
+goto *chapter_select
 
 *prologue
+gosub *cls
 adv
 set_vflag in_scene, 1
 set_sflag route_intro_started, 1
@@ -164,9 +223,11 @@ bg "#000000", 1
 set_pflag chapter_day1, 1
 プロローグを読み終えました。Day 1 が解放されました。@
 clear_vflag in_scene
+gosub *cls
 goto *chapter_select
 
 *day1
+gosub *cls
 adv
 set_vflag in_scene, 1
 set_sflag day1_started, 1
@@ -179,9 +240,11 @@ set_sflag met_voice, 1
 set_pflag chapter_day2, 1
 Day 1 を読み終えました。Day 2 が解放されました。@
 clear_vflag in_scene
+gosub *cls
 goto *chapter_select
 
 *day2
+gosub *cls
 nvl
 set_vflag in_scene, 1
 set_sflag day2_started, 1
@@ -197,4 +260,5 @@ goto *day2_end
 
 *day2_end
 clear_vflag in_scene
+gosub *cls
 goto *chapter_select
