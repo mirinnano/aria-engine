@@ -174,7 +174,8 @@ public class VirtualMachine
 
             if (State.Sprites.TryGetValue(State.TextTargetSpriteId, out var txtSprite))
             {
-                txtSprite.Text = State.CurrentTextBuffer.Substring(0, State.DisplayedTextLength);
+                int length = Math.Clamp(State.DisplayedTextLength, 0, State.CurrentTextBuffer.Length);
+                txtSprite.Text = State.CurrentTextBuffer.Substring(0, length);
             }
 
             if (State.DisplayedTextLength >= State.CurrentTextBuffer.Length && State.State == VmState.WaitingForAnimation)
@@ -272,29 +273,29 @@ public class VirtualMachine
         switch (inst.Op)
         {
             case OpCode.Window:
-                ValidateArgs(inst, 3);
-                State.WindowWidth = int.Parse(inst.Arguments[0]);
-                State.WindowHeight = int.Parse(inst.Arguments[1]);
+                if (!ValidateArgs(inst, 3)) break;
+                State.WindowWidth = GetVal(inst.Arguments[0]);
+                State.WindowHeight = GetVal(inst.Arguments[1]);
                 State.Title = inst.Arguments[2];
                 break;
             case OpCode.Caption:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.Title = inst.Arguments[0];
                 break;
             case OpCode.WindowTitle:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.Title = GetString(inst.Arguments[0]);
                 break;
             case OpCode.Font:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.FontPath = inst.Arguments[0];
                 break;
             case OpCode.FontAtlasSize:
-                ValidateArgs(inst, 1);
-                State.FontAtlasSize = int.Parse(inst.Arguments[0]);
+                if (!ValidateArgs(inst, 1)) break;
+                State.FontAtlasSize = Math.Max(256, GetVal(inst.Arguments[0]));
                 break;
             case OpCode.Script:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.MainScript = inst.Arguments[0];
                 break;
             case OpCode.Debug:
@@ -304,7 +305,7 @@ public class VirtualMachine
             
             // Subroutines and Control Flow
             case OpCode.Gosub:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.CallStack.Push(State.ProgramCounter);
                 JumpTo(inst.Arguments[0]);
                 for (int i = inst.Arguments.Count - 1; i >= 1; i--)
@@ -335,12 +336,12 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.Alias:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 // We use dynamic mapping via SetReg to preserve values, or let the parser rewrite.
                 // In this basic VM, we will just use variables natively. Alias sets initial mapping or just ignores.
                 break;
             case OpCode.SystemCall:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 switch (inst.Arguments[0].ToLowerInvariant())
                 {
                     case "rmenu":
@@ -357,7 +358,7 @@ public class VirtualMachine
 
             // Sprites
             case OpCode.Lsp:
-                ValidateArgs(inst, 4);
+                if (!ValidateArgs(inst, 4)) break;
                 {
                     int id = GetVal(inst.Arguments[0]);
                     State.Sprites[id] = new Sprite
@@ -368,7 +369,7 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.LspText:
-                ValidateArgs(inst, 4);
+                if (!ValidateArgs(inst, 4)) break;
                 {
                     int id = GetVal(inst.Arguments[0]);
                     int size = State.DefaultFontSize;
@@ -382,7 +383,7 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.LspRect:
-                ValidateArgs(inst, 5);
+                if (!ValidateArgs(inst, 5)) break;
                 {
                     int id = GetVal(inst.Arguments[0]);
                     State.Sprites[id] = new Sprite
@@ -394,59 +395,68 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.Csp:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 {
                     int id = GetVal(inst.Arguments[0]);
-                    if (id == -1) State.Sprites.Clear();
-                    else State.Sprites.Remove(id);
+                    if (id == -1)
+                    {
+                        State.Sprites.Clear();
+                        State.SpriteButtonMap.Clear();
+                    }
+                    else
+                    {
+                        State.Sprites.Remove(id);
+                        State.SpriteButtonMap.Remove(id);
+                    }
                 }
                 break;
             case OpCode.Vsp:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var vsp))
                 {
                     vsp.Visible = int.TryParse(inst.Arguments[1], out int v) ? v != 0 : inst.Arguments[1] == "on";
                 }
                 break;
             case OpCode.Msp:
-                ValidateArgs(inst, 3);
+                if (!ValidateArgs(inst, 3)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var msp))
                 {
                     msp.X = GetVal(inst.Arguments[1]); msp.Y = GetVal(inst.Arguments[2]);
                 }
                 break;
             case OpCode.MspRel:
-                ValidateArgs(inst, 3);
+                if (!ValidateArgs(inst, 3)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var mspr))
                 {
                     mspr.X += GetVal(inst.Arguments[1]); mspr.Y += GetVal(inst.Arguments[2]);
                 }
                 break;
             case OpCode.SpZ:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spz)) spz.Z = GetVal(inst.Arguments[1]);
                 break;
             case OpCode.SpAlpha:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spa)) spa.Opacity = GetVal(inst.Arguments[1]) / 255.0f;
                 break;
             case OpCode.SpScale:
-                ValidateArgs(inst, 3);
+                if (!ValidateArgs(inst, 3)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spsc))
                 {
-                    spsc.ScaleX = float.Parse(inst.Arguments[1]); spsc.ScaleY = float.Parse(inst.Arguments[2]);
+                    spsc.ScaleX = GetFloat(inst.Arguments[1], inst);
+                    spsc.ScaleY = GetFloat(inst.Arguments[2], inst);
                 }
                 break;
             case OpCode.SpFontsize:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spf)) spf.FontSize = GetVal(inst.Arguments[1]);
                 break;
             case OpCode.SpColor:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spc)) spc.Color = GetString(inst.Arguments[1]);
                 break;
             case OpCode.SpFill:
-                ValidateArgs(inst, 3);
+                if (!ValidateArgs(inst, 3)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spfl))
                 {
                     spfl.FillColor = GetString(inst.Arguments[1]); spfl.FillAlpha = GetVal(inst.Arguments[2]);
@@ -454,14 +464,14 @@ public class VirtualMachine
                 break;
 
             case OpCode.Btn:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var btn)) btn.IsButton = true;
                 // Also add mapping for compatibility with btnwait
                 if (!State.SpriteButtonMap.ContainsKey(GetVal(inst.Arguments[0])))
                     State.SpriteButtonMap[GetVal(inst.Arguments[0])] = GetVal(inst.Arguments[0]);
                 break;
             case OpCode.BtnArea:
-                ValidateArgs(inst, 5);
+                if (!ValidateArgs(inst, 5)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var ba))
                 {
                     ba.IsButton = true;
@@ -470,7 +480,7 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.BtnClear:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var bcl)) bcl.IsButton = false;
                 break;
             case OpCode.BtnClearAll:
@@ -478,7 +488,7 @@ public class VirtualMachine
                 State.SpriteButtonMap.Clear();
                 break;
             case OpCode.SpBtn:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 {
                     int sId = GetVal(inst.Arguments[0]);
                     int bId = GetVal(inst.Arguments[1]);
@@ -489,11 +499,11 @@ public class VirtualMachine
                 
             // ----- UI Decorators -----
             case OpCode.SpRound:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spr)) spr.CornerRadius = GetVal(inst.Arguments[1]);
                 break;
             case OpCode.SpBorder:
-                ValidateArgs(inst, 3);
+                if (!ValidateArgs(inst, 3)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spbr)) 
                 {
                     spbr.BorderColor = GetString(inst.Arguments[1]);
@@ -501,7 +511,7 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.SpGradient:
-                ValidateArgs(inst, 4);
+                if (!ValidateArgs(inst, 4)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spg)) 
                 {
                     spg.GradientTo = GetString(inst.Arguments[2]);
@@ -509,7 +519,7 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.SpShadow:
-                ValidateArgs(inst, 5);
+                if (!ValidateArgs(inst, 5)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spsh)) 
                 {
                     spsh.ShadowOffsetX = GetVal(inst.Arguments[1]);
@@ -519,7 +529,7 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.SpTextShadow:
-                ValidateArgs(inst, 4);
+                if (!ValidateArgs(inst, 4)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spts)) 
                 {
                     spts.TextShadowX = GetVal(inst.Arguments[1]);
@@ -528,7 +538,7 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.SpTextOutline:
-                ValidateArgs(inst, 3);
+                if (!ValidateArgs(inst, 3)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spto)) 
                 {
                     spto.TextOutlineSize = GetVal(inst.Arguments[1]);
@@ -536,29 +546,29 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.SpTextAlign:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spta)) spta.TextAlign = GetString(inst.Arguments[1]);
                 break;
             case OpCode.SpTextVAlign:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var sptva)) sptva.TextVAlign = GetString(inst.Arguments[1]);
                 break;
             case OpCode.SpRotation:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var sprot)) sprot.Rotation = GetVal(inst.Arguments[1]);
                 break;
             case OpCode.SpHoverColor:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var sphc)) sphc.HoverFillColor = GetString(inst.Arguments[1]);
                 break;
             case OpCode.SpHoverScale:
-                ValidateArgs(inst, 2);
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var sphs)) sphs.HoverScale = float.Parse(inst.Arguments[1]);
+                if (!ValidateArgs(inst, 2)) break;
+                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var sphs)) sphs.HoverScale = GetFloat(inst.Arguments[1], inst, 1.0f);
                 break;
 
             // ----- Animations (Tween) -----
             case OpCode.Amsp:
-                ValidateArgs(inst, 4);
+                if (!ValidateArgs(inst, 4)) break;
                 {
                     int tweenId = GetVal(inst.Arguments[0]);
                     float toX = GetVal(inst.Arguments[1]);
@@ -572,25 +582,25 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.Afade:
-                ValidateArgs(inst, 3);
+                if (!ValidateArgs(inst, 3)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var sp_afade))
                 {
                     Tweens.Add(new Tween { SpriteId = sp_afade.Id, Property = "opacity", From = sp_afade.Opacity, To = GetVal(inst.Arguments[1])/255f, DurationMs = GetVal(inst.Arguments[2]), Ease = Tweens.CurrentEaseType });
                 }
                 break;
             case OpCode.Ascale:
-                ValidateArgs(inst, 4);
+                if (!ValidateArgs(inst, 4)) break;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var sp_ascale))
                 {
-                    Tweens.Add(new Tween { SpriteId = sp_ascale.Id, Property = "scaleX", From = sp_ascale.ScaleX, To = float.Parse(inst.Arguments[1]), DurationMs = GetVal(inst.Arguments[3]), Ease = Tweens.CurrentEaseType });
-                    Tweens.Add(new Tween { SpriteId = sp_ascale.Id, Property = "scaleY", From = sp_ascale.ScaleY, To = float.Parse(inst.Arguments[2]), DurationMs = GetVal(inst.Arguments[3]), Ease = Tweens.CurrentEaseType });
+                    Tweens.Add(new Tween { SpriteId = sp_ascale.Id, Property = "scaleX", From = sp_ascale.ScaleX, To = GetFloat(inst.Arguments[1], inst), DurationMs = GetVal(inst.Arguments[3]), Ease = Tweens.CurrentEaseType });
+                    Tweens.Add(new Tween { SpriteId = sp_ascale.Id, Property = "scaleY", From = sp_ascale.ScaleY, To = GetFloat(inst.Arguments[2], inst), DurationMs = GetVal(inst.Arguments[3]), Ease = Tweens.CurrentEaseType });
                 }
                 break;
             case OpCode.Await:
                 State.State = VmState.WaitingForAnimation;
                 break;
             case OpCode.Ease:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 string easeName = GetString(inst.Arguments[0]).ToLowerInvariant();
                 if (easeName == "easein") Tweens.CurrentEaseType = EaseType.EaseIn;
                 else if (easeName == "easeout") Tweens.CurrentEaseType = EaseType.EaseOut;
@@ -599,7 +609,7 @@ public class VirtualMachine
                 break;
 
             case OpCode.BtnTime:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.ButtonTimeoutMs = GetVal(inst.Arguments[0]);
                 break;
             case OpCode.BtnWait:
@@ -616,7 +626,7 @@ public class VirtualMachine
 
             case OpCode.LoadBg:
             case OpCode.Bg:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 string bgPath = GetString(inst.Arguments[0]);
                 if (bgPath.StartsWith("#"))
                 {
@@ -671,6 +681,7 @@ public class VirtualMachine
 
             case OpCode.Textbox:
             case OpCode.SetWindow:
+                if (!ValidateArgs(inst, 4)) break;
                 if (inst.Arguments.Count >= 4)
                 {
                     State.DefaultTextboxX = GetVal(inst.Arguments[0]);
@@ -686,21 +697,21 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.Fontsize:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.DefaultFontSize = GetVal(inst.Arguments[0]);
                 break;
             case OpCode.Textcolor:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.DefaultTextColor = GetString(inst.Arguments[0]);
                 break;
             case OpCode.TextboxColor:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 State.DefaultTextboxBgColor = GetString(inst.Arguments[0]);
                 State.DefaultTextboxBgAlpha = GetVal(inst.Arguments[1]);
                 break;
             case OpCode.TextboxStyle:
                 // textbox_style corner, border_width, border_color, border_opacity, pad_x, pad_y, shadow_x, shadow_y, shadow_color, shadow_alpha
-                ValidateArgs(inst, 10);
+                if (!ValidateArgs(inst, 10)) break;
                 State.DefaultTextboxCornerRadius = GetVal(inst.Arguments[0]);
                 State.DefaultTextboxBorderWidth = GetVal(inst.Arguments[1]);
                 State.DefaultTextboxBorderColor = GetString(inst.Arguments[2]);
@@ -714,7 +725,7 @@ public class VirtualMachine
                 break;
             case OpCode.ChoiceStyle:
                 // choice_style width, height, spacing, fontsize, bg_color, bg_alpha, text_color, corner, border_color, border_width, border_opacity, hover_color, pad_x
-                ValidateArgs(inst, 13);
+                if (!ValidateArgs(inst, 13)) break;
                 State.ChoiceWidth = GetVal(inst.Arguments[0]);
                 State.ChoiceHeight = GetVal(inst.Arguments[1]);
                 State.ChoiceSpacing = GetVal(inst.Arguments[2]);
@@ -742,7 +753,7 @@ public class VirtualMachine
                 break;
                 
             case OpCode.TextMode:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 string mode = GetString(inst.Arguments[0]).ToLowerInvariant();
                 Config.Config.TextMode = mode;
                 if (mode == "manual")
@@ -772,26 +783,26 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.CompatMode:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 {
                     string compatModeValue = GetString(inst.Arguments[0]).ToLowerInvariant();
                     State.CompatAutoUi = compatModeValue == "on" || compatModeValue == "1" || compatModeValue == "true" || compatModeValue == "legacy";
                 }
                 break;
             case OpCode.UiTheme:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 ApplyUiTheme(GetString(inst.Arguments[0]));
                 break;
             case OpCode.TextTarget:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.TextTargetSpriteId = GetVal(inst.Arguments[0]);
                 break;
             case OpCode.TextSpeed:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.TextSpeedMs = GetVal(inst.Arguments[0]);
                 break;
             case OpCode.DefaultSpeed:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 int spd = GetVal(inst.Arguments[0]);
                 Config.Config.DefaultTextSpeedMs = spd;
                 Config.Config.GlobalTextSpeedMs = spd;
@@ -875,17 +886,19 @@ public class VirtualMachine
                         State.Sprites[State.TextTargetSpriteId] = textSprite;
                     }
 
-                    textSprite.Text = State.CurrentTextBuffer;
                     textSprite.FontSize = State.DefaultFontSize;
                     textSprite.Color = State.DefaultTextColor;
 
                     if (State.TextSpeedMs > 0 && State.DisplayedTextLength < State.CurrentTextBuffer.Length)
                     {
+                        int length = Math.Clamp(State.DisplayedTextLength, 0, State.CurrentTextBuffer.Length);
+                        textSprite.Text = State.CurrentTextBuffer.Substring(0, length);
                         State.State = VmState.WaitingForAnimation;
                     }
                     else
                     {
                         State.DisplayedTextLength = State.CurrentTextBuffer.Length;
+                        textSprite.Text = State.CurrentTextBuffer;
                     }
                 }
                 break;
@@ -895,6 +908,7 @@ public class VirtualMachine
                 break;
 
             case OpCode.Choice:
+                if (!ValidateArgs(inst, 1)) break;
                 if (!State.CompatAutoUi)
                 {
                     // Core mode: choice is a state command only (no implicit drawing).
@@ -1079,14 +1093,14 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.GetTimer:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 SetReg(inst.Arguments[0], (int)State.ScriptTimerMs);
                 break;
             case OpCode.ResetTimer:
                 State.ScriptTimerMs = 0;
                 break;
             case OpCode.WaitTimer:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 // Can emulate via wait logic, actually let's just cheat and do a simple wait
                 State.DelayTimerMs = Math.Max(0, GetVal(inst.Arguments[0]) - State.ScriptTimerMs);
                 State.State = VmState.WaitingForDelay;
@@ -1133,32 +1147,25 @@ public class VirtualMachine
                 }
                 break;
             case OpCode.SystemButton:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 SetSystemButton(GetString(inst.Arguments[0]), IsOn(inst.Arguments[1]));
                 break;
             case OpCode.Save:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 Saves.Save(GetVal(inst.Arguments[0]), State, _currentScriptFile);
                 break;
             case OpCode.Load:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 var (dat, suc) = Saves.Load(GetVal(inst.Arguments[0]));
                 if (suc && dat != null)
                 {
-                    // Copy state over
-                    State.Registers = dat.State.Registers;
-                    State.StringRegisters = dat.State.StringRegisters;
-                    State.Sprites = dat.State.Sprites;
-                    State.CallStack = dat.State.CallStack;
-                    State.CurrentBgm = dat.State.CurrentBgm;
-                    _currentScriptFile = dat.ScriptFile;
-                    // Note: Need a full deep copy normally, but overriding reference is fine if careful
+                    ApplyLoadedState(dat);
                     if (_labels.ContainsKey("load_restore")) JumpTo("*load_restore"); // optional hook label in game script
                 }
                 break;
 
             case OpCode.PlayBgm:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.CurrentBgm = GetString(inst.Arguments[0]);
                 break;
             case OpCode.StopBgm:
@@ -1166,16 +1173,17 @@ public class VirtualMachine
                 break;
             case OpCode.PlaySe:
             case OpCode.Dwave:
+                if (!ValidateArgs(inst, 1)) break;
                 // dwave 0, "file"
                 string seFile = inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : GetString(inst.Arguments[0]);
                 State.PendingSe.Add(seFile);
                 break;
             case OpCode.BgmVol:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.BgmVolume = GetVal(inst.Arguments[0]);
                 break;
             case OpCode.SeVol:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 State.SeVolume = GetVal(inst.Arguments[0]);
                 break;
             case OpCode.BgmFade:
@@ -1191,7 +1199,7 @@ public class VirtualMachine
 
                 // var, msg, title
                 // We'll emulate it by creating choices on screen
-                ValidateArgs(inst, 3);
+                if (!ValidateArgs(inst, 3)) break;
                 ClearCompatUiSprites();
 
                 int yesNoW = Math.Max(160, State.ChoiceWidth / 3);
@@ -1373,6 +1381,7 @@ public class VirtualMachine
                 break;
 
             case OpCode.UnlockChapter:
+                if (!ValidateArgs(inst, 1)) break;
                 int chapterId = GetVal(inst.Arguments[0]);
                 ChapterManager.UnlockChapter(chapterId);
                 ChapterManager.SaveChapters();
@@ -1380,7 +1389,7 @@ public class VirtualMachine
 
             case OpCode.ChapterThumbnail:
                 // チャプターサムネイルの設定
-                if (inst.Arguments.Count >= 2)
+                if (!ValidateArgs(inst, 2)) break;
                 {
                     int thumbChapterId = GetVal(inst.Arguments[0]);
                     string thumbPath = GetString(inst.Arguments[1]);
@@ -1395,7 +1404,7 @@ public class VirtualMachine
 
             case OpCode.ChapterCard:
                 // カスタムチャプターカードの作成
-                if (inst.Arguments.Count >= 5)
+                if (!ValidateArgs(inst, 5)) break;
                 {
                     int cardId = GetVal(inst.Arguments[0]);
                     string title = GetString(inst.Arguments[1]);
@@ -1445,7 +1454,7 @@ public class VirtualMachine
 
             case OpCode.ChapterProgress:
                 // チャプター進捗の更新
-                if (inst.Arguments.Count >= 2)
+                if (!ValidateArgs(inst, 2)) break;
                 {
                     int progressChapterId = GetVal(inst.Arguments[0]);
                     int progress = GetVal(inst.Arguments[1]);
@@ -1457,7 +1466,7 @@ public class VirtualMachine
             // キャラクター操作
             case OpCode.CharLoad:
                 // キャラクターデータのロード
-                if (inst.Arguments.Count > 0)
+                if (!ValidateArgs(inst, 1)) break;
                 {
                     string charDataFile = GetString(inst.Arguments[0]);
                     CharacterManager.LoadCharacterData(charDataFile);
@@ -1466,7 +1475,7 @@ public class VirtualMachine
 
             case OpCode.CharShow:
                 {
-                    ValidateArgs(inst, 1);
+                    if (!ValidateArgs(inst, 1)) break;
                     string charId = inst.Arguments[0];
                     string expression = inst.Arguments.Count > 1 ? inst.Arguments[1] : "normal";
                     string pose = inst.Arguments.Count > 2 ? inst.Arguments[2] : "default";
@@ -1475,14 +1484,14 @@ public class VirtualMachine
                 }
 
             case OpCode.CharHide:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 string hideCharId = inst.Arguments[0];
                 int hideDuration = inst.Arguments.Count > 1 ? GetVal(inst.Arguments[1]) : 300;
                 CharacterManager.HideCharacter(hideCharId, hideDuration);
                 break;
 
             case OpCode.CharMove:
-                ValidateArgs(inst, 3);
+                if (!ValidateArgs(inst, 3)) break;
                 string moveCharId = inst.Arguments[0];
                 int moveX = GetVal(inst.Arguments[1]);
                 int moveY = GetVal(inst.Arguments[2]);
@@ -1492,7 +1501,7 @@ public class VirtualMachine
 
             case OpCode.CharExpression:
                 {
-                    ValidateArgs(inst, 2);
+                    if (!ValidateArgs(inst, 2)) break;
                     string exprCharId = inst.Arguments[0];
                     string expression = inst.Arguments[1];
                     CharacterManager.ChangeExpression(exprCharId, expression);
@@ -1501,7 +1510,7 @@ public class VirtualMachine
 
             case OpCode.CharPose:
                 {
-                    ValidateArgs(inst, 2);
+                    if (!ValidateArgs(inst, 2)) break;
                     string poseCharId = inst.Arguments[0];
                     string pose = inst.Arguments[1];
                     CharacterManager.ChangePose(poseCharId, pose);
@@ -1509,22 +1518,22 @@ public class VirtualMachine
                 }
 
             case OpCode.CharZ:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 string zCharId = inst.Arguments[0];
                 int z = GetVal(inst.Arguments[1]);
                 CharacterManager.SetCharacterZ(zCharId, z);
                 break;
 
             case OpCode.CharScale:
-                ValidateArgs(inst, 2);
+                if (!ValidateArgs(inst, 2)) break;
                 string scaleCharId = inst.Arguments[0];
-                float scale = float.Parse(inst.Arguments[1]);
+                float scale = GetFloat(inst.Arguments[1], inst, 1.0f);
                 CharacterManager.SetCharacterScale(scaleCharId, scale);
                 break;
 
             // ゲームフロー
             case OpCode.ChangeScene:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 string sceneStr = inst.Arguments[0].ToLowerInvariant();
                 GameScene newScene = sceneStr switch
                 {
@@ -1546,7 +1555,7 @@ public class VirtualMachine
 
             case OpCode.SetSceneData:
                 {
-                    ValidateArgs(inst, 2);
+                    if (!ValidateArgs(inst, 2)) break;
                     string dataKey = inst.Arguments[0];
                     string dataValue = GetString(inst.Arguments[1]);
                     State.SceneData[dataKey] = dataValue;
@@ -1555,7 +1564,7 @@ public class VirtualMachine
 
             case OpCode.GetSceneData:
                 {
-                    ValidateArgs(inst, 1);
+                    if (!ValidateArgs(inst, 1)) break;
                     string getDataKey = inst.Arguments[0];
                     if (State.SceneData.TryGetValue(getDataKey, out object? retrievedValue) && retrievedValue != null)
                     {
@@ -1599,25 +1608,25 @@ public class VirtualMachine
                 break;
 
             case OpCode.ChapterId:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 if (State.CurrentChapterDefinition != null)
                     State.CurrentChapterDefinition.Id = GetVal(inst.Arguments[0]);
                 break;
 
             case OpCode.ChapterTitle:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 if (State.CurrentChapterDefinition != null)
                     State.CurrentChapterDefinition.Title = GetString(inst.Arguments[0]);
                 break;
 
             case OpCode.ChapterDesc:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 if (State.CurrentChapterDefinition != null)
                     State.CurrentChapterDefinition.Description = GetString(inst.Arguments[0]);
                 break;
 
             case OpCode.ChapterScript:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 if (State.CurrentChapterDefinition != null)
                     State.CurrentChapterDefinition.ScriptPath = GetString(inst.Arguments[0]);
                 break;
@@ -1631,7 +1640,7 @@ public class VirtualMachine
                 break;
 
             case OpCode.FontFilter:
-                ValidateArgs(inst, 1);
+                if (!ValidateArgs(inst, 1)) break;
                 string filterType = GetString(inst.Arguments[0]).ToLowerInvariant();
                 if (filterType == "bilinear")
                     State.FontFilter = TextureFilter.Bilinear;
@@ -1837,6 +1846,34 @@ public class VirtualMachine
         // If not integer, try as register name
         return GetReg(valStr);
     }
+
+    internal float GetFloat(string valStr, Instruction? inst = null, float fallback = 0f)
+    {
+        if (valStr.StartsWith("%"))
+        {
+            return GetVal(valStr);
+        }
+
+        if (float.TryParse(valStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float value))
+        {
+            return value;
+        }
+
+        int regValue = GetReg(valStr);
+        if (regValue != 0 || State.Registers.ContainsKey(RegisterStoragePolicy.Normalize(valStr)))
+        {
+            return regValue;
+        }
+
+        _reporter.Report(new AriaError(
+            $"数値として解釈できない値 '{valStr}' を {fallback} として扱いました。",
+            inst?.SourceLine ?? 0,
+            _currentScriptFile,
+            AriaErrorLevel.Warning,
+            "VM_FLOAT_PARSE",
+            hint: "scale/座標/時間などの数値引数に、数値または数値レジスタを指定してください。"));
+        return fallback;
+    }
     
     private void SetStr(string reg, string val) => State.StringRegisters[reg.TrimStart('$').ToLowerInvariant()] = val;
     internal string GetString(string valStr)
@@ -1884,7 +1921,16 @@ public class VirtualMachine
     {
         string label = labelNameArg.TrimStart('*');
         if (_labels.TryGetValue(label, out int pc)) State.ProgramCounter = pc;
-        else throw new Exception($"未定義のラベル '*{label}' にジャンプしようとしました。");
+        else
+        {
+            _reporter.Report(new AriaError(
+                $"未定義のラベル '*{label}' へのジャンプをスキップしました。",
+                0,
+                _currentScriptFile,
+                AriaErrorLevel.Error,
+                "VM_LABEL_MISSING",
+                hint: "goto/gosub/分岐先のラベル名が定義済みか確認してください。"));
+        }
     }
 
     /// <summary>
@@ -1900,7 +1946,13 @@ public class VirtualMachine
         }
         else
         {
-            throw new Exception($"未定義のサブルーチン '*{label}' を呼び出そうとしました。");
+            _reporter.Report(new AriaError(
+                $"未定義のサブルーチン '*{label}' の呼び出しをスキップしました。",
+                0,
+                _currentScriptFile,
+                AriaErrorLevel.Error,
+                "VM_SUB_MISSING",
+                hint: "呼び出し先ラベル、または defsub 宣言が存在するか確認してください。"));
         }
     }
 
@@ -1948,40 +2000,7 @@ public class VirtualMachine
         var (data, success) = Saves.Load(slot);
         if (success && data != null)
         {
-            State.ProgramCounter = data.State.ProgramCounter;
-            State.State = data.State.State;
-            State.CurrentScene = data.State.CurrentScene;
-            
-            var mergedRegisters = State.Registers
-                .Where(pair => RegisterStoragePolicy.IsPersistent(pair.Key))
-                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
-            foreach (var pair in data.State.Registers)
-            {
-                if (RegisterStoragePolicy.IsSaveStored(pair.Key))
-                {
-                    mergedRegisters[RegisterStoragePolicy.Normalize(pair.Key)] = pair.Value;
-                }
-            }
-            State.Registers = mergedRegisters;
-            State.StringRegisters = new Dictionary<string, string>(data.State.StringRegisters);
-            // Persistent flags remain global; save data restores per-slot flags only.
-            State.SaveFlags = new Dictionary<string, bool>(data.State.SaveFlags);
-            State.Counters = new Dictionary<string, int>(data.State.Counters);
-            
-            State.Sprites = new Dictionary<int, Sprite>(data.State.Sprites);
-            State.CallStack = new Stack<int>(data.State.CallStack.Reverse());
-            State.ParamStack = new Stack<string>(data.State.ParamStack.Reverse());
-            if (data.State.LoopStack != null) State.LoopStack = new Stack<LoopState>(data.State.LoopStack.Reverse());
-            
-            State.CurrentBgm = data.State.CurrentBgm;
-            State.BgmVolume = data.State.BgmVolume;
-            State.SeVolume = data.State.SeVolume;
-            
-            State.TextboxVisible = data.State.TextboxVisible;
-            State.CurrentTextBuffer = data.State.CurrentTextBuffer;
-            State.DisplayedTextLength = data.State.DisplayedTextLength;
-            
-            State.CurrentChapter = data.State.CurrentChapter;
+            ApplyLoadedState(data);
 
             Console.WriteLine($"Game loaded from slot {slot}");
             
@@ -1997,7 +2016,94 @@ public class VirtualMachine
             Console.WriteLine($"Failed to load game from slot {slot}");
         }
     }
+
+    private void ApplyLoadedState(SaveData data)
+    {
+        var loaded = data.State;
+
+        State.ProgramCounter = loaded.ProgramCounter;
+        State.State = loaded.State;
+        State.CurrentScene = loaded.CurrentScene;
+
+        var mergedRegisters = State.Registers
+            .Where(pair => RegisterStoragePolicy.IsPersistent(pair.Key))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in loaded.Registers)
+        {
+            if (RegisterStoragePolicy.IsSaveStored(pair.Key))
+            {
+                mergedRegisters[RegisterStoragePolicy.Normalize(pair.Key)] = pair.Value;
+            }
+        }
+        State.Registers = mergedRegisters;
+
+        State.StringRegisters = new Dictionary<string, string>(loaded.StringRegisters, StringComparer.OrdinalIgnoreCase);
+        State.SaveFlags = new Dictionary<string, bool>(loaded.SaveFlags, StringComparer.OrdinalIgnoreCase);
+        State.VolatileFlags = new Dictionary<string, bool>(loaded.VolatileFlags, StringComparer.OrdinalIgnoreCase);
+        State.Counters = new Dictionary<string, int>(loaded.Counters, StringComparer.OrdinalIgnoreCase);
+
+        State.Sprites = new Dictionary<int, Sprite>(loaded.Sprites);
+        State.SpriteButtonMap = new Dictionary<int, int>(loaded.SpriteButtonMap);
+        State.CallStack = new Stack<int>(loaded.CallStack.Reverse());
+        State.ParamStack = new Stack<string>(loaded.ParamStack.Reverse());
+        State.LoopStack = loaded.LoopStack != null ? new Stack<LoopState>(loaded.LoopStack.Reverse()) : new Stack<LoopState>();
+
+        State.CurrentBgm = loaded.CurrentBgm;
+        State.BgmVolume = loaded.BgmVolume;
+        State.SeVolume = loaded.SeVolume;
+
+        State.TextboxVisible = loaded.TextboxVisible;
+        State.CurrentTextBuffer = loaded.CurrentTextBuffer;
+        State.DisplayedTextLength = Math.Clamp(loaded.DisplayedTextLength, 0, State.CurrentTextBuffer.Length);
+        State.TextTimerMs = 0f;
+        State.IsWaitingPageClear = loaded.IsWaitingPageClear;
+        State.TextTargetSpriteId = loaded.TextTargetSpriteId;
+        State.TextboxBackgroundSpriteId = loaded.TextboxBackgroundSpriteId;
+        State.UseManualTextLayout = loaded.UseManualTextLayout;
+        State.CompatAutoUi = loaded.CompatAutoUi;
+
+        State.DefaultTextboxX = loaded.DefaultTextboxX;
+        State.DefaultTextboxY = loaded.DefaultTextboxY;
+        State.DefaultTextboxW = loaded.DefaultTextboxW;
+        State.DefaultTextboxH = loaded.DefaultTextboxH;
+        State.DefaultFontSize = loaded.DefaultFontSize;
+        State.DefaultTextColor = loaded.DefaultTextColor;
+        State.DefaultTextboxBgColor = loaded.DefaultTextboxBgColor;
+        State.DefaultTextboxBgAlpha = loaded.DefaultTextboxBgAlpha;
+        State.TextSpeedMs = loaded.TextSpeedMs;
+
+        State.CurrentChapter = loaded.CurrentChapter;
+        _currentScriptFile = data.ScriptFile;
+
+        NormalizeLoadedUiState();
+    }
+
+    private void NormalizeLoadedUiState()
+    {
+        if (State.TextboxBackgroundSpriteId >= 0 && !State.Sprites.ContainsKey(State.TextboxBackgroundSpriteId))
+        {
+            State.TextboxBackgroundSpriteId = -1;
+        }
+
+        if (State.TextTargetSpriteId >= 0 && !State.Sprites.ContainsKey(State.TextTargetSpriteId))
+        {
+            State.TextTargetSpriteId = -1;
+        }
+
+        foreach (var sprite in State.Sprites.Values)
+        {
+            sprite.IsHovered = false;
+        }
+
+        State.SpriteButtonMap = State.SpriteButtonMap
+            .Where(pair => State.Sprites.TryGetValue(pair.Key, out var sprite) && sprite.IsButton)
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
+
+        _activeCompatUiSpriteIds.Clear();
+        _nextCompatUiSpriteId = Math.Max(50000, State.Sprites.Count == 0 ? 50000 : State.Sprites.Keys.Max() + 1);
+    }
 }
+
 
 
 

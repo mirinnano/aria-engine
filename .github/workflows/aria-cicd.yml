@@ -28,18 +28,29 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Validate key
+      - name: Check packaging key
+        id: pack-key
         shell: pwsh
         run: |
           if ([string]::IsNullOrWhiteSpace($env:ARIA_PACK_KEY)) {
-            throw "ARIA_PACK_KEY secret is required."
+            "has_key=false" >> $env:GITHUB_OUTPUT
+            Write-Host "ARIA_PACK_KEY is not set. CI will run build/smoke/publish and skip encrypted Pak packaging."
+          } else {
+            "has_key=true" >> $env:GITHUB_OUTPUT
+            Write-Host "ARIA_PACK_KEY is set. CI will generate encrypted Pak artifacts."
           }
 
       - name: Run CI pipeline script
         shell: pwsh
-        run: ./scripts/cicd.ps1 -Project src/AriaEngine/AriaEngine.csproj -OutDir artifacts/publish -InitScript init.aria -MainScript assets/scripts/main.aria
+        run: |
+          if ("${{ steps.pack-key.outputs.has_key }}" -eq "true") {
+            ./scripts/cicd.ps1 -Project src/AriaEngine/AriaEngine.csproj -OutDir artifacts/publish -InitScript init.aria -MainScript assets/scripts/main.aria
+          } else {
+            ./scripts/cicd.ps1 -Project src/AriaEngine/AriaEngine.csproj -OutDir artifacts/publish -InitScript init.aria -MainScript assets/scripts/main.aria -SkipPackage
+          }
 
       - name: Upload artifact
+        if: steps.pack-key.outputs.has_key == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: aria-win-x64
