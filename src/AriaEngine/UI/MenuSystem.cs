@@ -434,8 +434,8 @@ public class MenuSystem
 
     private void DrawPanel(SpriteRenderer renderer, Rectangle rect, string title)
     {
-        Raylib.DrawRectangleRec(rect, Black);
-        Raylib.DrawRectangleLinesEx(rect, 1, Line);
+        Raylib.DrawRectangleRounded(rect, 0.025f, 16, Black);
+        Raylib.DrawRectangleRoundedLinesEx(rect, 0.025f, 16, 1, Line);
         DrawText(renderer, title, (int)rect.X + 24, (int)rect.Y + 22, 20, White);
         Raylib.DrawLine((int)rect.X + 24, (int)rect.Y + 48, (int)(rect.X + rect.Width - 24), (int)rect.Y + 48, Line);
     }
@@ -450,8 +450,8 @@ public class MenuSystem
 
     private static void DrawRect(Rectangle rect, bool hover)
     {
-        Raylib.DrawRectangleRec(rect, hover ? White : Soft);
-        Raylib.DrawRectangleLinesEx(rect, 1, hover ? White : Line);
+        Raylib.DrawRectangleRounded(rect, 0.06f, 12, hover ? White : Soft);
+        Raylib.DrawRectangleRoundedLinesEx(rect, 0.06f, 12, 1, hover ? White : Line);
     }
 
     private void DrawFooter(SpriteRenderer renderer, Rectangle panel, string text)

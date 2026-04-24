@@ -49,6 +49,34 @@ try
     Assert(vm.State.Sprites.Count == 0, "csp -1 did not clear sprites");
     Assert(vm.State.SpriteButtonMap.Count == 0, "csp -1 did not clear button map");
 
+    var fontSizeScript = parser.Parse(new[]
+    {
+        "font_atlas_size 64"
+    }, "font-size.aria");
+    var fontSizeVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+    fontSizeVm.LoadScript(fontSizeScript.Instructions, fontSizeScript.Labels, "font-size.aria");
+    fontSizeVm.Step();
+    Assert(fontSizeVm.State.FontAtlasSize == 64, "font_atlas_size should preserve small UI font sizes");
+    Assert(SpriteRenderer.SelectFontAtlasSize(18) == 18, "Renderer should choose a native atlas size for small UI text");
+    Assert(SpriteRenderer.SelectFontAtlasSize(72) == 72, "Renderer should choose a native atlas size for title text");
+
+    var persistentScript = parser.Parse(new[]
+    {
+        "compat_mode on",
+        "textspeed 0",
+        "set_pflag auto_unlock, 1",
+        "自動既読保存@"
+    }, "persistent.aria");
+    var persistentVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+    persistentVm.LoadScript(persistentScript.Instructions, persistentScript.Labels, "persistent.aria");
+    persistentVm.Step();
+    persistentVm.Step();
+    persistentVm.Update(1000f);
+
+    var restoredPersistentVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+    Assert(restoredPersistentVm.State.Flags.TryGetValue("auto_unlock", out var autoUnlock) && autoUnlock, "pflag should auto-save without user slot save");
+    Assert(restoredPersistentVm.State.ReadKeys.Any(key => key.Contains("persistent.aria", StringComparison.OrdinalIgnoreCase)), "read history should auto-save without user slot save");
+
     vm.JumpTo("*missing_label");
     Assert(vm.State.State != VmState.Ended || reporter.Errors.Any(e => e.Code == "VM_LABEL_MISSING"), "Missing label was not reported safely");
 
@@ -59,6 +87,8 @@ try
         "compat_mode on",
         "textspeed 0",
         "textbox 0, 0, 640, 120",
+        "fontsize 28",
+        "textbox_style 18, 2, \"#ffffff\", 90, 24, 16, 1, 2, \"#000000\", 80",
         "ロード前@",
         "ロード後@"
     }, "save-load.aria");
@@ -74,6 +104,8 @@ try
     loadVm.LoadGame(1);
     Assert(loadVm.State.TextTargetSpriteId >= 0, "Load did not restore text target id");
     Assert(loadVm.State.TextboxBackgroundSpriteId >= 0, "Load did not restore textbox background id");
+    Assert(loadVm.State.Sprites[loadVm.State.TextboxBackgroundSpriteId].CornerRadius == 18, "Load did not normalize textbox background style");
+    Assert(loadVm.State.Sprites[loadVm.State.TextTargetSpriteId].X == 24, "Load did not normalize text target padding");
     loadVm.ResumeFromClick();
     loadVm.Step();
 

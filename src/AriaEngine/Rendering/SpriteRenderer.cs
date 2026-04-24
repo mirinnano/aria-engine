@@ -15,6 +15,10 @@ public class SpriteRenderer
     private ZIndexSpriteManager _spriteManager;
     private Font _font;
     private bool _fontLoaded = false;
+    private readonly Dictionary<int, Font> _fontCache = new();
+    private string _resolvedFontPath = "";
+    private int[] _fontCodepoints = Array.Empty<int>();
+    private TextureFilter _fontFilter = TextureFilter.Bilinear;
     private readonly object _renderLock = new();
     private readonly IAssetProvider _assetProvider;
     private readonly ErrorReporter? _reporter;
@@ -70,7 +74,10 @@ public class SpriteRenderer
         try
         {
             resolvedFontPath = _assetProvider.MaterializeToFile(fontPath);
-            _font = Raylib.LoadFontEx(resolvedFontPath, atlasSize, codepoints, codepoints.Length);
+            _resolvedFontPath = resolvedFontPath;
+            _fontCodepoints = codepoints;
+            _fontFilter = filter;
+            _font = LoadSizedFont(SelectFontAtlasSize(atlasSize));
         }
         catch (Exception ex)
         {
@@ -95,17 +102,50 @@ public class SpriteRenderer
             return;
         }
 
-        // フォントのミップマップは必要な場合のみ生成（trilinear系のみ）
-        if (filter == TextureFilter.Trilinear)
+        _fontLoaded = true;
+    }
+
+    public static int SelectFontAtlasSize(float requestedFontSize)
+    {
+        return Math.Clamp((int)MathF.Round(requestedFontSize), 8, 192);
+    }
+
+    private Font GetFontForSize(float requestedFontSize)
+    {
+        int size = SelectFontAtlasSize(requestedFontSize);
+        if (_fontCache.TryGetValue(size, out var cached)) return cached;
+
+        try
         {
-            var texture = _font.Texture;
+            return LoadSizedFont(size);
+        }
+        catch (Exception ex)
+        {
+            _reporter?.ReportException(
+                "RENDER_FONT_SIZE_LOAD",
+                ex,
+                $"フォントサイズ {size}px の生成に失敗しました。既定サイズで描画を続行します。",
+                AriaErrorLevel.Warning,
+                hint: "フォントファイルまたは文字数が大きすぎないか確認してください。");
+            return _font;
+        }
+    }
+
+    private Font LoadSizedFont(int size)
+    {
+        var font = Raylib.LoadFontEx(_resolvedFontPath, size, _fontCodepoints, _fontCodepoints.Length);
+        if (font.Texture.Id == 0) return font;
+
+        if (_fontFilter == TextureFilter.Trilinear)
+        {
+            var texture = font.Texture;
             Raylib.GenTextureMipmaps(ref texture);
-            _font.Texture = texture;
+            font.Texture = texture;
         }
 
-        Raylib.SetTextureFilter(_font.Texture, filter);
-
-        _fontLoaded = true;
+        Raylib.SetTextureFilter(font.Texture, _fontFilter);
+        _fontCache[size] = font;
+        return font;
     }
 
     public void Draw(GameState state, TransitionManager transition)
@@ -201,6 +241,7 @@ public class SpriteRenderer
             try
             {
                 tex = Raylib.LoadTexture(resolvedImagePath);
+                if (tex.Id != 0) Raylib.SetTextureFilter(tex, TextureFilter.Bilinear);
             }
             catch (Exception ex)
             {
@@ -334,10 +375,11 @@ public class SpriteRenderer
         TotalDrawCalls++;
 
         float scaledFontSize = sp.FontSize > 0 ? sp.FontSize * sp.ScaleX : 24 * sp.ScaleX;
+        var font = GetFontForSize(scaledFontSize);
         float spacing = scaledFontSize / 10f;
 
-        var drawText = WrapText(_font, sp.Text, sp.Width > 0 ? sp.Width : 1280, scaledFontSize, spacing);
-        var textSize = Raylib.MeasureTextEx(_font, drawText, scaledFontSize, spacing);
+        var drawText = WrapText(font, sp.Text, sp.Width > 0 ? sp.Width : 1280, scaledFontSize, spacing);
+        var textSize = Raylib.MeasureTextEx(font, drawText, scaledFontSize, spacing);
 
         int rWidth = sp.Width > 0 ? sp.Width : (int)textSize.X;
         int rHeight = sp.Height > 0 ? sp.Height : (int)textSize.Y;
@@ -378,7 +420,7 @@ public class SpriteRenderer
             Color tShadowColor = ParseColor(sp.TextShadowColor, baseColor.A);
             if (tShadowColor.A > 0)  // 完全に透明でない場合のみ描画
             {
-                Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + sp.TextShadowX, pos.Y + sp.TextShadowY), scaledFontSize, spacing, tShadowColor);
+                Raylib.DrawTextEx(font, drawText, new Vector2(pos.X + sp.TextShadowX, pos.Y + sp.TextShadowY), scaledFontSize, spacing, tShadowColor);
             }
         }
 
@@ -389,15 +431,15 @@ public class SpriteRenderer
             if (outColor.A > 0)  // 完全に透明でない場合のみ描画
             {
                 int t = sp.TextOutlineSize;
-                Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X - t, pos.Y - t), scaledFontSize, spacing, outColor);
-                Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + t, pos.Y - t), scaledFontSize, spacing, outColor);
-                Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X - t, pos.Y + t), scaledFontSize, spacing, outColor);
-                Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + t, pos.Y + t), scaledFontSize, spacing, outColor);
+                Raylib.DrawTextEx(font, drawText, new Vector2(pos.X - t, pos.Y - t), scaledFontSize, spacing, outColor);
+                Raylib.DrawTextEx(font, drawText, new Vector2(pos.X + t, pos.Y - t), scaledFontSize, spacing, outColor);
+                Raylib.DrawTextEx(font, drawText, new Vector2(pos.X - t, pos.Y + t), scaledFontSize, spacing, outColor);
+                Raylib.DrawTextEx(font, drawText, new Vector2(pos.X + t, pos.Y + t), scaledFontSize, spacing, outColor);
             }
         }
 
         // テキスト描画
-        Raylib.DrawTextEx(_font, drawText, pos, scaledFontSize, spacing, baseColor);
+        Raylib.DrawTextEx(font, drawText, pos, scaledFontSize, spacing, baseColor);
     }
 
     private string WrapText(Font font, string text, float maxWidth, float fontSize, float spacing)
@@ -473,7 +515,11 @@ public class SpriteRenderer
                 if (!_textureCache.TryGetValue(resolved, out var tex))
                 {
                     tex = Raylib.LoadTexture(resolved);
-                    if (tex.Id != 0) _textureCache.AddOrUpdate(resolved, tex, tex.Width * tex.Height * 4);
+                    if (tex.Id != 0)
+                    {
+                        Raylib.SetTextureFilter(tex, TextureFilter.Bilinear);
+                        _textureCache.AddOrUpdate(resolved, tex, tex.Width * tex.Height * 4);
+                    }
                 }
 
                 if (tex.Id != 0)
@@ -512,7 +558,8 @@ public class SpriteRenderer
     {
         if (_fontLoaded)
         {
-            Raylib.DrawTextEx(_font, text, new Vector2(x, y), size, Math.Max(1, size / 10f), color);
+            var font = GetFontForSize(size);
+            Raylib.DrawTextEx(font, text, new Vector2(x, y), size, Math.Max(1, size / 10f), color);
         }
         else
         {
@@ -553,10 +600,12 @@ public class SpriteRenderer
             _colorCache.Clear();
             _failedTextures.Clear();
 
-            if (_fontLoaded) {
-                Raylib.UnloadFont(_font);
-                _fontLoaded = false;
+            foreach (var font in _fontCache.Values)
+            {
+                Raylib.UnloadFont(font);
             }
+            _fontCache.Clear();
+            _fontLoaded = false;
 
             // 統計をリセット
             TotalDrawCalls = 0;
