@@ -1,0 +1,47 @@
+name: Aria CI/CD
+
+on:
+  push:
+    branches: [ "master" ]
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-package:
+    runs-on: windows-latest
+    env:
+      DOTNET_NOLOGO: true
+      ARIA_PACK_KEY: ${{ secrets.ARIA_PACK_KEY }}
+      ProgramData: C:\ProgramData
+      ALLUSERSPROFILE: C:\ProgramData
+      ProgramFiles: C:\Program Files
+      ProgramFiles(x86): C:\Program Files (x86)
+      CommonProgramFiles: C:\Program Files\Common Files
+      CommonProgramFiles(x86): C:\Program Files (x86)\Common Files
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Validate key
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:ARIA_PACK_KEY)) {
+            throw "ARIA_PACK_KEY secret is required."
+          }
+
+      - name: Run CI pipeline script
+        shell: pwsh
+        run: ./scripts/cicd.ps1 -Project src/AriaEngine/AriaEngine.csproj -OutDir artifacts/publish -InitScript init.aria -MainScript assets/scripts/main.aria
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aria-win-x64
+          path: artifacts/publish
+          if-no-files-found: error

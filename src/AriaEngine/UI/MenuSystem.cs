@@ -1,391 +1,474 @@
 using Raylib_cs;
 using AriaEngine.Core;
-using System.Collections.Generic;
-using System.Numerics;
+using AriaEngine.Rendering;
 
 namespace AriaEngine.UI;
 
-/// <summary>
-/// メニューシステム
-/// 右クリックメニュー、設定画面、セーブ/ロードUIを管理します。
-/// </summary>
 public class MenuSystem
 {
     private enum MenuState
     {
         Closed,
         Main,
-        SaveLoad,
-        Settings,
-        Options
+        Save,
+        Load,
+        Backlog,
+        Settings
     }
 
-    private MenuState _currentState = MenuState.Closed;
-    private readonly VirtualMachine _vm;
-    private int _selectedSlot = 0;
     private const int SaveSlotCount = 10;
+    private readonly VirtualMachine _vm;
+    private MenuState _currentState = MenuState.Closed;
+    private double _openedAt;
+    private int _backlogScroll;
 
-    // メニュー項目
-    private readonly List<MenuItem> _mainMenuItems = new();
-    private readonly List<MenuItem> _settingsItems = new();
+    private static readonly Color Black = new(0, 0, 0, 238);
+    private static readonly Color White = new(245, 245, 245, 255);
+    private static readonly Color Gray = new(150, 150, 150, 255);
+    private static readonly Color Line = new(245, 245, 245, 90);
+    private static readonly Color Soft = new(245, 245, 245, 28);
 
     public bool IsOpen => _currentState != MenuState.Closed;
 
     public MenuSystem(VirtualMachine vm)
     {
         _vm = vm;
-
-        InitializeMainMenu();
-        InitializeSettings();
     }
 
-    private void InitializeMainMenu()
-    {
-        _mainMenuItems.Clear();
-        _mainMenuItems.Add(new MenuItem("Return", () => CloseMenu()));
-        _mainMenuItems.Add(new MenuItem("Save", () => OpenSaveLoadMenu(true)));
-        _mainMenuItems.Add(new MenuItem("Load", () => OpenSaveLoadMenu(false)));
-        _mainMenuItems.Add(new MenuItem("Settings", () => OpenSettingsMenu()));
-        _mainMenuItems.Add(new MenuItem("Title", () => _vm.CallSub("title")));
-        _mainMenuItems.Add(new MenuItem("Quit", () => _vm.QuitGame()));
-    }
+    public void OpenMainMenu() => Open(MenuState.Main);
+    public void OpenSaveLoadMenu(bool isSave) => Open(isSave ? MenuState.Save : MenuState.Load);
+    public void OpenBacklog() { _backlogScroll = 0; Open(MenuState.Backlog); }
+    public void CloseMenu() => _currentState = MenuState.Closed;
 
-    private void InitializeSettings()
+    private void Open(MenuState state)
     {
-        _settingsItems.Clear();
-        _settingsItems.Add(new MenuItem($"Text Speed: {_vm.State.TextSpeedMs}ms", ToggleTextSpeed));
-        _settingsItems.Add(new MenuItem($"Auto Mode: {(_vm.State.AutoMode ? "On" : "Off")}", ToggleAutoMode));
-        _settingsItems.Add(new MenuItem($"Skip Unread: {(_vm.State.SkipUnread ? "On" : "Off")}", ToggleSkipUnread));
-        _settingsItems.Add(new MenuItem("Return", () => OpenMainMenu()));
+        _currentState = state;
+        _openedAt = Raylib.GetTime();
     }
 
     public void Update()
     {
         if (Raylib.IsMouseButtonPressed(MouseButton.Right))
         {
-            if (IsOpen)
-            {
-                CloseMenu();
-            }
-            else if (_vm.State.State == VmState.WaitingForClick ||
-                     _vm.State.State == VmState.WaitingForAnimation)
-            {
-                OpenMainMenu();
-            }
+            if (IsOpen) CloseMenu();
+            else if (CanOpenRightMenu()) OpenMainMenu();
             return;
         }
 
+        UpdateSystemButtons();
         if (!IsOpen) return;
 
         if (Raylib.IsKeyPressed(KeyboardKey.Escape))
         {
-            if (_currentState == MenuState.SaveLoad)
-            {
-                OpenMainMenu();
-            }
-            else
-            {
-                CloseMenu();
-            }
+            if (_currentState == MenuState.Main) CloseMenu();
+            else OpenMainMenu();
             return;
         }
 
+        if (_currentState == MenuState.Backlog)
+        {
+            int wheel = (int)Raylib.GetMouseWheelMove();
+            if (wheel != 0)
+            {
+                int max = Math.Max(0, _vm.State.TextHistory.Count - 10);
+                _backlogScroll = Math.Clamp(_backlogScroll - wheel, 0, max);
+            }
+        }
+
+        if (!Raylib.IsMouseButtonPressed(MouseButton.Left)) return;
+
         switch (_currentState)
         {
             case MenuState.Main:
-                UpdateMainMenu();
+                UpdateMainMenuClick();
                 break;
-            case MenuState.SaveLoad:
-                UpdateSaveLoadMenu();
+            case MenuState.Save:
+            case MenuState.Load:
+                UpdateSaveLoadClick();
                 break;
             case MenuState.Settings:
-                UpdateSettingsMenu();
+                UpdateSettingsClick();
                 break;
         }
     }
 
-    private void UpdateMainMenu()
+    public void Draw(SpriteRenderer renderer)
     {
-        // キーボード操作は一旦省略（基本マウス操作とする）
-        if (Raylib.IsMouseButtonPressed(MouseButton.Left))
-        {
-            var mousePos = Raylib.GetMousePosition();
-            for (int i = 0; i < 5; i++)
-            {
-                int btnId = 10001 + i * 2;
-                if (_vm.State.Sprites.TryGetValue(btnId, out var btn) && btn.IsHovered)
-                {
-                    ExecuteMenuAction(i);
-                    break;
-                }
-            }
-        }
-    }
-
-    private void ExecuteMenuAction(int index)
-    {
-        switch (index)
-        {
-            case 0: // Save
-                _vm.SaveGame(0);
-                CloseMenu();
-                break;
-            case 1: // Load
-                _vm.LoadGame(0);
-                CloseMenu();
-                break;
-            case 2: // Settings
-                break;
-            case 3: // Title
-                CloseMenu();
-                _vm.JumpTo("*title_start");
-                break;
-            case 4: // Close
-                CloseMenu();
-                break;
-        }
-    }
-
-    private void UpdateSaveLoadMenu()
-    {
-        if (Raylib.IsKeyPressed(KeyboardKey.Left))
-        {
-            _selectedSlot = (_selectedSlot - 1 + SaveSlotCount) % SaveSlotCount;
-        }
-        if (Raylib.IsKeyPressed(KeyboardKey.Right))
-        {
-            _selectedSlot = (_selectedSlot + 1) % SaveSlotCount;
-        }
-        if (Raylib.IsKeyPressed(KeyboardKey.Enter))
-        {
-            if (_vm.State.SaveMode)
-            {
-                _vm.SaveGame(_selectedSlot);
-            }
-            else
-            {
-                _vm.LoadGame(_selectedSlot);
-            }
-        }
-    }
-
-    private void UpdateSettingsMenu()
-    {
-        InitializeSettings(); // 設定値を更新
-    }
-
-    public void Draw()
-    {
+        DrawSystemButtons(renderer);
         if (!IsOpen) return;
 
+        Raylib.DrawRectangle(0, 0, Raylib.GetScreenWidth(), Raylib.GetScreenHeight(), new Color(0, 0, 0, 132));
+
         switch (_currentState)
         {
             case MenuState.Main:
-                DrawMainMenu();
+                DrawMainMenu(renderer);
                 break;
-            case MenuState.SaveLoad:
-                DrawSaveLoadMenu();
+            case MenuState.Save:
+            case MenuState.Load:
+                DrawSaveLoadMenu(renderer, _currentState == MenuState.Save);
+                break;
+            case MenuState.Backlog:
+                DrawBacklog(renderer);
                 break;
             case MenuState.Settings:
-                DrawSettingsMenu();
+                DrawSettings(renderer);
                 break;
         }
     }
 
-    private void DrawMainMenu()
+    private void UpdateMainMenuClick()
     {
-        int screenWidth = Raylib.GetScreenWidth();
-        int screenHeight = Raylib.GetScreenHeight();
-
-        // 背景を描画（半透明黒）
-        Raylib.DrawRectangle(0, 0, screenWidth, screenHeight, new Color(0, 0, 0, 180));
-
-        // メニューボックス
-        int boxWidth = 300;
-        int boxHeight = _mainMenuItems.Count * 50 + 40;
-        int boxX = (screenWidth - boxWidth) / 2;
-        int boxY = (screenHeight - boxHeight) / 2;
-
-        Raylib.DrawRectangle(boxX, boxY, boxWidth, boxHeight, new Color(40, 40, 60, 230));
-        Raylib.DrawRectangleLines(boxX, boxY, boxWidth, boxHeight, new Color(200, 200, 255, 255));
-
-        // メニュータイトル
-        var title = "Menu";
-        int titleWidth = Raylib.MeasureText(title, 24);
-        Raylib.DrawText(title, (screenWidth - titleWidth) / 2, boxY - 30, 24, Color.White);
-
-        // メニュー項目を描画
-        int startY = boxY + 30;
-        for (int i = 0; i < _mainMenuItems.Count; i++)
+        var mouse = Raylib.GetMousePosition();
+        var rows = GetMainMenuRows();
+        var entries = GetVisibleMainEntries();
+        for (int i = 0; i < rows.Count; i++)
         {
-            var item = _mainMenuItems[i];
-            int itemY = startY + i * 50;
-            var itemColor = Color.White;
-
-            // マウスホバー効果
-            var mousePos = Raylib.GetMousePosition();
-            if (mousePos.X >= boxX && mousePos.X <= boxX + boxWidth &&
-                mousePos.Y >= itemY && mousePos.Y <= itemY + 40)
+            if (Raylib.CheckCollisionPointRec(mouse, rows[i]))
             {
-                itemColor = new Color(255, 200, 100, 255);
-                Raylib.DrawRectangle(boxX + 10, itemY, boxWidth - 20, 40, new Color(255, 255, 255, 30));
+                ExecuteAction(entries[i].Action);
+                return;
             }
-
-            Raylib.DrawText(item.Label, boxX + 20, itemY + 10, 20, itemColor);
         }
     }
 
-    private void DrawSaveLoadMenu()
+    private void UpdateSaveLoadClick()
     {
-        int screenWidth = Raylib.GetScreenWidth();
-        int screenHeight = Raylib.GetScreenHeight();
-
-        // 背景を描画
-        Raylib.DrawRectangle(0, 0, screenWidth, screenHeight, new Color(0, 0, 0, 180));
-
-        // セーブ/ロードボックス
-        int boxWidth = 600;
-        int boxHeight = 400;
-        int boxX = (screenWidth - boxWidth) / 2;
-        int boxY = (screenHeight - boxHeight) / 2;
-
-        Raylib.DrawRectangle(boxX, boxY, boxWidth, boxHeight, new Color(40, 40, 60, 230));
-        Raylib.DrawRectangleLines(boxX, boxY, boxWidth, boxHeight, new Color(200, 200, 255, 255));
-
-        // タイトル
-        var title = _vm.State.SaveMode ? "Save Game" : "Load Game";
-        int titleWidth = Raylib.MeasureText(title, 24);
-        Raylib.DrawText(title, (screenWidth - titleWidth) / 2, boxY - 30, 24, Color.White);
-
-        // セーブスロットを描画
-        int slotWidth = (boxWidth - 80) / SaveSlotCount;
+        var mouse = Raylib.GetMousePosition();
         for (int i = 0; i < SaveSlotCount; i++)
         {
-            int slotX = boxX + 40 + i * slotWidth;
-            int slotY = boxY + 50;
-
-            // スロット背景
-            var slotColor = (i == _selectedSlot) ?
-                new Color(255, 200, 100, 230) :
-                new Color(80, 80, 100, 180);
-
-            Raylib.DrawRectangle(slotX, slotY, slotWidth - 10, 300, slotColor);
-
-            // スロット番号
-            Raylib.DrawText($"Slot {i + 1}", slotX + 10, slotY + 10, 18, Color.White);
-
-            // セーブ情報（簡易版）
-            var saveInfo = _vm.State.SaveMode ? "Empty" : $"Save {i + 1}";
-            Raylib.DrawText(saveInfo, slotX + 10, slotY + 40, 14, new Color(200, 200, 200, 255));
-
-            // 選択インジケーター
-            if (i == _selectedSlot)
-            {
-                Raylib.DrawRectangleLines(slotX, slotY, slotWidth - 10, 300, Color.White);
-            }
+            if (!Raylib.CheckCollisionPointRec(mouse, GetSaveSlotRect(i))) continue;
+            if (_currentState == MenuState.Save) _vm.SaveGame(i);
+            else _vm.LoadGame(i);
+            CloseMenu();
+            return;
         }
-
-        // 操作説明
-        Raylib.DrawText("← → : Select Slot   ENTER : Confirm   ESC : Back",
-            boxX + 40, boxY + 370, 16, new Color(180, 180, 180, 255));
     }
 
-    private void DrawSettingsMenu()
+    private void UpdateSettingsClick()
     {
-        int screenWidth = Raylib.GetScreenWidth();
-        int screenHeight = Raylib.GetScreenHeight();
-
-        // 背景を描画
-        Raylib.DrawRectangle(0, 0, screenWidth, screenHeight, new Color(0, 0, 0, 180));
-
-        // 設定ボックス
-        int boxWidth = 400;
-        int boxHeight = _settingsItems.Count * 60 + 60;
-        int boxX = (screenWidth - boxWidth) / 2;
-        int boxY = (screenHeight - boxHeight) / 2;
-
-        Raylib.DrawRectangle(boxX, boxY, boxWidth, boxHeight, new Color(40, 40, 60, 230));
-        Raylib.DrawRectangleLines(boxX, boxY, boxWidth, boxHeight, new Color(200, 200, 255, 255));
-
-        // タイトル
-        var title = "Settings";
-        int titleWidth = Raylib.MeasureText(title, 24);
-        Raylib.DrawText(title, (screenWidth - titleWidth) / 2, boxY - 30, 24, Color.White);
-
-        // 設定項目を描画
-        int startY = boxY + 30;
-        for (int i = 0; i < _settingsItems.Count; i++)
+        var mouse = Raylib.GetMousePosition();
+        var rows = GetSettingsRows();
+        for (int i = 0; i < rows.Count; i++)
         {
-            var item = _settingsItems[i];
-            int itemY = startY + i * 60;
-            var itemColor = Color.White;
-
-            // マウスホバー効果
-            var mousePos = Raylib.GetMousePosition();
-            if (mousePos.X >= boxX && mousePos.X <= boxX + boxWidth &&
-                mousePos.Y >= itemY && mousePos.Y <= itemY + 50)
+            if (!Raylib.CheckCollisionPointRec(mouse, rows[i])) continue;
+            switch (i)
             {
-                itemColor = new Color(255, 200, 100, 255);
-                Raylib.DrawRectangle(boxX + 10, itemY, boxWidth - 20, 50, new Color(255, 255, 255, 30));
+                case 0:
+                    CycleTextSpeed();
+                    break;
+                case 1:
+                    _vm.State.SkipUnread = !_vm.State.SkipUnread;
+                    break;
+                case 2:
+                    _vm.State.BacklogEnabled = !_vm.State.BacklogEnabled;
+                    break;
+                case 3:
+                    _vm.State.ShowClickCursor = !_vm.State.ShowClickCursor;
+                    break;
             }
-
-            Raylib.DrawText(item.Label, boxX + 20, itemY + 15, 20, itemColor);
+            _vm.SavePersistentState();
+            return;
         }
     }
 
-    private void OpenMainMenu()
+    private void UpdateSystemButtons()
     {
-        _currentState = MenuState.Main;
+        if (!Raylib.IsMouseButtonPressed(MouseButton.Left)) return;
+
+        var mouse = Raylib.GetMousePosition();
+        foreach (var (action, rect) in GetSystemButtonRects())
+        {
+            if (Raylib.CheckCollisionPointRec(mouse, rect))
+            {
+                ExecuteAction(action);
+                return;
+            }
+        }
     }
 
-    private void OpenSaveLoadMenu(bool isSave)
+    private void ExecuteAction(string action)
     {
-        _vm.State.SaveMode = isSave;
-        _currentState = MenuState.SaveLoad;
-        _selectedSlot = 0;
+        switch (action.TrimStart('*').ToLowerInvariant())
+        {
+            case "save":
+                OpenSaveLoadMenu(true);
+                break;
+            case "load":
+                OpenSaveLoadMenu(false);
+                break;
+            case "lookback":
+            case "backlog":
+                OpenBacklog();
+                break;
+            case "config":
+            case "settings":
+            case "setting":
+                Open(MenuState.Settings);
+                break;
+            case "skip":
+                _vm.ToggleSkip();
+                _vm.SavePersistentState();
+                CloseMenu();
+                break;
+            case "reset":
+                CloseMenu();
+                _vm.ResetGame();
+                break;
+            case "end":
+            case "quit":
+            case "close":
+                _vm.QuitGame();
+                break;
+            default:
+                CloseMenu();
+                if (!string.IsNullOrWhiteSpace(action)) _vm.JumpTo("*" + action.TrimStart('*'));
+                break;
+        }
     }
 
-    private void OpenSettingsMenu()
+    private bool CanOpenRightMenu()
     {
-        _currentState = MenuState.Settings;
+        if (string.IsNullOrWhiteSpace(_vm.State.CurrentTextBuffer)) return false;
+        return _vm.State.State is VmState.WaitingForClick or VmState.WaitingForAnimation or VmState.WaitingForButton;
     }
 
-    private void CloseMenu()
+    private void DrawMainMenu(SpriteRenderer renderer)
     {
-        _currentState = MenuState.Closed;
+        var entries = GetVisibleMainEntries();
+        int w = 360;
+        int h = 78 + entries.Count * 42;
+        var panel = CenterPanel(w, h);
+        DrawPanel(renderer, panel, "MENU");
+
+        var mouse = Raylib.GetMousePosition();
+        var rows = GetMainMenuRows();
+        for (int i = 0; i < rows.Count; i++)
+        {
+            DrawTextRow(renderer, rows[i], entries[i].Label, entries[i].Action.ToUpperInvariant(), Raylib.CheckCollisionPointRec(mouse, rows[i]));
+        }
+        DrawFooter(renderer, panel, "RIGHT CLICK / ESC  CLOSE");
     }
 
-    // 設定トグルメソッド
-    private void ToggleTextSpeed()
+    private void DrawSaveLoadMenu(SpriteRenderer renderer, bool isSave)
     {
-        int[] speeds = { 0, 10, 20, 30, 50, 80, 120 };
-        int currentIndex = Array.IndexOf(speeds, _vm.State.TextSpeedMs);
-        currentIndex = (currentIndex + 1) % speeds.Length;
-        _vm.State.TextSpeedMs = speeds[currentIndex];
+        var panel = CenterPanel(Math.Min(760, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+        DrawPanel(renderer, panel, isSave ? "SAVE" : "LOAD");
+
+        var mouse = Raylib.GetMousePosition();
+        for (int i = 0; i < SaveSlotCount; i++)
+        {
+            DrawSaveSlot(renderer, i, GetSaveSlotRect(i), Raylib.CheckCollisionPointRec(mouse, GetSaveSlotRect(i)), isSave);
+        }
+        DrawFooter(renderer, panel, "CLICK SLOT / ESC  BACK");
     }
 
-    private void ToggleAutoMode()
+    private void DrawBacklog(SpriteRenderer renderer)
     {
-        _vm.State.AutoMode = !_vm.State.AutoMode;
+        var panel = CenterPanel(Math.Min(860, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+        DrawPanel(renderer, panel, "BACKLOG");
+
+        int visible = Math.Max(1, ((int)panel.Height - 116) / 34);
+        int maxStart = Math.Max(0, _vm.State.TextHistory.Count - visible);
+        int start = Math.Clamp(maxStart - _backlogScroll, 0, maxStart);
+        int y = (int)panel.Y + 70;
+
+        if (_vm.State.TextHistory.Count == 0)
+        {
+            DrawCenteredText(renderer, "NO LOG", (int)panel.X, (int)panel.Y + (int)panel.Height / 2 - 10, (int)panel.Width, 20, Gray);
+        }
+        else
+        {
+            for (int i = start; i < Math.Min(_vm.State.TextHistory.Count, start + visible); i++)
+            {
+                string line = _vm.State.TextHistory[i].Replace("\r", " ").Replace("\n", " / ");
+                int maxChars = Math.Max(20, ((int)panel.Width - 96) / 12);
+                if (line.Length > maxChars) line = line[..maxChars] + "...";
+                DrawText(renderer, (i + 1).ToString("000"), (int)panel.X + 28, y, 14, Gray);
+                DrawText(renderer, line, (int)panel.X + 84, y - 2, 18, White);
+                y += 34;
+            }
+        }
+
+        DrawFooter(renderer, panel, "MOUSE WHEEL  SCROLL / ESC  BACK");
     }
 
-    private void ToggleSkipUnread()
+    private void DrawSettings(SpriteRenderer renderer)
     {
-        _vm.State.SkipUnread = !_vm.State.SkipUnread;
+        var panel = CenterPanel(520, 306);
+        DrawPanel(renderer, panel, "SETTINGS");
+
+        var rows = GetSettingsRows();
+        var mouse = Raylib.GetMousePosition();
+        DrawTextRow(renderer, rows[0], "TEXT SPEED", $"{_vm.State.TextSpeedMs} MS", Raylib.CheckCollisionPointRec(mouse, rows[0]));
+        DrawTextRow(renderer, rows[1], "SKIP UNREAD", _vm.State.SkipUnread ? "ON" : "OFF", Raylib.CheckCollisionPointRec(mouse, rows[1]));
+        DrawTextRow(renderer, rows[2], "BACKLOG", _vm.State.BacklogEnabled ? "ON" : "OFF", Raylib.CheckCollisionPointRec(mouse, rows[2]));
+        DrawTextRow(renderer, rows[3], "CLICK CURSOR", _vm.State.ShowClickCursor ? "ON" : "OFF", Raylib.CheckCollisionPointRec(mouse, rows[3]));
+        DrawFooter(renderer, panel, "CLICK TO CHANGE / ESC  BACK");
+    }
+
+    private void DrawSaveSlot(SpriteRenderer renderer, int index, Rectangle rect, bool hover, bool isSave)
+    {
+        bool hasSave = _vm.Saves.HasSaveData(index);
+        var saveData = _vm.Saves.GetSaveData(index);
+        DrawRect(rect, hover);
+
+        DrawText(renderer, $"SLOT {(index + 1):00}", (int)rect.X + 18, (int)rect.Y + 14, 18, White);
+        string status = hasSave ? "SAVED" : isSave ? "EMPTY" : "NO DATA";
+        int sw = Raylib.MeasureText(status, 14);
+        DrawText(renderer, status, (int)(rect.X + rect.Width - sw - 18), (int)rect.Y + 18, 14, hasSave ? White : Gray);
+
+        string preview = hasSave && saveData != null && !string.IsNullOrWhiteSpace(saveData.PreviewText)
+            ? saveData.PreviewText
+            : "----";
+        if (preview.Length > 36) preview = preview[..36] + "...";
+        DrawText(renderer, preview, (int)rect.X + 18, (int)rect.Y + 44, 16, Gray);
+
+        if (hasSave && saveData != null)
+        {
+            DrawText(renderer, saveData.SaveTime.ToString("yyyy/MM/dd HH:mm"), (int)rect.X + 18, (int)rect.Y + 70, 14, Gray);
+        }
+    }
+
+    private List<RightMenuEntry> GetVisibleMainEntries()
+    {
+        var entries = _vm.State.RightMenuEntries
+            .Select(e => new RightMenuEntry { Label = e.Label, Action = e.Action })
+            .ToList();
+        if (!entries.Any(e => e.Action.Equals("settings", StringComparison.OrdinalIgnoreCase) ||
+                              e.Action.Equals("config", StringComparison.OrdinalIgnoreCase)))
+        {
+            entries.Add(new RightMenuEntry { Label = "SETTINGS", Action = "settings" });
+        }
+        return entries;
+    }
+
+    private List<Rectangle> GetMainMenuRows()
+    {
+        var entries = GetVisibleMainEntries();
+        int w = 360;
+        int h = 78 + entries.Count * 42;
+        var panel = CenterPanel(w, h);
+        var rows = new List<Rectangle>();
+        for (int i = 0; i < entries.Count; i++)
+        {
+            rows.Add(new Rectangle(panel.X + 24, panel.Y + 54 + i * 42, panel.Width - 48, 34));
+        }
+        return rows;
+    }
+
+    private List<Rectangle> GetSettingsRows()
+    {
+        var panel = CenterPanel(520, 306);
+        var rows = new List<Rectangle>();
+        for (int i = 0; i < 4; i++)
+        {
+            rows.Add(new Rectangle(panel.X + 28, panel.Y + 62 + i * 42, panel.Width - 56, 34));
+        }
+        return rows;
+    }
+
+    private Rectangle GetSaveSlotRect(int index)
+    {
+        var panel = CenterPanel(Math.Min(760, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+        int col = index % 2;
+        int row = index / 2;
+        float slotW = (panel.Width - 72) / 2f;
+        float slotH = 92;
+        return new Rectangle(panel.X + 24 + col * (slotW + 24), panel.Y + 60 + row * (slotH + 8), slotW, slotH);
+    }
+
+    private List<(string Action, Rectangle Rect)> GetSystemButtonRects()
+    {
+        var result = new List<(string, Rectangle)>();
+        int x = Raylib.GetScreenWidth() - 38;
+        int y = 10;
+        Add("end", _vm.State.ShowSystemCloseButton);
+        Add("reset", _vm.State.ShowSystemResetButton);
+        Add("skip", _vm.State.ShowSystemSkipButton);
+        Add("save", _vm.State.ShowSystemSaveButton);
+        Add("load", _vm.State.ShowSystemLoadButton);
+        return result;
+
+        void Add(string action, bool visible)
+        {
+            if (!visible) return;
+            result.Add((action, new Rectangle(x, y, 28, 24)));
+            x -= 34;
+        }
+    }
+
+    private void DrawSystemButtons(SpriteRenderer renderer)
+    {
+        foreach (var (action, rect) in GetSystemButtonRects())
+        {
+            bool hover = Raylib.CheckCollisionPointRec(Raylib.GetMousePosition(), rect);
+            DrawRect(rect, hover);
+            string label = action switch
+            {
+                "end" => "X",
+                "reset" => "R",
+                "skip" => _vm.State.SkipMode ? "S*" : "S",
+                "save" => "V",
+                "load" => "L",
+                _ => "?"
+            };
+            DrawCenteredText(renderer, label, (int)rect.X, (int)rect.Y + 5, (int)rect.Width, 14, hover ? Black : White);
+        }
+    }
+
+    private void CycleTextSpeed()
+    {
+        int[] speeds = { 0, 15, 30, 50, 80 };
+        int index = Array.IndexOf(speeds, _vm.State.TextSpeedMs);
+        _vm.State.TextSpeedMs = speeds[(index + 1 + speeds.Length) % speeds.Length];
+    }
+
+    private Rectangle CenterPanel(int width, int height)
+    {
+        float t = Math.Clamp((float)((Raylib.GetTime() - _openedAt) / 0.16), 0f, 1f);
+        t = 1f - MathF.Pow(1f - t, 3f);
+        int yOffset = (int)((1f - t) * 10f);
+        return new Rectangle((Raylib.GetScreenWidth() - width) / 2, (Raylib.GetScreenHeight() - height) / 2 + yOffset, width, height);
+    }
+
+    private void DrawPanel(SpriteRenderer renderer, Rectangle rect, string title)
+    {
+        Raylib.DrawRectangleRec(rect, Black);
+        Raylib.DrawRectangleLinesEx(rect, 1, Line);
+        DrawText(renderer, title, (int)rect.X + 24, (int)rect.Y + 22, 20, White);
+        Raylib.DrawLine((int)rect.X + 24, (int)rect.Y + 48, (int)(rect.X + rect.Width - 24), (int)rect.Y + 48, Line);
+    }
+
+    private void DrawTextRow(SpriteRenderer renderer, Rectangle rect, string left, string right, bool hover)
+    {
+        DrawRect(rect, hover);
+        DrawText(renderer, left, (int)rect.X + 14, (int)rect.Y + 8, 17, hover ? Black : White);
+        int rw = Raylib.MeasureText(right, 13);
+        DrawText(renderer, right, (int)(rect.X + rect.Width - rw - 14), (int)rect.Y + 11, 13, hover ? Black : Gray);
+    }
+
+    private static void DrawRect(Rectangle rect, bool hover)
+    {
+        Raylib.DrawRectangleRec(rect, hover ? White : Soft);
+        Raylib.DrawRectangleLinesEx(rect, 1, hover ? White : Line);
+    }
+
+    private void DrawFooter(SpriteRenderer renderer, Rectangle panel, string text)
+    {
+        DrawText(renderer, text, (int)panel.X + 24, (int)(panel.Y + panel.Height - 28), 12, Gray);
+    }
+
+    private void DrawCenteredText(SpriteRenderer renderer, string text, int x, int y, int width, int size, Color color)
+    {
+        int tw = Raylib.MeasureText(text, size);
+        DrawText(renderer, text, x + (width - tw) / 2, y, size, color);
+    }
+
+    private static void DrawText(SpriteRenderer renderer, string text, int x, int y, int size, Color color)
+    {
+        renderer.DrawUiText(text, x, y, size, color);
     }
 }
 
-/// <summary>
-/// メニュー項目
-/// </summary>
-public class MenuItem
-{
-    public string Label { get; set; } = string.Empty;
-    public Action Action { get; set; } = () => { };
 
-    public MenuItem(string label, Action action)
-    {
-        Label = label;
-        Action = action;
-    }
-}

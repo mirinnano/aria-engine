@@ -1,141 +1,200 @@
-defsub talk
-	rmenu *system_menu
-	defaultspeed 30
-	textmode "adv"
+; ARIA standard 1280x720 sample / NScripter-style flow
+; register policy: %0-%99 volatile, %100-%199/%300-%499 persistent, %500+ save-slot
+; prefer explicit flags: set_pflag / set_sflag / set_vflag
+compat_mode on
+ui_theme "mono"
+caption "海風 - The Records of Autumn -"
+defaultspeed 24
+textspeed 24
+backlog on
+kidokumode 1
+skipmode read
+clickcursor "doncur.bmp", 2, 2
+system_button close, on
+rmenu "セーブ",save,"ロード",load,"回想",backlog,"スキップ",skip,"設定",settings,"リセット",reset,"終了",end
 
-; チャプターデータの定義（スクリプト主導）
-*init_chapters
-	defchapter
-		chapter_id 1
-		chapter_title "第一章 はじまり"
-		chapter_desc "物語の始まり。新しい世界への第一歩。"
-		chapter_script "assets/scripts/main.aria"
-	endchapter
+defsub adv
+defsub nvl
+defsub cls
+defsub unlock_all
 
-	defchapter
-		chapter_id 2
-		chapter_title "第二章 展開"
-		chapter_desc "物語が大きく動き出す。運命の分岐点。"
-		chapter_script "assets/scripts/chapter2.aria"
-		; 初期状態ではロック
-		set_flag "chapter2_unlocked", 0
-	endchapter
+goto *start
 
-	defchapter
-		chapter_id 3
-		chapter_title "第三章 決断"
-		chapter_desc "選択の時間が迫る。真実が明らかになる。"
-		chapter_script "assets/scripts/chapter3.aria"
-		set_flag "chapter3_unlocked", 0
-	endchapter
+*cls
+textclear
+csp -1
+return
 
-	return
+*adv
+textclear
+textmode "adv"
+textbox 72, 500, 1136, 152
+fontsize 28
+textcolor "#ffffff"
+textbox_color "#000000", 210
+textbox_style 0, 1, "#ffffff", 90, 28, 22, 0, 0, "#000000", 0
+return
 
-*title_start
-	; チャプターデータの初期化
-	gosub *init_chapters
+*nvl
+textclear
+textmode "adv"
+textbox 160, 118, 960, 468
+fontsize 30
+textcolor "#ffffff"
+textbox_color "#000000", 230
+textbox_style 0, 1, "#ffffff", 90, 34, 30, 0, 0, "#000000", 0
+return
 
-	bg "#1a1a2e", 2
-	textclear
+*start
+cls
+erasetextwindow 0
+bg "#000000", 1
+get_pflag chapter_prologue %10
+get_pflag chapter_day1 %11
+get_pflag chapter_day2 %12
 
-	; タイトルテキスト（基本プリミティブのみ）
-	lsp_text 100, "ARIA Engine", 640, 200
-	sp_fontsize 100, 64
-	sp_text_align 100, "center"
-	sp_color 100, "#ffffff"
-	sp_text_shadow 100, 3, 3, "#000000"
+lsp_text 1, "海風", 640, 150
+sp_fontsize 1, 72
+sp_text_align 1, "center"
+sp_color 1, "#ffffff"
 
-	; 「はじめから」ボタン（基本プリミティブで構築）
-	lsp_rect 10, 440, 300, 400, 60
-	sp_fill 10, "#2a2a3e", 255
-	sp_round 10, 10
-	sp_border 10, "#4a4a6e", 2
-	sp_shadow 10, 4, 4, "#000000", 200
-	sp_hover_color 10, "#3a3a5e"
-	sp_hover_scale 10, 1.05
+lsp_text 2, "THE RECORDS OF AUTUMN", 640, 232
+sp_fontsize 2, 18
+sp_text_align 2, "center"
+sp_color 2, "#bfbfbf"
 
-	lsp_text 11, "はじめから", 640, 315
-	sp_fontsize 11, 24
-	sp_text_align 11, "center"
-	sp_color 11, "#ffffff"
+lsp_text 10, "START", 640, 342
+sp_fontsize 10, 26
+sp_text_align 10, "center"
+sp_color 10, "#ffffff"
 
-	; ボタンとして登録
-	spbtn 10, 1
+lsp_text 11, "LOAD", 640, 392
+sp_fontsize 11, 22
+sp_text_align 11, "center"
+sp_color 11, "#ffffff"
+
+lsp_text 12, "CHAPTER", 640, 442
+sp_fontsize 12, 22
+sp_text_align 12, "center"
+sp_color 12, "#ffffff"
+
+lsp_text 13, "EXIT", 640, 492
+sp_fontsize 13, 22
+sp_text_align 13, "center"
+sp_color 13, "#ffffff"
+
+btndef clear
+spbtn 10, 1
+spbtn 11, 2
+spbtn 12, 3
+spbtn 13, 4
+print 1
 
 *title_loop
-	btnwait %0
-	if %0 == 1 goto *chapter_select
-	goto *title_loop
+btnwait %0
+if %0 == 1 goto *prologue
+if %0 == 2 systemcall load : goto *title_loop
+if %0 == 3 goto *chapter_select
+if %0 == 4 end
+goto *title_loop
 
 *chapter_select
-	csp -1
-	bg "#0f0f1a", 2
-	textclear
+cls
+erasetextwindow 0
+bg "#000000", 1
+get_pflag chapter_prologue %10
+get_pflag chapter_day1 %11
+get_pflag chapter_day2 %12
 
-	; チャプタータイトル（基本プリミティブ）
-	lsp_text 200, "チャプター選択", 640, 80
-	sp_fontsize 200, 48
-	sp_text_align 200, "center"
-	sp_color 200, "#ffffff"
-	sp_text_shadow 200, 3, 3, "#000000"
+lsp_text 20, "CHAPTER SELECT", 640, 86
+sp_fontsize 20, 34
+sp_text_align 20, "center"
+sp_color 20, "#ffffff"
 
-	; チャプターカードの動的生成
-	chapter_select
+lsp_text 21, "UNLOCK ALL", 1040, 86
+sp_fontsize 21, 18
+sp_text_align 21, "center"
+sp_color 21, "#ffffff"
 
-	; 戻るボタン（基本プリミティブ）
-	lsp_rect 900, 540, 600, 400, 60
-	sp_fill 900, "#2a2a3e", 255
-	sp_round 900, 10
-	sp_border 900, "#4a4a6e", 2
-	sp_shadow 900, 4, 4, "#000000", 200
-	sp_hover_color 900, "#3a3a5e"
-	sp_hover_scale 900, 1.05
+if %10 == 1 lsp_text 100, "PROLOGUE", 640, 210 : sp_fontsize 100, 26 : sp_text_align 100, "center" : sp_color 100, "#ffffff"
+if %11 == 1 lsp_text 101, "DAY 1", 640, 280 : sp_fontsize 101, 26 : sp_text_align 101, "center" : sp_color 101, "#ffffff"
+if %12 == 1 lsp_text 102, "DAY 2", 640, 350 : sp_fontsize 102, 26 : sp_text_align 102, "center" : sp_color 102, "#ffffff"
 
-	lsp_text 901, "タイトルに戻る", 640, 615
-	sp_fontsize 901, 24
-	sp_text_align 901, "center"
-	sp_color 901, "#ffffff"
+if %10 == 0 lsp_text 100, "PROLOGUE", 640, 210 : sp_fontsize 100, 26 : sp_text_align 100, "center" : sp_color 100, "#ffffff"
+if %11 == 0 lsp_text 101, "DAY 1  / LOCKED", 640, 280 : sp_fontsize 101, 22 : sp_text_align 101, "center" : sp_color 101, "#777777"
+if %12 == 0 lsp_text 102, "DAY 2  / LOCKED", 640, 350 : sp_fontsize 102, 22 : sp_text_align 102, "center" : sp_color 102, "#777777"
 
-	spbtn 900, -1
+lsp_text 199, "BACK", 640, 520
+sp_fontsize 199, 22
+sp_text_align 199, "center"
+sp_color 199, "#ffffff"
 
-	btnwait %0
-	if %0 == -1 goto *title_start
-	if %0 > 0 goto *play_chapter
-	goto *chapter_select
+btndef clear
+spbtn 21, 50
+spbtn 100, 100
+if %11 == 1 spbtn 101, 101
+if %12 == 1 spbtn 102, 102
+spbtn 199, 99
+print 1
 
-*play_chapter
-	; 選択されたチャプターを開始
-	var chapter_id = %0
-	chapter_progress chapter_id, 0
-	goto *start_game
+*chapter_loop
+btnwait %0
+if %0 == 50 gosub *unlock_all : goto *chapter_select
+if %0 == 99 goto *start
+if %0 == 100 goto *prologue
+if %0 == 101 goto *day1
+if %0 == 102 goto *day2
+goto *chapter_loop
 
-*start_game
-	csp -1
-	bg "#000055", 2
-	afade 10, 0, 500
-	wait 500
-	clr
+*unlock_all
+set_pflag chapter_prologue, 1
+set_pflag chapter_day1, 1
+set_pflag chapter_day2, 1
+return
 
-	ミオ「アニメーションも！\nUIのグラデーションや影も！」
-	主人公「それに、テキストも1文字ずつ流れるようになったね！」
+*prologue
+adv
+set_vflag in_scene, 1
+set_sflag route_intro_started, 1
+set_pflag chapter_prologue, 1
+bg "#000000", 1
+秋の海は、夏の名残をまだ少しだけ抱えていた。\
+潮の匂いと、遠くで鳴る踏切の音。\
+僕はこの町で、忘れていた記録をもう一度たどることになる。\
+set_pflag chapter_day1, 1
+プロローグを読み終えました。Day 1 が解放されました。@
+clear_vflag in_scene
+goto *chapter_select
 
-	textspeed 10
-	ミオ「テキストスピードを速くしてみたよ！\n右クリックでメニューが開くのも試してみてね！」
-	textspeed 50
+*day1
+adv
+set_vflag in_scene, 1
+set_sflag day1_started, 1
+bg "#000000", 1
+Day 1 - 海風\
+朝の教室は少しだけ静かだった。\
+窓の向こうで、白いカーテンが風に揺れている。\
+誰かが僕の名前を呼んだ気がして、振り返る。\
+set_sflag met_voice, 1
+set_pflag chapter_day2, 1
+Day 1 を読み終えました。Day 2 が解放されました。@
+clear_vflag in_scene
+goto *chapter_select
 
-	caption "ARIA Engine - Phase 4"
-	textclear
+*day2
+nvl
+set_vflag in_scene, 1
+set_sflag day2_started, 1
+Day 2\
+ここから先は、セーブデータ別フラグを使ったルート分岐のテストです。\
+get_sflag met_voice %20
+if %20 == 1 goto *day2_met
+まだ誰にも呼び止められていない世界線。@
+goto *day2_end
 
-	システム「テスト完了しました。」
-	end
+*day2_met
+あの声の主を、僕はまだ覚えている。@
 
-*system_menu
-	textclear
-	システム「ここは右クリックで飛んでくるメニュー画面だよ。\nセーブやロードはここでカスタムUIを作って実装してね。」
-	return
-
-*talk
-	getparam $name, $text
-	textclear
-	${name}「${text}」\
-	return
+*day2_end
+clear_vflag in_scene
+goto *chapter_select

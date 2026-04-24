@@ -2,6 +2,20 @@
 
 このチュートリアルでは、AriaEngineを使用してスタイリッシュなUIを作成する方法を説明します。
 
+## 前提: コアモードで開始する
+
+新規プロジェクトは次を推奨します。
+
+```aria
+compat_mode off
+ui_theme "clean"
+textmode manual
+text_target 3001
+```
+
+`compat_mode off` では `choice` / `yesnobox` の自動UI生成は行われません。  
+描画命令（`lsp_rect` / `lsp_text` / `spbtn` / `btnwait`）でUIを構築します。
+
 ## ステップ1: タイトル画面の基本
 
 ### 基本的なタイトル画面
@@ -169,6 +183,12 @@
     sp_fill 200, "#1a1a2e", 200
     sp_round 200, 10
     sp_border 200, "#3a3a5e", 2
+
+    ; text の出力先を明示
+    lsp_text 3001, "", 32, 570
+    sp_fontsize 3001, 28
+    sp_color 3001, "#ffffff"
+    text_target 3001
 
     ; テキスト表示
     text "これはテキストボックスです"
@@ -564,6 +584,15 @@
 1. フォントサイズが適切か確認
 2. テキスト色が背景色と同じでないか確認
 3. `sp_text_align` で正しく配置されているか確認
+
+## 付録: Yes/Noダイアログ
+
+`src/AriaEngine/assets/scripts/ui_kit.aria` には、描画命令ベースの `*ui_yesno` を同梱しています。
+
+```aria
+gosub *ui_yesno, "ゲームを終了しますか？"
+if %0 == 1 end
+```
 
 ## 次のステップ
 

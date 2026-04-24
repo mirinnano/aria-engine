@@ -1,15 +1,26 @@
 using Raylib_cs;
 using AriaEngine.Core;
 using System.Collections.Generic;
+using AriaEngine.Assets;
 
 namespace AriaEngine.Audio;
 
 public class AudioManager
 {
+    private readonly IAssetProvider _assetProvider;
+    private readonly ErrorReporter? _reporter;
     private Dictionary<string, Music> _bgmCache = new();
     private Dictionary<string, Sound> _seCache = new();
+    private readonly HashSet<string> _failedBgm = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _failedSe = new(StringComparer.OrdinalIgnoreCase);
     private string _currentBgmName = "";
     private Music? _currentBgm;
+
+    public AudioManager(IAssetProvider assetProvider, ErrorReporter? reporter = null)
+    {
+        _assetProvider = assetProvider;
+        _reporter = reporter;
+    }
 
     public void Update(GameState state)
     {
@@ -24,12 +35,35 @@ public class AudioManager
 
             if (!string.IsNullOrEmpty(_currentBgmName))
             {
-                if (!_bgmCache.ContainsKey(_currentBgmName))
+                if (_failedBgm.Contains(_currentBgmName))
                 {
-                    _bgmCache[_currentBgmName] = Raylib.LoadMusicStream(_currentBgmName);
+                    _currentBgm = null;
                 }
-                _currentBgm = _bgmCache[_currentBgmName];
-                Raylib.PlayMusicStream(_currentBgm.Value);
+                else if (!_bgmCache.ContainsKey(_currentBgmName))
+                {
+                    try
+                    {
+                        string resolved = _assetProvider.MaterializeToFile(_currentBgmName);
+                        _bgmCache[_currentBgmName] = Raylib.LoadMusicStream(resolved);
+                    }
+                    catch (Exception ex)
+                    {
+                        _failedBgm.Add(_currentBgmName);
+                        _reporter?.ReportException(
+                            "AUDIO_BGM_LOAD",
+                            ex,
+                            $"BGM '{_currentBgmName}' を読み込めませんでした。無音で続行します。",
+                            AriaErrorLevel.Warning,
+                            hint: "音声ファイル名、Pak収録名、対応形式を確認してください。");
+                        _currentBgm = null;
+                    }
+                }
+
+                if (_bgmCache.TryGetValue(_currentBgmName, out var bgm))
+                {
+                    _currentBgm = bgm;
+                    Raylib.PlayMusicStream(_currentBgm.Value);
+                }
             }
             else
             {
@@ -39,8 +73,20 @@ public class AudioManager
 
         if (_currentBgm.HasValue)
         {
-            Raylib.SetMusicVolume(_currentBgm.Value, state.BgmVolume / 100f);
-            Raylib.UpdateMusicStream(_currentBgm.Value);
+            try
+            {
+                Raylib.SetMusicVolume(_currentBgm.Value, state.BgmVolume / 100f);
+                Raylib.UpdateMusicStream(_currentBgm.Value);
+            }
+            catch (Exception ex)
+            {
+                _reporter?.ReportException(
+                    "AUDIO_BGM_UPDATE",
+                    ex,
+                    $"BGM '{_currentBgmName}' の更新に失敗しました。BGMを停止して続行します。",
+                    AriaErrorLevel.Warning);
+                _currentBgm = null;
+            }
         }
 
         while (state.PendingSe.Count > 0)
@@ -50,7 +96,24 @@ public class AudioManager
 
             if (!_seCache.ContainsKey(sePath))
             {
-                _seCache[sePath] = Raylib.LoadSound(sePath);
+                if (_failedSe.Contains(sePath)) continue;
+
+                try
+                {
+                    string resolved = _assetProvider.MaterializeToFile(sePath);
+                    _seCache[sePath] = Raylib.LoadSound(resolved);
+                }
+                catch (Exception ex)
+                {
+                    _failedSe.Add(sePath);
+                    _reporter?.ReportException(
+                        "AUDIO_SE_LOAD",
+                        ex,
+                        $"効果音 '{sePath}' を読み込めませんでした。無音で続行します。",
+                        AriaErrorLevel.Warning,
+                        hint: "音声ファイル名、Pak収録名、対応形式を確認してください。");
+                    continue;
+                }
             }
             Raylib.SetSoundVolume(_seCache[sePath], state.SeVolume / 100f);
             Raylib.PlaySound(_seCache[sePath]);
@@ -63,5 +126,7 @@ public class AudioManager
         foreach (var se in _seCache.Values) Raylib.UnloadSound(se);
         _bgmCache.Clear();
         _seCache.Clear();
+        _failedBgm.Clear();
+        _failedSe.Clear();
     }
 }

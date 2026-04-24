@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using AriaEngine.Core;
 using AriaEngine.Utility;
+using AriaEngine.Assets;
 using System.Numerics;
 
 namespace AriaEngine.Rendering;
@@ -15,6 +16,9 @@ public class SpriteRenderer
     private Font _font;
     private bool _fontLoaded = false;
     private readonly object _renderLock = new();
+    private readonly IAssetProvider _assetProvider;
+    private readonly ErrorReporter? _reporter;
+    private readonly HashSet<string> _failedTextures = new(StringComparer.OrdinalIgnoreCase);
 
     // パフォーマンス統計
     public long TotalDrawCalls { get; private set; }
@@ -24,8 +28,10 @@ public class SpriteRenderer
     // GameStateの参照（最適化用）
     private GameState? _currentState;
 
-    public SpriteRenderer()
+    public SpriteRenderer(IAssetProvider assetProvider, ErrorReporter? reporter = null)
     {
+        _assetProvider = assetProvider;
+        _reporter = reporter;
         // LRUキャッシュの初期化（最大100テクスチャ、500MB上限）
         _textureCache = new LRUCache<string, Texture2D>(100, 500 * 1024 * 1024, OnTextureEvicted);
 
@@ -60,8 +66,45 @@ public class SpriteRenderer
                 chars.Add(c);
 
         int[] codepoints = chars.ToArray();
-        _font = Raylib.LoadFontEx(fontPath, atlasSize, codepoints, codepoints.Length);
+        string resolvedFontPath;
+        try
+        {
+            resolvedFontPath = _assetProvider.MaterializeToFile(fontPath);
+            _font = Raylib.LoadFontEx(resolvedFontPath, atlasSize, codepoints, codepoints.Length);
+        }
+        catch (Exception ex)
+        {
+            _reporter?.ReportException(
+                "RENDER_FONT_LOAD",
+                ex,
+                $"フォント '{fontPath}' を読み込めませんでした。既定フォントで続行します。",
+                AriaErrorLevel.Warning,
+                hint: "フォントパス、Pak内の収録、またはinit.ariaのfont指定を確認してください。");
+            _fontLoaded = false;
+            return;
+        }
+
+        if (_font.Texture.Id == 0)
+        {
+            _reporter?.Report(new AriaError(
+                $"フォント '{fontPath}' の読み込み結果が空でした。既定フォントで続行します。",
+                level: AriaErrorLevel.Warning,
+                code: "RENDER_FONT_EMPTY",
+                hint: "TTF/OTFが壊れていないか、対応形式かを確認してください。"));
+            _fontLoaded = false;
+            return;
+        }
+
+        // フォントのミップマップは必要な場合のみ生成（trilinear系のみ）
+        if (filter == TextureFilter.Trilinear)
+        {
+            var texture = _font.Texture;
+            Raylib.GenTextureMipmaps(ref texture);
+            _font.Texture = texture;
+        }
+
         Raylib.SetTextureFilter(_font.Texture, filter);
+
         _fontLoaded = true;
     }
 
@@ -130,17 +173,61 @@ public class SpriteRenderer
     {
         Texture2D tex;
 
-        if (_textureCache.TryGetValue(sp.ImagePath, out tex))
+        if (_failedTextures.Contains(sp.ImagePath)) return;
+
+        string resolvedImagePath;
+        try
+        {
+            resolvedImagePath = _assetProvider.MaterializeToFile(sp.ImagePath);
+        }
+        catch (Exception ex)
+        {
+            _failedTextures.Add(sp.ImagePath);
+            _reporter?.ReportException(
+                "RENDER_TEXTURE_MISSING",
+                ex,
+                $"画像 '{sp.ImagePath}' を読み込めませんでした。このスプライトをスキップして続行します。",
+                AriaErrorLevel.Warning,
+                hint: "画像ファイル名、Pak収録名、大文字小文字、拡張子を確認してください。");
+            return;
+        }
+
+        if (_textureCache.TryGetValue(resolvedImagePath, out tex))
         {
             // キャッシュヒット
         }
         else
         {
-            tex = Raylib.LoadTexture(sp.ImagePath);
+            try
+            {
+                tex = Raylib.LoadTexture(resolvedImagePath);
+            }
+            catch (Exception ex)
+            {
+                _failedTextures.Add(sp.ImagePath);
+                _reporter?.ReportException(
+                    "RENDER_TEXTURE_LOAD",
+                    ex,
+                    $"画像 '{sp.ImagePath}' のGPUロードに失敗しました。このスプライトをスキップして続行します。",
+                    AriaErrorLevel.Warning,
+                    hint: "画像形式がRaylibで読める形式か、ファイルが破損していないかを確認してください。");
+                return;
+            }
+
             if (tex.Id != 0)
             {
-                _textureCache.AddOrUpdate(sp.ImagePath, tex, tex.Width * tex.Height * 4);
+                _textureCache.AddOrUpdate(resolvedImagePath, tex, tex.Width * tex.Height * 4);
                 TotalTextureLoads++;
+            }
+            else
+            {
+                _failedTextures.Add(sp.ImagePath);
+                _reporter?.Report(new AriaError(
+                    $"画像 '{sp.ImagePath}' のロード結果が空でした。このスプライトをスキップして続行します。",
+                    level: AriaErrorLevel.Warning,
+                    code: "RENDER_TEXTURE_EMPTY",
+                    hint: "画像ファイルの破損、未対応形式、Pak内の内容を確認してください。"));
+                return;
             }
         }
 
@@ -156,7 +243,9 @@ public class SpriteRenderer
         float rWidth = dw * hs;
         float rHeight = dh * hs;
 
-        Rectangle dst = new Rectangle(sp.X + qx + rWidth / 2f, sp.Y + qy + rHeight / 2f, rWidth, rHeight);
+        float drawX = SnapPixel(sp.X + qx);
+        float drawY = SnapPixel(sp.Y + qy);
+        Rectangle dst = new Rectangle(drawX + rWidth / 2f, drawY + rHeight / 2f, rWidth, rHeight);
 
         if (sp.Width <= 0 || sp.Height <= 0)
         {
@@ -180,19 +269,25 @@ public class SpriteRenderer
         int rHeight = (int)(sp.Height * sp.ScaleY * hs);
         float rx = sp.X + qx - (rWidth - sp.Width * sp.ScaleX) / 2f;
         float ry = sp.Y + qy - (rHeight - sp.Height * sp.ScaleY) / 2f;
+        rx = SnapPixel(rx);
+        ry = SnapPixel(ry);
 
         Rectangle rect = new Rectangle(rx, ry, rWidth, rHeight);
 
-        // 影
+        // 影（可視性チェック）
         if (sp.ShadowOffsetX != 0 || sp.ShadowOffsetY != 0)
         {
-            byte shadowAlpha = (byte)(sp.ShadowAlpha * sp.Opacity);
-            Color shadowColor = ParseColor(sp.ShadowColor, shadowAlpha);
-            Rectangle shadowRect = new Rectangle(rx + sp.ShadowOffsetX, ry + sp.ShadowOffsetY, rWidth, rHeight);
-            if (sp.CornerRadius > 0)
-                Raylib.DrawRectangleRounded(shadowRect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), 48, shadowColor);
-            else
-                Raylib.DrawRectangleRec(shadowRect, shadowColor);
+            // 影の色が空文字または透明度0の場合はスキップ
+            if (!string.IsNullOrEmpty(sp.ShadowColor) && sp.ShadowAlpha > 0 && sp.Opacity > 0)
+            {
+                byte shadowAlpha = (byte)(sp.ShadowAlpha * sp.Opacity);
+                Color shadowColor = ParseColor(sp.ShadowColor, shadowAlpha);
+                Rectangle shadowRect = new Rectangle(rx + sp.ShadowOffsetX, ry + sp.ShadowOffsetY, rWidth, rHeight);
+                if (sp.CornerRadius > 0)
+                    Raylib.DrawRectangleRounded(shadowRect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), 48, shadowColor);
+                else
+                    Raylib.DrawRectangleRec(shadowRect, shadowColor);
+            }
         }
 
         // 塗りつぶし
@@ -247,8 +342,8 @@ public class SpriteRenderer
         int rWidth = sp.Width > 0 ? sp.Width : (int)textSize.X;
         int rHeight = sp.Height > 0 ? sp.Height : (int)textSize.Y;
 
-        float rx = sp.X + qx;
-        float ry = sp.Y + qy;
+        float rx = SnapPixel(sp.X + qx);
+        float ry = SnapPixel(sp.Y + qy);
 
         // TextAlign implementation
         if (sp.Width > 0)
@@ -262,24 +357,43 @@ public class SpriteRenderer
             else if (sp.TextAlign == "right") rx -= textSize.X;
         }
 
-        Vector2 pos = new Vector2(rx, ry);
-
-        // テキストシャドウ
-        if (!string.IsNullOrEmpty(sp.TextShadowColor) && (sp.TextShadowX != 0 || sp.TextShadowY != 0))
+        // Vertical align inside explicit text area
+        if (sp.Height > 0)
         {
-            Color tShadowColor = ParseColor(sp.TextShadowColor, baseColor.A);
-            Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + sp.TextShadowX, pos.Y + sp.TextShadowY), scaledFontSize, spacing, tShadowColor);
+            if (sp.TextVAlign == "center" || sp.TextVAlign == "middle")
+            {
+                ry += (sp.Height - textSize.Y) / 2f;
+            }
+            else if (sp.TextVAlign == "bottom")
+            {
+                ry += (sp.Height - textSize.Y);
+            }
         }
 
-        // テキストアウトライン
-        if (sp.TextOutlineSize > 0 && !string.IsNullOrEmpty(sp.TextOutlineColor))
+        Vector2 pos = new Vector2(rx, ry);
+
+        // テキストシャドウ（条件を強化）
+        if (!string.IsNullOrEmpty(sp.TextShadowColor) && (sp.TextShadowX != 0 || sp.TextShadowY != 0) && sp.Opacity > 0)
+        {
+            Color tShadowColor = ParseColor(sp.TextShadowColor, baseColor.A);
+            if (tShadowColor.A > 0)  // 完全に透明でない場合のみ描画
+            {
+                Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + sp.TextShadowX, pos.Y + sp.TextShadowY), scaledFontSize, spacing, tShadowColor);
+            }
+        }
+
+        // テキストアウトライン（条件を強化）
+        if (sp.TextOutlineSize > 0 && !string.IsNullOrEmpty(sp.TextOutlineColor) && sp.Opacity > 0)
         {
             Color outColor = ParseColor(sp.TextOutlineColor, 255);
-            int t = sp.TextOutlineSize;
-            Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X - t, pos.Y - t), scaledFontSize, spacing, outColor);
-            Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + t, pos.Y - t), scaledFontSize, spacing, outColor);
-            Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X - t, pos.Y + t), scaledFontSize, spacing, outColor);
-            Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + t, pos.Y + t), scaledFontSize, spacing, outColor);
+            if (outColor.A > 0)  // 完全に透明でない場合のみ描画
+            {
+                int t = sp.TextOutlineSize;
+                Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X - t, pos.Y - t), scaledFontSize, spacing, outColor);
+                Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + t, pos.Y - t), scaledFontSize, spacing, outColor);
+                Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X - t, pos.Y + t), scaledFontSize, spacing, outColor);
+                Raylib.DrawTextEx(_font, drawText, new Vector2(pos.X + t, pos.Y + t), scaledFontSize, spacing, outColor);
+            }
         }
 
         // テキスト描画
@@ -338,6 +452,74 @@ public class SpriteRenderer
         return _colorCache.GetColor(hex, alpha);
     }
 
+    private static float SnapPixel(float value)
+    {
+        return MathF.Round(value);
+    }
+
+    public void DrawClickCursor(GameState state)
+    {
+        if (!state.ShowClickCursor || state.State != VmState.WaitingForClick) return;
+
+        var mouse = Raylib.GetMousePosition();
+        int x = (int)SnapPixel(mouse.X + state.ClickCursorOffsetX);
+        int y = (int)SnapPixel(mouse.Y + state.ClickCursorOffsetY);
+
+        if (!string.IsNullOrWhiteSpace(state.ClickCursorPath) && !_failedTextures.Contains(state.ClickCursorPath))
+        {
+            try
+            {
+                string resolved = _assetProvider.MaterializeToFile(state.ClickCursorPath);
+                if (!_textureCache.TryGetValue(resolved, out var tex))
+                {
+                    tex = Raylib.LoadTexture(resolved);
+                    if (tex.Id != 0) _textureCache.AddOrUpdate(resolved, tex, tex.Width * tex.Height * 4);
+                }
+
+                if (tex.Id != 0)
+                {
+                    Raylib.DrawTexture(tex, x, y, Color.White);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _failedTextures.Add(state.ClickCursorPath);
+                _reporter?.ReportException(
+                    "RENDER_CLICK_CURSOR",
+                    ex,
+                    $"クリック待ちカーソル '{state.ClickCursorPath}' を読み込めませんでした。既定カーソルで続行します。",
+                    AriaErrorLevel.Warning);
+            }
+        }
+
+        float t = (float)(Math.Sin(Raylib.GetTime() * 6.0) * 0.5 + 0.5);
+        byte alpha = (byte)(150 + t * 90);
+        var color = new Color(255, 255, 255, (int)alpha);
+        Raylib.DrawTriangle(
+            new Vector2(x, y),
+            new Vector2(x + 12, y + 6),
+            new Vector2(x, y + 12),
+            color);
+        Raylib.DrawTriangleLines(
+            new Vector2(x, y),
+            new Vector2(x + 12, y + 6),
+            new Vector2(x, y + 12),
+            new Color(0, 0, 0, (int)alpha));
+    }
+
+    public void DrawUiText(string text, int x, int y, int size, Color color)
+    {
+        if (_fontLoaded)
+        {
+            Raylib.DrawTextEx(_font, text, new Vector2(x, y), size, Math.Max(1, size / 10f), color);
+        }
+        else
+        {
+            Raylib.DrawText(text, x, y, size, color);
+        }
+    }
+
     private void DrawDebugInfo(GameState state)
     {
         Raylib.DrawFPS(10, 10);
@@ -369,6 +551,7 @@ public class SpriteRenderer
             // キャッシュをクリア
             _textureCache.Clear();
             _colorCache.Clear();
+            _failedTextures.Clear();
 
             if (_fontLoaded) {
                 Raylib.UnloadFont(_font);

@@ -16,6 +16,7 @@ sp_border 100, "#4a4a6e", 2
 ; ボタンテキスト
 lsp_text 101, "クリック", 640, 315
 sp_text_align 101, "center"
+sp_text_valign 101, "center"
 
 ; ボタンとして設定
 sp_isbutton 100, true
@@ -46,6 +47,7 @@ sp_hover_scale 100, 1.05
 lsp_text 101, "スタート", 640, 315
 sp_fontsize 101, 24
 sp_text_align 101, "center"
+sp_text_valign 101, "center"
 sp_color 101, "#ffffff"
 sp_text_shadow 101, 2, 2, "#000000"
 
