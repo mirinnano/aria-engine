@@ -292,7 +292,7 @@ public class VirtualMachine
                 break;
             case OpCode.FontAtlasSize:
                 if (!ValidateArgs(inst, 1)) break;
-                State.FontAtlasSize = Math.Max(256, GetVal(inst.Arguments[0]));
+                State.FontAtlasSize = Math.Clamp(GetVal(inst.Arguments[0]), 8, 512);
                 break;
             case OpCode.Script:
                 if (!ValidateArgs(inst, 1)) break;
@@ -1152,6 +1152,7 @@ public class VirtualMachine
                 break;
             case OpCode.Save:
                 if (!ValidateArgs(inst, 1)) break;
+                NormalizeRuntimeTextSprites();
                 Saves.Save(GetVal(inst.Arguments[0]), State, _currentScriptFile);
                 break;
             case OpCode.Load:
@@ -1988,6 +1989,7 @@ public class VirtualMachine
     /// </summary>
     public void SaveGame(int slot)
     {
+        NormalizeRuntimeTextSprites();
         Saves.Save(slot, State, _currentScriptFile);
         Console.WriteLine($"Game saved to slot {slot}");
     }
@@ -2070,6 +2072,30 @@ public class VirtualMachine
         State.DefaultTextColor = loaded.DefaultTextColor;
         State.DefaultTextboxBgColor = loaded.DefaultTextboxBgColor;
         State.DefaultTextboxBgAlpha = loaded.DefaultTextboxBgAlpha;
+        State.DefaultTextboxPaddingX = loaded.DefaultTextboxPaddingX;
+        State.DefaultTextboxPaddingY = loaded.DefaultTextboxPaddingY;
+        State.DefaultTextboxCornerRadius = loaded.DefaultTextboxCornerRadius;
+        State.DefaultTextboxBorderColor = loaded.DefaultTextboxBorderColor;
+        State.DefaultTextboxBorderWidth = loaded.DefaultTextboxBorderWidth;
+        State.DefaultTextboxBorderOpacity = loaded.DefaultTextboxBorderOpacity;
+        State.DefaultTextboxShadowColor = loaded.DefaultTextboxShadowColor;
+        State.DefaultTextboxShadowOffsetX = loaded.DefaultTextboxShadowOffsetX;
+        State.DefaultTextboxShadowOffsetY = loaded.DefaultTextboxShadowOffsetY;
+        State.DefaultTextboxShadowAlpha = loaded.DefaultTextboxShadowAlpha;
+        State.ChoiceWidth = loaded.ChoiceWidth;
+        State.ChoiceHeight = loaded.ChoiceHeight;
+        State.ChoiceSpacing = loaded.ChoiceSpacing;
+        State.ChoiceFontSize = loaded.ChoiceFontSize;
+        State.ChoiceTextColor = loaded.ChoiceTextColor;
+        State.ChoiceBgColor = loaded.ChoiceBgColor;
+        State.ChoiceBgAlpha = loaded.ChoiceBgAlpha;
+        State.ChoiceHoverColor = loaded.ChoiceHoverColor;
+        State.ChoiceCornerRadius = loaded.ChoiceCornerRadius;
+        State.ChoiceBorderColor = loaded.ChoiceBorderColor;
+        State.ChoiceBorderWidth = loaded.ChoiceBorderWidth;
+        State.ChoiceBorderOpacity = loaded.ChoiceBorderOpacity;
+        State.ChoicePaddingX = loaded.ChoicePaddingX;
+        State.FontFilter = loaded.FontFilter;
         State.TextSpeedMs = loaded.TextSpeedMs;
 
         State.CurrentChapter = loaded.CurrentChapter;
@@ -2099,8 +2125,53 @@ public class VirtualMachine
             .Where(pair => State.Sprites.TryGetValue(pair.Key, out var sprite) && sprite.IsButton)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
+        NormalizeRuntimeTextSprites();
+
         _activeCompatUiSpriteIds.Clear();
         _nextCompatUiSpriteId = Math.Max(50000, State.Sprites.Count == 0 ? 50000 : State.Sprites.Keys.Max() + 1);
+    }
+
+    private void NormalizeRuntimeTextSprites()
+    {
+        if (!State.CompatAutoUi || State.UseManualTextLayout) return;
+
+        if (State.TextboxBackgroundSpriteId >= 0 &&
+            State.Sprites.TryGetValue(State.TextboxBackgroundSpriteId, out var bg) &&
+            bg.Type == SpriteType.Rect)
+        {
+            bg.X = State.DefaultTextboxX;
+            bg.Y = State.DefaultTextboxY;
+            bg.Width = State.DefaultTextboxW;
+            bg.Height = State.DefaultTextboxH;
+            bg.FillColor = State.DefaultTextboxBgColor;
+            bg.FillAlpha = State.DefaultTextboxBgAlpha;
+            bg.CornerRadius = State.DefaultTextboxCornerRadius;
+            bg.BorderColor = State.DefaultTextboxBorderColor;
+            bg.BorderWidth = State.DefaultTextboxBorderWidth;
+            bg.BorderOpacity = State.DefaultTextboxBorderOpacity;
+            bg.ShadowColor = State.DefaultTextboxShadowColor;
+            bg.ShadowOffsetX = State.DefaultTextboxShadowOffsetX;
+            bg.ShadowOffsetY = State.DefaultTextboxShadowOffsetY;
+            bg.ShadowAlpha = State.DefaultTextboxShadowAlpha;
+            bg.Visible = State.TextboxVisible;
+            bg.Z = 9000;
+        }
+
+        if (State.TextTargetSpriteId >= 0 &&
+            State.Sprites.TryGetValue(State.TextTargetSpriteId, out var text) &&
+            text.Type == SpriteType.Text)
+        {
+            text.X = State.DefaultTextboxX + State.DefaultTextboxPaddingX;
+            text.Y = State.DefaultTextboxY + State.DefaultTextboxPaddingY;
+            text.Width = Math.Max(0, State.DefaultTextboxW - (State.DefaultTextboxPaddingX * 2));
+            text.Height = Math.Max(0, State.DefaultTextboxH - (State.DefaultTextboxPaddingY * 2));
+            text.FontSize = State.DefaultFontSize;
+            text.Color = State.DefaultTextColor;
+            text.Visible = State.TextboxVisible;
+            text.Z = 9001;
+            int length = Math.Clamp(State.DisplayedTextLength, 0, State.CurrentTextBuffer.Length);
+            text.Text = State.CurrentTextBuffer.Substring(0, length);
+        }
     }
 }
 
