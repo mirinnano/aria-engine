@@ -176,6 +176,18 @@ wait_click
 text "クリックされました！"
 ```
 
+### ボタン待機の結果レジスタ
+
+`btnwait` は結果の格納先を指定できます。
+
+```aria
+btnwait %0
+if %0 == 1 goto *route_a
+
+btnwait %selected
+if %selected == 2 goto *route_b
+```
+
 ## 条件分岐
 
 ### if文

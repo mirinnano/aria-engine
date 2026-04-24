@@ -6,7 +6,11 @@ public class Sprite
 {
     public int Id { get; set; }
     public SpriteType Type { get; set; }
-    
+
+    // ダーティフラグと最終更新時刻
+    public bool IsDirty { get; set; } = true;
+    public DateTime LastModified { get; set; } = DateTime.Now;
+
     public float X { get; set; }
     public float Y { get; set; }
     public int Z { get; set; } = 0;
@@ -24,6 +28,7 @@ public class Sprite
     public int FontSize { get; set; } = 26;
     public string Color { get; set; } = "#ffffff";
     public string TextAlign { get; set; } = "left"; // "left", "center", "right"
+    public string TextVAlign { get; set; } = "top"; // "top", "center", "bottom"
     
     // Text decoration
     public string TextShadowColor { get; set; } = "";

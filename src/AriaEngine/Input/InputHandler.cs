@@ -12,6 +12,18 @@ public class InputHandler
 
         if (vm.State.State == VmState.WaitingForClick)
         {
+            if (vm.State.SkipMode && (vm.State.SkipUnread || vm.State.CurrentInstructionWasRead))
+            {
+                if (vm.State.IsWaitingPageClear)
+                {
+                    vm.State.CurrentTextBuffer = "";
+                    vm.State.DisplayedTextLength = 0;
+                    vm.State.IsWaitingPageClear = false;
+                }
+                vm.ResumeFromClick();
+                return;
+            }
+
             if (Raylib.IsMouseButtonPressed(MouseButton.Left) || 
                 Raylib.IsKeyPressed(KeyboardKey.Enter) || 
                 Raylib.IsKeyPressed(KeyboardKey.Space))

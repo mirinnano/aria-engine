@@ -20,6 +20,9 @@ public class ZIndexSpriteManager
     // キャッシュされたソート済みスプライトIDリスト
     private readonly List<int> _cachedSortedSpriteIds;
 
+    // キャッシュされたソート済みスプライトリスト
+    private readonly List<Sprite> _cachedSortedSprites;
+
     // スプライト参照
     private readonly Func<int, Sprite?> _getSprite;
 
@@ -45,6 +48,7 @@ public class ZIndexSpriteManager
     {
         _zBuckets = new SortedDictionary<int, List<int>>();
         _cachedSortedSpriteIds = new List<int>();
+        _cachedSortedSprites = new List<Sprite>();
         _getSprite = getSprite;
         _isDirty = true;
     }
@@ -135,6 +139,7 @@ public class ZIndexSpriteManager
         {
             // 再構築が必要
             _cachedSortedSpriteIds.Clear();
+            _cachedSortedSprites.Clear();
 
             foreach (var kvp in _zBuckets)
             {
@@ -166,8 +171,8 @@ public class ZIndexSpriteManager
             _cacheHitCount++;
         }
 
-        // コピーを返す（呼び出し元で変更できないように）
-        return new List<int>(_cachedSortedSpriteIds);
+        // キャッシュされたリストを直接返す（呼び出し元は読み取り専用で使用）
+        return _cachedSortedSpriteIds;
     }
 
     /// <summary>
@@ -178,18 +183,21 @@ public class ZIndexSpriteManager
     public List<Sprite> GetSortedSprites(bool includeInvisible = false)
     {
         var sortedIds = GetSortedSpriteIds(includeInvisible);
-        var result = new List<Sprite>(sortedIds.Count);
+
+        // キャッシュされたスプライトリストを再利用
+        _cachedSortedSprites.Clear();
+        _cachedSortedSprites.Capacity = sortedIds.Count; // Capacityを事前に設定
 
         foreach (var spriteId in sortedIds)
         {
             var sprite = _getSprite(spriteId);
             if (sprite != null)
             {
-                result.Add(sprite);
+                _cachedSortedSprites.Add(sprite);
             }
         }
 
-        return result;
+        return _cachedSortedSprites;
     }
 
     /// <summary>
@@ -238,6 +246,7 @@ public class ZIndexSpriteManager
     {
         _zBuckets.Clear();
         _cachedSortedSpriteIds.Clear();
+        _cachedSortedSprites.Clear();
         _isDirty = true;
     }
 

@@ -14,154 +14,6 @@ public class Parser
         _reporter = reporter;
     }
 
-    private static readonly Dictionary<string, OpCode> KnownCommands = new(StringComparer.OrdinalIgnoreCase)
-    {
-        { "load_bg", OpCode.LoadBg }, { "load_ch", OpCode.LoadCh },
-        { "show_ch", OpCode.ShowCh }, { "hide_ch", OpCode.HideCh },
-        { "clr", OpCode.Clr }, { "wait", OpCode.Wait },
-        { "textbox", OpCode.Textbox },
-        { "fontsize", OpCode.Fontsize },
-        { "textcolor", OpCode.Textcolor },
-        { "textbox_color", OpCode.TextboxColor },
-        { "textbox_hide", OpCode.TextboxHide },
-        { "textbox_show", OpCode.TextboxShow },
-        { "setwindow", OpCode.SetWindow },
-        { "erasetextwindow", OpCode.EraseTextWindow },
-        { "textclear", OpCode.TextClear },
-        { "textspeed", OpCode.TextSpeed },
-        { "defaultspeed", OpCode.DefaultSpeed },
-        { "textmode", OpCode.TextMode },
-        { "br", OpCode.Br },
-        { "\\", OpCode.WaitClickClear },
-        { "@", OpCode.WaitClick },
-
-        // システム
-        { "yesnobox", OpCode.YesNoBox },
-        { "mesbox", OpCode.MesBox },
-        { "saveon", OpCode.SaveOn },
-        { "saveoff", OpCode.SaveOff },
-        { "save", OpCode.Save },
-        { "load", OpCode.Load },
-        { "lookback_on", OpCode.LookbackOn },
-        { "lookback_off", OpCode.LookbackOff },
-        { "automode_time", OpCode.AutoModeTime },
-        { "rmenu", OpCode.RightMenu },
-
-        // 演出・スクリプト
-        { "delay", OpCode.Delay },
-        { "rnd", OpCode.Rnd },
-        { "inc", OpCode.Inc },
-        { "dec", OpCode.Dec },
-        { "for", OpCode.For },
-        { "next", OpCode.Next },
-        { "resettimer", OpCode.ResetTimer },
-        { "gettimer", OpCode.GetTimer },
-        { "waittimer", OpCode.WaitTimer },
-
-        // オーディオ
-        { "mov", OpCode.Mov }, { "numalias", OpCode.Alias },
-        { "add", OpCode.Add }, { "sub", OpCode.Sub }, { "mul", OpCode.Mul }, { "div", OpCode.Div }, { "mod", OpCode.Mod },
-        { "cmp", OpCode.Cmp }, { "beq", OpCode.Beq }, { "bne", OpCode.Bne }, { "bgt", OpCode.Bgt }, { "blt", OpCode.Blt },
-        { "jmp", OpCode.Jmp }, { "goto", OpCode.Jmp }, { "choice", OpCode.Choice }, { "end", OpCode.End },
-        { "gosub", OpCode.Gosub }, { "return", OpCode.Return }, { "defsub", OpCode.Defsub }, { "getparam", OpCode.Getparam },
-        { "systemcall", OpCode.SystemCall },
-
-        { "lsp", OpCode.Lsp }, { "lsp_text", OpCode.LspText }, { "lsp_rect", OpCode.LspRect },
-        { "csp", OpCode.Csp },
-        { "vsp", OpCode.Vsp },
-        { "msp", OpCode.Msp },
-        { "msp_rel", OpCode.MspRel },
-        { "sp_z", OpCode.SpZ },
-        { "sp_alpha", OpCode.SpAlpha },
-        { "sp_scale", OpCode.SpScale },
-        { "sp_fontsize", OpCode.SpFontsize },
-        { "sp_color", OpCode.SpColor },
-        { "sp_fill", OpCode.SpFill },
-
-        // 装飾
-        { "sp_round", OpCode.SpRound },
-        { "sp_border", OpCode.SpBorder },
-        { "sp_gradient", OpCode.SpGradient },
-        { "sp_shadow", OpCode.SpShadow },
-        { "sp_text_shadow", OpCode.SpTextShadow },
-        { "sp_text_outline", OpCode.SpTextOutline },
-        { "sp_text_align", OpCode.SpTextAlign },
-        { "sp_rotation", OpCode.SpRotation },
-        { "sp_hover_color", OpCode.SpHoverColor },
-        { "sp_hover_scale", OpCode.SpHoverScale },
-        { "sp_cursor", OpCode.SpCursor },
-
-        // アニメーション
-        { "amsp", OpCode.Amsp },
-        { "afade", OpCode.Afade },
-        { "ascale", OpCode.Ascale },
-        { "acolor", OpCode.Acolor },
-        { "await", OpCode.Await },
-        { "ease", OpCode.Ease },
-
-        // ボタン
-        { "btn", OpCode.Btn }, { "btn_area", OpCode.BtnArea },
-        { "btn_clear", OpCode.BtnClear }, { "btn_clear_all", OpCode.BtnClearAll }, { "btndef", OpCode.BtnClearAll },
-        { "btnwait", OpCode.BtnWait }, { "textbtnwait", OpCode.BtnWait }, { "spbtn", OpCode.SpBtn }, { "btntime", OpCode.BtnTime },
-
-        { "bg", OpCode.Bg }, { "print", OpCode.Print }, { "effect", OpCode.Effect }, { "quakex", OpCode.Quake }, { "quake", OpCode.Quake },
-
-        { "play_bgm", OpCode.PlayBgm }, { "stop_bgm", OpCode.StopBgm }, { "bgm", OpCode.PlayBgm },
-        { "play_se", OpCode.PlaySe }, { "play_mp3", OpCode.PlayMp3 }, { "mp3loop", OpCode.PlayMp3 },
-        { "fade_in", OpCode.FadeIn }, { "fade_out", OpCode.FadeOut },
-        { "bgmvol", OpCode.BgmVol }, { "sevol", OpCode.SeVol }, { "mp3vol", OpCode.Mp3Vol },
-        { "bgmfade", OpCode.BgmFade }, { "mp3fadeout", OpCode.Mp3FadeOut },
-        { "dwave", OpCode.Dwave }, { "dwaveloop", OpCode.DwaveLoop }, { "dwavestop", OpCode.DwaveStop },
-
-        { "window", OpCode.Window }, { "font", OpCode.Font },
-        { "font_atlas_size", OpCode.FontAtlasSize }, { "script", OpCode.Script },
-        { "debug", OpCode.Debug }, { "caption", OpCode.Caption },
-
-        // チャプター選択システム
-        { "chapter_select", OpCode.ChapterSelect },
-        { "unlock_chapter", OpCode.UnlockChapter },
-        { "chapter_thumbnail", OpCode.ChapterThumbnail },
-        { "chapter_card", OpCode.ChapterCard },
-        { "chapter_scroll", OpCode.ChapterScroll },
-        { "chapter_progress", OpCode.ChapterProgress },
-
-        // キャラクター操作
-        { "char_load", OpCode.CharLoad },
-        { "char_show", OpCode.CharShow },
-        { "char_hide", OpCode.CharHide },
-        { "char_move", OpCode.CharMove },
-        { "char_expression", OpCode.CharExpression },
-        { "char_pose", OpCode.CharPose },
-        { "char_z", OpCode.CharZ },
-        { "char_scale", OpCode.CharScale },
-
-        // ゲームフロー
-        { "change_scene", OpCode.ChangeScene },
-        { "return_scene", OpCode.ReturnScene },
-        { "set_scene_data", OpCode.SetSceneData },
-        { "get_scene_data", OpCode.GetSceneData },
-
-        // フラグ管理システム
-        { "set_flag", OpCode.SetFlag },
-        { "get_flag", OpCode.GetFlag },
-        { "clear_flag", OpCode.ClearFlag },
-        { "toggle_flag", OpCode.ToggleFlag },
-        { "inc_counter", OpCode.IncCounter },
-        { "dec_counter", OpCode.DecCounter },
-        { "set_counter", OpCode.SetCounter },
-        { "get_counter", OpCode.GetCounter },
-
-        // チャプターデータ定義（スクリプト主導）
-        { "defchapter", OpCode.DefChapter },
-        { "chapter_id", OpCode.ChapterId },
-        { "chapter_title", OpCode.ChapterTitle },
-        { "chapter_desc", OpCode.ChapterDesc },
-        { "chapter_script", OpCode.ChapterScript },
-        { "endchapter", OpCode.EndChapter },
-
-        // フォント設定
-        { "font_filter", OpCode.FontFilter }
-    };
 
     public (List<Instruction> Instructions, Dictionary<string, int> Labels) Parse(string[] lines, string scriptFile = "")
     {
@@ -221,7 +73,7 @@ public class Parser
                     int cmdIndex = -1;
                     for (int j = 1; j < parts.Count; j++)
                     {
-                        if (KnownCommands.ContainsKey(parts[j]) || defsubs.Contains(parts[j]))
+                        if (CommandRegistry.Contains(parts[j]) || defsubs.Contains(parts[j]))
                         {
                             cmdIndex = j;
                             break;
@@ -234,7 +86,7 @@ public class Parser
                         var cmdToken = parts[cmdIndex];
                         var opArgs = parts.Skip(cmdIndex + 1).ToList();
 
-                        if (KnownCommands.TryGetValue(cmdToken, out OpCode op))
+                        if (CommandRegistry.TryGet(cmdToken, out OpCode op))
                             instructions.Add(new Instruction(op, opArgs, i + 1, condTokens));
                         else if (defsubs.Contains(cmdToken))
                             instructions.Add(new Instruction(OpCode.Gosub, new List<string> { cmdToken }.Concat(opArgs).ToList(), i + 1, condTokens));
@@ -274,7 +126,7 @@ public class Parser
                     continue;
                 }
 
-                if (KnownCommands.TryGetValue(firstToken, out OpCode statementOp))
+                if (CommandRegistry.TryGet(firstToken, out OpCode statementOp))
                 {
                     var args = parts.Skip(1).ToList();
                     instructions.Add(new Instruction(statementOp, args, i + 1));
@@ -467,3 +319,4 @@ public class Parser
         return tokens;
     }
 }
+

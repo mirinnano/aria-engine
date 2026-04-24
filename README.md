@@ -27,6 +27,39 @@ cd src/AriaEngine
 dotnet run
 ```
 
+### 販売向けコンパイル/パック
+
+```bash
+cd src/AriaEngine
+set ARIA_PACK_KEY=YOUR_KEY
+dotnet run -- aria-compile --init init.aria --main assets/scripts/main.aria --out build/scripts.ariac --key YOUR_KEY
+dotnet run -- aria-pack build --input assets --compiled build/scripts.ariac --output build/data.pak --key YOUR_KEY
+```
+
+`--key` を省略した場合は環境変数 `ARIA_PACK_KEY` が自動使用されます。
+
+### CI/CD
+
+GitHub Actions ワークフロー: `.github/workflows/aria-cicd.yml`  
+`ARIA_PACK_KEY` を Repository Secrets に設定すると、自動で読み込んで
+`publish -> aria-compile -> aria-pack -> artifact upload` まで実行します。
+
+ローカルで同等手順を実行する場合:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/cicd.ps1
+```
+
+### 実行モード
+
+```bash
+# 開発モード（既定）: 平文 .aria を実行
+dotnet run -- --run-mode dev --init init.aria
+
+# 販売モード: data.pak + 暗号化済み scripts.ariac を必須化
+dotnet run -- --run-mode release --pak build/data.pak --compiled scripts/scripts.ariac --key YOUR_KEY --init init.aria
+```
+
 ## インストール方法
 
 ### 必要条件

@@ -11,6 +11,7 @@ public enum OpCode
     // スプライト操作
     Lsp, LspText, LspRect, Csp, Vsp, Msp, MspRel, SpZ, SpAlpha, SpScale, SpFontsize, SpColor, SpFill,
     SpRound, SpBorder, SpGradient, SpShadow, SpTextShadow, SpTextOutline, SpTextAlign, SpRotation,
+    SpTextVAlign,
     SpHoverColor, SpHoverScale, SpCursor,
 
     // アニメーション (Tween)
@@ -26,11 +27,12 @@ public enum OpCode
     // UI・テキストウィンドウ・文字表示
     Textbox, Fontsize, Textcolor, TextboxColor, TextboxHide, TextboxShow,
     SetWindow, EraseTextWindow, TextClear, TextSpeed, DefaultSpeed, TextMode,
-    Br, WaitClick, WaitClickClear,
+    Br, WaitClick, WaitClickClear, TextboxStyle, ChoiceStyle, TextTarget, CompatMode, UiTheme,
 
     // システム・ダイアログ・環境設定
     YesNoBox, MesBox, SaveOn, SaveOff, Save, Load, LookbackOn, LookbackOff,
-    AutoModeTime, RightMenu,
+    AutoModeTime, RightMenu, ClickCursor, Backlog, KidokuMode, SkipMode,
+    WindowTitle, SystemButton,
 
     // 新規タイマー・演出・スクリプト機能
     Delay, Rnd, Inc, Dec, For, Next, ResetTimer, GetTimer, WaitTimer,
@@ -53,6 +55,9 @@ public enum OpCode
 
     // フラグ管理システム
     SetFlag, GetFlag, ClearFlag, ToggleFlag,
+    SetPFlag, GetPFlag, ClearPFlag, TogglePFlag,
+    SetSFlag, GetSFlag, ClearSFlag, ToggleSFlag,
+    SetVFlag, GetVFlag, ClearVFlag, ToggleVFlag,
     IncCounter, DecCounter, SetCounter, GetCounter,
 
     // チャプターデータ定義（スクリプト主導）

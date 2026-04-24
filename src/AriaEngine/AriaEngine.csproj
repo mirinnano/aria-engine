@@ -5,10 +5,25 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AriaCompileOnPublish>true</AriaCompileOnPublish>
+    <AriaCompiledOutput>build\scripts.ariac</AriaCompiledOutput>
+    <AriaPakOutput>data.pak</AriaPakOutput>
+    <AriaPackKey Condition="'$(AriaPackKey)'=='' and '$(ARIA_PACK_KEY)'!=''">$(ARIA_PACK_KEY)</AriaPackKey>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Raylib-cs" Version="7.0.2" />
   </ItemGroup>
+
+  <Target Name="AriaPackageAfterPublish" AfterTargets="Publish" Condition="'$(AriaCompileOnPublish)'=='true'">
+    <Error Condition="'$(AriaPackKey)'==''" Text="AriaPackKey is required. Set /p:AriaPackKey=... or ARIA_PACK_KEY environment variable." />
+    <PropertyGroup>
+      <_AriaCompiledOut>$(PublishDir)build\scripts.ariac</_AriaCompiledOut>
+      <_AriaPakOut>$(PublishDir)data.pak</_AriaPakOut>
+    </PropertyGroup>
+    <MakeDir Directories="$(PublishDir)build" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="dotnet &quot;$(TargetPath)&quot; aria-compile --init init.aria --main assets/scripts/main.aria --out &quot;$(_AriaCompiledOut)&quot; --key &quot;$(AriaPackKey)&quot;" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="dotnet &quot;$(TargetPath)&quot; aria-pack build --input assets --compiled &quot;$(_AriaCompiledOut)&quot; --output &quot;$(_AriaPakOut)&quot; --key &quot;$(AriaPackKey)&quot;" />
+  </Target>
 
 </Project>
