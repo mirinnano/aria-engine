@@ -24,6 +24,7 @@ public class PersistentGameData
 {
     public Dictionary<string, int> Registers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, bool> Flags { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, bool> SaveFlags { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, int> Counters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> ReadKeys { get; set; } = new();
     public bool SkipUnread { get; set; }
@@ -34,7 +35,13 @@ public class ConfigManager
     private string _configPath = "config.json";
     private string _persistentPath = Path.Combine("saves", "persistent.ariasav");
     private static readonly byte[] PersistentMagic = Encoding.ASCII.GetBytes("ARIAPERSIST2");
+    private readonly ErrorReporter? _reporter;
     public AppConfig Config { get; private set; } = new();
+
+    public ConfigManager(ErrorReporter? reporter = null)
+    {
+        _reporter = reporter;
+    }
 
     public void Load()
     {
@@ -47,7 +54,7 @@ public class ConfigManager
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"設定ファイルの読み込みに失敗しました: {ex.Message}");
+                ReportConfigException("CONFIG_LOAD", ex, "設定ファイルの読み込みに失敗しました。既定値で続行します。");
             }
         }
     }
@@ -62,7 +69,7 @@ public class ConfigManager
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"設定ファイルの保存に失敗しました: {ex.Message}");
+            ReportConfigException("CONFIG_SAVE", ex, "設定ファイルの保存に失敗しました。");
         }
     }
 
@@ -92,7 +99,7 @@ public class ConfigManager
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"永続データの読み込みに失敗しました: {ex.Message}");
+            ReportConfigException("PERSISTENT_LOAD", ex, "永続データの読み込みに失敗しました。新規データで続行します。");
             return new PersistentGameData();
         }
     }
@@ -124,8 +131,19 @@ public class ConfigManager
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"永続データの保存に失敗しました: {ex.Message}");
+            ReportConfigException("PERSISTENT_SAVE", ex, "永続データの保存に失敗しました。");
         }
+    }
+
+    private void ReportConfigException(string code, Exception ex, string message)
+    {
+        if (_reporter != null)
+        {
+            _reporter.ReportException(code, ex, message, AriaErrorLevel.Warning);
+            return;
+        }
+
+        Console.Error.WriteLine($"{code}: {message} {ex.Message}");
     }
 
     private static byte[] Compress(byte[] data)

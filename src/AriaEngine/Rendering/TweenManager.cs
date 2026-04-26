@@ -21,6 +21,7 @@ public class Tween
     public float DurationMs { get; set; }
     public float ElapsedMs { get; set; }
     public EaseType Ease { get; set; } = EaseType.Linear;
+    public Action<GameState, Sprite>? OnComplete { get; set; }
     public bool IsComplete => ElapsedMs >= DurationMs;
 }
 
@@ -58,8 +59,8 @@ public class TweenManager
 
             switch (t.Property)
             {
-                case "x": sp.X = (int)current; break;
-                case "y": sp.Y = (int)current; break;
+                case "x": sp.X = current; break;
+                case "y": sp.Y = current; break;
                 case "scaleX": sp.ScaleX = current; break;
                 case "scaleY": sp.ScaleY = current; break;
                 case "opacity": sp.Opacity = current; break;
@@ -74,12 +75,13 @@ public class TweenManager
                 // Ensure final value is set exactly
                 switch (t.Property)
                 {
-                    case "x": sp.X = (int)t.To; break;
-                    case "y": sp.Y = (int)t.To; break;
+                    case "x": sp.X = t.To; break;
+                    case "y": sp.Y = t.To; break;
                     case "scaleX": sp.ScaleX = t.To; break;
                     case "scaleY": sp.ScaleY = t.To; break;
                     case "opacity": sp.Opacity = t.To; break;
                 }
+                t.OnComplete?.Invoke(state, sp);
                 _activeTweens.RemoveAt(i);
             }
         }

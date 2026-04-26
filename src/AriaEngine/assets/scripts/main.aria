@@ -3,13 +3,18 @@
 ; prefer explicit flags: set_pflag / set_sflag / set_vflag
 compat_mode on
 ui_theme "mono"
+ui_quality "high"
+ui_motion "smooth"
 caption "海風 - The Records of Autumn -"
 defaultspeed 24
 textspeed 24
+ui skip, speed, 3
+ui skip, force_speed, 48
+ui text, speed, 24
 backlog on
 kidokumode 1
 skipmode read
-clickcursor "doncur.bmp", 2, 2
+clickcursor engine
 system_button close, on
 rmenu "セーブ",save,"ロード",load,"回想",backlog,"スキップ",skip,"設定",settings,"リセット",reset,"終了",end
 
@@ -17,11 +22,24 @@ defsub adv
 defsub nvl
 defsub cls
 defsub unlock_all
+defsub scenechange
+defsub fadeout
+defsub fadein
+defsub playse
 
 goto *start
 
+include "ui_presets.aria"
+include "scenario_01.aria"
+include "scenario_02.aria"
+include "scenario_03.aria"
+include "scenario_04.aria"
+include "scenario_05.aria"
+include "scenario_06.aria"
+
 *cls
 textclear
+btndef clear
 csp -1
 return
 
@@ -37,21 +55,45 @@ return
 
 *nvl
 textclear
-textmode "adv"
-textbox 160, 118, 960, 468
-fontsize 30
+textmode "nvl"
+textbox 72, 28, 1136, 628
+fontsize 34
 textcolor "#ffffff"
-textbox_color "#000000", 230
-textbox_style 0, 1, "#ffffff", 90, 34, 30, 0, 0, "#000000", 0
+textbox_color "#000000", 220
+textbox_style 0, 1, "#ffffff", 90, 34, 28, 0, 0, "#000000", 0
+return
+
+*scenechange
+getparam $0,%1
+bg "#000000", %1
+bg $0, %1
+return
+
+*fadeout
+getparam %1
+bg "#000000", %1
+return
+
+*fadein
+getparam $0,%1
+bg $0, %1
+return
+
+*playse
+getparam $0
+dwave 0, $0
 return
 
 *start
 gosub *cls
 erasetextwindow 0
 bg "#000000", 1
-get_pflag chapter_prologue %10
-get_pflag chapter_day1 %11
-get_pflag chapter_day2 %12
+get_pflag chapter_01 %10
+get_pflag chapter_02 %11
+get_pflag chapter_03 %12
+get_pflag chapter_04 %13
+get_pflag chapter_05 %14
+get_pflag chapter_06 %15
 
 lsp_text 1, "海風", 640, 150
 sp_fontsize 1, 72
@@ -116,64 +158,101 @@ print 1
 
 *title_loop
 btnwait %0
-if %0 == 1 goto *prologue
+if %0 == 1 goto *start_continue
 if %0 == 2 systemcall load : goto *title_loop
 if %0 == 3 goto *chapter_select
 if %0 == 4 end
 goto *title_loop
 
+*start_continue
+if %10 == 1 goto *chapter_select
+goto *scenario_01
+
 *chapter_select
 gosub *cls
 erasetextwindow 0
 bg "#000000", 1
-get_pflag chapter_prologue %10
-get_pflag chapter_day1 %11
-get_pflag chapter_day2 %12
+get_pflag chapter_01 %10
+get_pflag chapter_02 %11
+get_pflag chapter_03 %12
+get_pflag chapter_04 %13
+get_pflag chapter_05 %14
+get_pflag chapter_06 %15
 
-lsp_text 20, "CHAPTER SELECT", 640, 86
+lsp_text 20, "CHAPTER SELECT", 640, 68
 sp_fontsize 20, 34
 sp_text_align 20, "center"
 sp_color 20, "#ffffff"
 
-lsp_rect 221, 940, 62, 200, 44
+lsp_rect 221, 940, 44, 200, 44
 sp_fill 221, "#000000", 0
 sp_border 221, "#ffffff", 1
 sp_hover_color 221, "#151515"
 sp_z 221, 10
-lsp_text 21, "UNLOCK ALL", 1040, 74
+lsp_text 21, "UNLOCK ALL", 1040, 56
 sp_fontsize 21, 18
 sp_text_align 21, "center"
 sp_color 21, "#ffffff"
 sp_z 21, 20
 
-lsp_rect 300, 440, 188, 400, 50
+; row 1
+lsp_rect 300, 250, 150, 340, 50
 sp_fill 300, "#000000", 0
 sp_border 300, "#ffffff", 1
 sp_hover_color 300, "#151515"
 sp_z 300, 10
-lsp_text 100, "PROLOGUE", 640, 202
-sp_fontsize 100, 26
+lsp_text 100, "PROLOGUE", 420, 164
+sp_fontsize 100, 24
 sp_text_align 100, "center"
 sp_color 100, "#ffffff"
 sp_z 100, 20
 
-lsp_rect 301, 440, 258, 400, 50
+lsp_rect 301, 690, 150, 340, 50
 sp_fill 301, "#000000", 0
 if %11 == 1 sp_border 301, "#ffffff", 1
 if %11 == 1 sp_hover_color 301, "#151515"
 if %11 == 0 sp_border 301, "#555555", 1
 sp_z 301, 10
-if %11 == 1 lsp_text 101, "DAY 1", 640, 272 : sp_fontsize 101, 26 : sp_text_align 101, "center" : sp_color 101, "#ffffff" : sp_z 101, 20
-if %11 == 0 lsp_text 101, "DAY 1  / LOCKED", 640, 274 : sp_fontsize 101, 22 : sp_text_align 101, "center" : sp_color 101, "#777777" : sp_z 101, 20
+if %11 == 1 lsp_text 101, "DAY 1", 860, 164 : sp_fontsize 101, 24 : sp_text_align 101, "center" : sp_color 101, "#ffffff" : sp_z 101, 20
+if %11 == 0 lsp_text 101, "DAY 1 / LOCKED", 860, 166 : sp_fontsize 101, 20 : sp_text_align 101, "center" : sp_color 101, "#777777" : sp_z 101, 20
 
-lsp_rect 302, 440, 328, 400, 50
+; row 2
+lsp_rect 302, 250, 230, 340, 50
 sp_fill 302, "#000000", 0
 if %12 == 1 sp_border 302, "#ffffff", 1
 if %12 == 1 sp_hover_color 302, "#151515"
 if %12 == 0 sp_border 302, "#555555", 1
 sp_z 302, 10
-if %12 == 1 lsp_text 102, "DAY 2", 640, 342 : sp_fontsize 102, 26 : sp_text_align 102, "center" : sp_color 102, "#ffffff" : sp_z 102, 20
-if %12 == 0 lsp_text 102, "DAY 2  / LOCKED", 640, 344 : sp_fontsize 102, 22 : sp_text_align 102, "center" : sp_color 102, "#777777" : sp_z 102, 20
+if %12 == 1 lsp_text 102, "DAY 2", 420, 244 : sp_fontsize 102, 24 : sp_text_align 102, "center" : sp_color 102, "#ffffff" : sp_z 102, 20
+if %12 == 0 lsp_text 102, "DAY 2 / LOCKED", 420, 246 : sp_fontsize 102, 20 : sp_text_align 102, "center" : sp_color 102, "#777777" : sp_z 102, 20
+
+lsp_rect 303, 690, 230, 340, 50
+sp_fill 303, "#000000", 0
+if %13 == 1 sp_border 303, "#ffffff", 1
+if %13 == 1 sp_hover_color 303, "#151515"
+if %13 == 0 sp_border 303, "#555555", 1
+sp_z 303, 10
+if %13 == 1 lsp_text 103, "DAY 3", 860, 244 : sp_fontsize 103, 24 : sp_text_align 103, "center" : sp_color 103, "#ffffff" : sp_z 103, 20
+if %13 == 0 lsp_text 103, "DAY 3 / LOCKED", 860, 246 : sp_fontsize 103, 20 : sp_text_align 103, "center" : sp_color 103, "#777777" : sp_z 103, 20
+
+; row 3
+lsp_rect 304, 250, 310, 340, 50
+sp_fill 304, "#000000", 0
+if %14 == 1 sp_border 304, "#ffffff", 1
+if %14 == 1 sp_hover_color 304, "#151515"
+if %14 == 0 sp_border 304, "#555555", 1
+sp_z 304, 10
+if %14 == 1 lsp_text 104, "DAY 4", 420, 324 : sp_fontsize 104, 24 : sp_text_align 104, "center" : sp_color 104, "#ffffff" : sp_z 104, 20
+if %14 == 0 lsp_text 104, "DAY 4 / LOCKED", 420, 326 : sp_fontsize 104, 20 : sp_text_align 104, "center" : sp_color 104, "#777777" : sp_z 104, 20
+
+lsp_rect 305, 690, 310, 340, 50
+sp_fill 305, "#000000", 0
+if %15 == 1 sp_border 305, "#ffffff", 1
+if %15 == 1 sp_hover_color 305, "#151515"
+if %15 == 0 sp_border 305, "#555555", 1
+sp_z 305, 10
+if %15 == 1 lsp_text 105, "DAY 5", 860, 324 : sp_fontsize 105, 24 : sp_text_align 105, "center" : sp_color 105, "#ffffff" : sp_z 105, 20
+if %15 == 0 lsp_text 105, "DAY 5 / LOCKED", 860, 326 : sp_fontsize 105, 20 : sp_text_align 105, "center" : sp_color 105, "#777777" : sp_z 105, 20
 
 lsp_rect 399, 540, 500, 200, 42
 sp_fill 399, "#000000", 0
@@ -191,6 +270,9 @@ spbtn 221, 50
 spbtn 300, 100
 if %11 == 1 spbtn 301, 101
 if %12 == 1 spbtn 302, 102
+if %13 == 1 spbtn 303, 103
+if %14 == 1 spbtn 304, 104
+if %15 == 1 spbtn 305, 105
 spbtn 399, 99
 print 1
 
@@ -198,67 +280,20 @@ print 1
 btnwait %0
 if %0 == 50 goto *unlock_all
 if %0 == 99 goto *start
-if %0 == 100 goto *prologue
-if %0 == 101 goto *day1
-if %0 == 102 goto *day2
+if %0 == 100 goto *scenario_01
+if %0 == 101 goto *scenario_02
+if %0 == 102 goto *scenario_03
+if %0 == 103 goto *scenario_04
+if %0 == 104 goto *scenario_05
+if %0 == 105 goto *scenario_06
 goto *chapter_loop
 
 *unlock_all
-set_pflag chapter_prologue, 1
-set_pflag chapter_day1, 1
-set_pflag chapter_day2, 1
-gosub *cls
-goto *chapter_select
-
-*prologue
-gosub *cls
-adv
-set_vflag in_scene, 1
-set_sflag route_intro_started, 1
-set_pflag chapter_prologue, 1
-bg "#000000", 1
-秋の海は、夏の名残をまだ少しだけ抱えていた。\
-潮の匂いと、遠くで鳴る踏切の音。\
-僕はこの町で、忘れていた記録をもう一度たどることになる。\
-set_pflag chapter_day1, 1
-プロローグを読み終えました。Day 1 が解放されました。@
-clear_vflag in_scene
-gosub *cls
-goto *chapter_select
-
-*day1
-gosub *cls
-adv
-set_vflag in_scene, 1
-set_sflag day1_started, 1
-bg "#000000", 1
-Day 1 - 海風\
-朝の教室は少しだけ静かだった。\
-窓の向こうで、白いカーテンが風に揺れている。\
-誰かが僕の名前を呼んだ気がして、振り返る。\
-set_sflag met_voice, 1
-set_pflag chapter_day2, 1
-Day 1 を読み終えました。Day 2 が解放されました。@
-clear_vflag in_scene
-gosub *cls
-goto *chapter_select
-
-*day2
-gosub *cls
-nvl
-set_vflag in_scene, 1
-set_sflag day2_started, 1
-Day 2\
-ここから先は、セーブデータ別フラグを使ったルート分岐のテストです。\
-get_sflag met_voice %20
-if %20 == 1 goto *day2_met
-まだ誰にも呼び止められていない世界線。@
-goto *day2_end
-
-*day2_met
-あの声の主を、僕はまだ覚えている。@
-
-*day2_end
-clear_vflag in_scene
+set_pflag chapter_01, 1
+set_pflag chapter_02, 1
+set_pflag chapter_03, 1
+set_pflag chapter_04, 1
+set_pflag chapter_05, 1
+set_pflag chapter_06, 1
 gosub *cls
 goto *chapter_select

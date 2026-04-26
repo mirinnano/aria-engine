@@ -16,6 +16,7 @@ public class SpriteRenderer
     private Font _font;
     private bool _fontLoaded = false;
     private readonly Dictionary<int, Font> _fontCache = new();
+    private readonly HashSet<string> _colorKeyedCursorTextures = new(StringComparer.OrdinalIgnoreCase);
     private string _resolvedFontPath = "";
     private int[] _fontCodepoints = Array.Empty<int>();
     private TextureFilter _fontFilter = TextureFilter.Bilinear;
@@ -154,6 +155,7 @@ public class SpriteRenderer
         {
             // 現在のGameStateをキャッシュ
             _currentState = state;
+            UpdateUiPresentation(state);
 
             // スプライトマネージャーを更新
             foreach (var sprite in state.Sprites.Values)
@@ -183,7 +185,7 @@ public class SpriteRenderer
 
             foreach (var sp in sortedSprites)
             {
-                byte alpha = (byte)(sp.Opacity * 255);
+                byte alpha = (byte)(Math.Clamp(sp.RenderOpacity, 0f, 1f) * 255);
                 Color baseColor = ParseColor(sp.Color, alpha);
 
                 if (sp.Type == SpriteType.Image && !string.IsNullOrEmpty(sp.ImagePath))
@@ -241,7 +243,7 @@ public class SpriteRenderer
             try
             {
                 tex = Raylib.LoadTexture(resolvedImagePath);
-                if (tex.Id != 0) Raylib.SetTextureFilter(tex, TextureFilter.Bilinear);
+                if (tex.Id != 0) Raylib.SetTextureFilter(tex, _currentState?.HighQualityUiTextures == true ? TextureFilter.Trilinear : TextureFilter.Bilinear);
             }
             catch (Exception ex)
             {
@@ -277,15 +279,14 @@ public class SpriteRenderer
         TotalDrawCalls++;
 
         Rectangle src = new Rectangle(0, 0, tex.Width, tex.Height);
-        float dw = sp.Width > 0 ? (sp.Width * sp.ScaleX) : (tex.Width * sp.ScaleX);
-        float dh = sp.Height > 0 ? (sp.Height * sp.ScaleY) : (tex.Height * sp.ScaleY);
+        float dw = sp.Width > 0 ? (sp.Width * sp.RenderScaleX) : (tex.Width * sp.RenderScaleX);
+        float dh = sp.Height > 0 ? (sp.Height * sp.RenderScaleY) : (tex.Height * sp.RenderScaleY);
 
-        float hs = sp.IsHovered && sp.IsButton ? sp.HoverScale : 1.0f;
-        float rWidth = dw * hs;
-        float rHeight = dh * hs;
+        float rWidth = dw;
+        float rHeight = dh;
 
-        float drawX = SnapPixel(sp.X + qx);
-        float drawY = SnapPixel(sp.Y + qy);
+        float drawX = SnapPixel(sp.X + qx, _currentState);
+        float drawY = SnapPixel(sp.Y + qy, _currentState);
         Rectangle dst = new Rectangle(drawX + rWidth / 2f, drawY + rHeight / 2f, rWidth, rHeight);
 
         if (sp.Width <= 0 || sp.Height <= 0)
@@ -301,17 +302,17 @@ public class SpriteRenderer
     {
         TotalDrawCalls++;
 
-        byte fillAlpha = (byte)(sp.FillAlpha * sp.Opacity);
-        string currentFillColorHex = sp.IsHovered && sp.IsButton && !string.IsNullOrEmpty(sp.HoverFillColor) ? sp.HoverFillColor : sp.FillColor;
-        Color fillColor = ParseColor(currentFillColorHex, fillAlpha);
+        byte fillAlpha = (byte)(sp.FillAlpha * Math.Clamp(sp.RenderOpacity, 0f, 1f));
+        Color normalFill = ParseColor(sp.FillColor, fillAlpha);
+        Color hoverFill = !string.IsNullOrEmpty(sp.HoverFillColor) ? ParseColor(sp.HoverFillColor, fillAlpha) : normalFill;
+        Color fillColor = LerpColor(normalFill, hoverFill, sp.HoverProgress);
 
-        float hs = sp.IsHovered && sp.IsButton ? sp.HoverScale : 1.0f;
-        int rWidth = (int)(sp.Width * sp.ScaleX * hs);
-        int rHeight = (int)(sp.Height * sp.ScaleY * hs);
+        float rWidth = sp.Width * sp.RenderScaleX;
+        float rHeight = sp.Height * sp.RenderScaleY;
         float rx = sp.X + qx - (rWidth - sp.Width * sp.ScaleX) / 2f;
         float ry = sp.Y + qy - (rHeight - sp.Height * sp.ScaleY) / 2f;
-        rx = SnapPixel(rx);
-        ry = SnapPixel(ry);
+        rx = SnapPixel(rx, _currentState);
+        ry = SnapPixel(ry, _currentState);
 
         Rectangle rect = new Rectangle(rx, ry, rWidth, rHeight);
 
@@ -325,7 +326,7 @@ public class SpriteRenderer
                 Color shadowColor = ParseColor(sp.ShadowColor, shadowAlpha);
                 Rectangle shadowRect = new Rectangle(rx + sp.ShadowOffsetX, ry + sp.ShadowOffsetY, rWidth, rHeight);
                 if (sp.CornerRadius > 0)
-                    Raylib.DrawRectangleRounded(shadowRect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), 48, shadowColor);
+                    Raylib.DrawRectangleRounded(shadowRect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), GetRoundSegments(_currentState), shadowColor);
                 else
                     Raylib.DrawRectangleRec(shadowRect, shadowColor);
             }
@@ -334,7 +335,7 @@ public class SpriteRenderer
         // 塗りつぶし
         if (sp.CornerRadius > 0)
         {
-            Raylib.DrawRectangleRounded(rect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), 48, fillColor);
+            Raylib.DrawRectangleRounded(rect, Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f), GetRoundSegments(_currentState), fillColor);
         }
         else if (!string.IsNullOrEmpty(sp.GradientTo))
         {
@@ -358,7 +359,7 @@ public class SpriteRenderer
             {
                 Rectangle borderRect = new Rectangle(rect.X, rect.Y, rect.Width, rect.Height);
                 float roundness = Math.Min((float)sp.CornerRadius / (rHeight > 0 ? rHeight : 1f), 1f);
-                Raylib.DrawRectangleRoundedLinesEx(borderRect, roundness, 48, sp.BorderWidth, borderColor);
+                Raylib.DrawRectangleRoundedLinesEx(borderRect, roundness, GetRoundSegments(_currentState), sp.BorderWidth, borderColor);
             }
             else
             {
@@ -374,7 +375,7 @@ public class SpriteRenderer
 
         TotalDrawCalls++;
 
-        float scaledFontSize = sp.FontSize > 0 ? sp.FontSize * sp.ScaleX : 24 * sp.ScaleX;
+        float scaledFontSize = sp.FontSize > 0 ? sp.FontSize * sp.RenderScaleX : 24 * sp.RenderScaleX;
         var font = GetFontForSize(scaledFontSize);
         float spacing = scaledFontSize / 10f;
 
@@ -384,8 +385,8 @@ public class SpriteRenderer
         int rWidth = sp.Width > 0 ? sp.Width : (int)textSize.X;
         int rHeight = sp.Height > 0 ? sp.Height : (int)textSize.Y;
 
-        float rx = SnapPixel(sp.X + qx);
-        float ry = SnapPixel(sp.Y + qy);
+        float rx = SnapPixel(sp.X + qx, _currentState);
+        float ry = SnapPixel(sp.Y + qy, _currentState);
 
         // TextAlign implementation
         if (sp.Width > 0)
@@ -413,6 +414,7 @@ public class SpriteRenderer
         }
 
         Vector2 pos = new Vector2(rx, ry);
+        pos = ApplyTextEffect(sp, pos);
 
         // テキストシャドウ（条件を強化）
         if (!string.IsNullOrEmpty(sp.TextShadowColor) && (sp.TextShadowX != 0 || sp.TextShadowY != 0) && sp.Opacity > 0)
@@ -440,6 +442,25 @@ public class SpriteRenderer
 
         // テキスト描画
         Raylib.DrawTextEx(font, drawText, pos, scaledFontSize, spacing, baseColor);
+    }
+
+    private static Vector2 ApplyTextEffect(Sprite sp, Vector2 pos)
+    {
+        string effect = sp.TextEffect.Trim().ToLowerInvariant();
+        if (effect is "" or "none" || sp.TextEffectStrength <= 0f) return pos;
+
+        double time = Raylib.GetTime();
+        float speed = Math.Max(0.1f, sp.TextEffectSpeed);
+        return effect switch
+        {
+            "shake" => new Vector2(
+                pos.X + (float)Math.Sin(time * speed * 2.13) * sp.TextEffectStrength,
+                pos.Y + (float)Math.Cos(time * speed * 1.71) * sp.TextEffectStrength),
+            "wave" or "float" => new Vector2(
+                pos.X,
+                pos.Y + (float)Math.Sin(time * speed) * sp.TextEffectStrength),
+            _ => pos
+        };
     }
 
     private string WrapText(Font font, string text, float maxWidth, float fontSize, float spacing)
@@ -494,27 +515,85 @@ public class SpriteRenderer
         return _colorCache.GetColor(hex, alpha);
     }
 
-    private static float SnapPixel(float value)
+    private static float SnapPixel(float value, GameState? state = null)
     {
-        return MathF.Round(value);
+        return state?.SubpixelUiRendering == true ? value : MathF.Round(value);
+    }
+
+    private static int GetRoundSegments(GameState? state)
+    {
+        return Math.Clamp(state?.RoundedRectSegments ?? 48, 12, 96);
+    }
+
+    private static Color LerpColor(Color from, Color to, float t)
+    {
+        t = Math.Clamp(t, 0f, 1f);
+        return new Color(
+            (int)MathF.Round(from.R + (to.R - from.R) * t),
+            (int)MathF.Round(from.G + (to.G - from.G) * t),
+            (int)MathF.Round(from.B + (to.B - from.B) * t),
+            (int)MathF.Round(from.A + (to.A - from.A) * t));
+    }
+
+    private void UpdateUiPresentation(GameState state)
+    {
+        float dt = Math.Clamp(Raylib.GetFrameTime(), 0f, 1f / 15f);
+        float response = Math.Clamp(state.UiMotionResponse, 1f, 40f);
+        float blend = state.SmoothUiMotion ? 1f - MathF.Exp(-response * dt) : 1f;
+
+        foreach (var sp in state.Sprites.Values)
+        {
+            if (!sp.RenderStateInitialized)
+            {
+                sp.RenderScaleX = sp.ScaleX;
+                sp.RenderScaleY = sp.ScaleY;
+                sp.RenderOpacity = sp.Opacity;
+                sp.HoverProgress = sp.IsHovered ? 1f : 0f;
+                sp.RenderStateInitialized = true;
+            }
+
+            float hoverTarget = sp.IsHovered && sp.IsButton ? 1f : 0f;
+            sp.HoverProgress += (hoverTarget - sp.HoverProgress) * blend;
+            sp.HoverProgress = Math.Clamp(sp.HoverProgress, 0f, 1f);
+
+            float hoverScale = 1f + ((sp.HoverScale - 1f) * sp.HoverProgress);
+            float targetScaleX = sp.ScaleX * hoverScale;
+            float targetScaleY = sp.ScaleY * hoverScale;
+
+            sp.RenderScaleX += (targetScaleX - sp.RenderScaleX) * blend;
+            sp.RenderScaleY += (targetScaleY - sp.RenderScaleY) * blend;
+            sp.RenderOpacity += (sp.Opacity - sp.RenderOpacity) * blend;
+        }
     }
 
     public void DrawClickCursor(GameState state)
     {
-        if (!state.ShowClickCursor || state.State != VmState.WaitingForClick) return;
+        if (!state.ShowClickCursor ||
+            (state.State != VmState.WaitingForClick && state.State != VmState.WaitingForAnimation))
+        {
+            return;
+        }
 
-        var mouse = Raylib.GetMousePosition();
-        int x = (int)SnapPixel(mouse.X + state.ClickCursorOffsetX);
-        int y = (int)SnapPixel(mouse.Y + state.ClickCursorOffsetY);
+        if (state.State == VmState.WaitingForAnimation &&
+            state.DisplayedTextLength < state.CurrentTextBuffer.Length)
+        {
+            return;
+        }
 
-        if (!string.IsNullOrWhiteSpace(state.ClickCursorPath) && !_failedTextures.Contains(state.ClickCursorPath))
+        Vector2 cursorPos = GetTextEndCursorPosition(state);
+        float x = SnapPixel(cursorPos.X + 2, state);
+        float y = SnapPixel(cursorPos.Y + 2, state);
+
+        if (state.ClickCursorMode.Equals("image", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(state.ClickCursorPath) &&
+            !_failedTextures.Contains(state.ClickCursorPath))
         {
             try
             {
                 string resolved = _assetProvider.MaterializeToFile(state.ClickCursorPath);
                 if (!_textureCache.TryGetValue(resolved, out var tex))
                 {
-                    tex = Raylib.LoadTexture(resolved);
+                    tex = LoadCursorTextureWithColorKey(resolved);
                     if (tex.Id != 0)
                     {
                         Raylib.SetTextureFilter(tex, TextureFilter.Bilinear);
@@ -524,7 +603,11 @@ public class SpriteRenderer
 
                 if (tex.Id != 0)
                 {
-                    Raylib.DrawTexture(tex, x, y, Color.White);
+                    float targetSize = state.ClickCursorSize > 0 ? state.ClickCursorSize : Math.Clamp(state.DefaultFontSize * 0.34f, 8f, 14f);
+                    float scale = Math.Clamp(targetSize / Math.Max(tex.Width, tex.Height), 0.1f, 1.0f);
+                    Rectangle src = new Rectangle(0, 0, tex.Width, tex.Height);
+                    Rectangle dst = new Rectangle(x, y, tex.Width * scale, tex.Height * scale);
+                    Raylib.DrawTexturePro(tex, src, dst, Vector2.Zero, 0f, Color.White);
                     return;
                 }
             }
@@ -539,19 +622,82 @@ public class SpriteRenderer
             }
         }
 
-        float t = (float)(Math.Sin(Raylib.GetTime() * 6.0) * 0.5 + 0.5);
-        byte alpha = (byte)(150 + t * 90);
-        var color = new Color(255, 255, 255, (int)alpha);
+        float t = (float)(Math.Sin(Raylib.GetTime() * 7.5) * 0.5 + 0.5);
+        float bob = (float)Math.Sin(Raylib.GetTime() * 4.0) * 1.5f;
+        byte alpha = (byte)(140 + t * 100);
+        var color = ParseColor(state.ClickCursorColor, alpha);
+        var edge = new Color(0, 0, 0, (int)(alpha * 0.55f));
+        float s = state.ClickCursorSize > 0 ? state.ClickCursorSize : Math.Clamp(state.DefaultFontSize * 0.34f, 8f, 14f);
+        y += bob;
         Raylib.DrawTriangle(
             new Vector2(x, y),
-            new Vector2(x + 12, y + 6),
-            new Vector2(x, y + 12),
+            new Vector2(x + s, y + s * 0.5f),
+            new Vector2(x, y + s),
             color);
         Raylib.DrawTriangleLines(
             new Vector2(x, y),
-            new Vector2(x + 12, y + 6),
-            new Vector2(x, y + 12),
-            new Color(0, 0, 0, (int)alpha));
+            new Vector2(x + s, y + s * 0.5f),
+            new Vector2(x, y + s),
+            edge);
+    }
+
+    private Vector2 GetTextEndCursorPosition(GameState state)
+    {
+        if (state.TextTargetSpriteId >= 0 &&
+            state.Sprites.TryGetValue(state.TextTargetSpriteId, out var sp) &&
+            sp.Type == SpriteType.Text &&
+            _fontLoaded)
+        {
+            float scaledFontSize = sp.FontSize > 0 ? sp.FontSize * Math.Max(sp.RenderScaleX, 0.001f) : 24f;
+            var font = GetFontForSize(scaledFontSize);
+            float spacing = scaledFontSize / 10f;
+            string text = string.IsNullOrEmpty(sp.Text) ? state.CurrentTextBuffer : sp.Text;
+            string wrapped = WrapText(font, text, sp.Width > 0 ? sp.Width : state.WindowWidth, scaledFontSize, spacing);
+            string[] lines = wrapped.Replace("\r\n", "\n").Split('\n');
+            string lastLine = lines.Length > 0 ? lines[^1] : "";
+            Vector2 lastLineSize = Raylib.MeasureTextEx(font, lastLine, scaledFontSize, spacing);
+            Vector2 allTextSize = Raylib.MeasureTextEx(font, wrapped, scaledFontSize, spacing);
+
+            float baseX = sp.X;
+            float baseY = sp.Y;
+            if (sp.Width > 0)
+            {
+                if (sp.TextAlign == "center") baseX += (sp.Width - allTextSize.X) / 2f;
+                else if (sp.TextAlign == "right") baseX += sp.Width - allTextSize.X;
+            }
+
+            if (sp.Height > 0)
+            {
+                if (sp.TextVAlign == "center" || sp.TextVAlign == "middle") baseY += (sp.Height - allTextSize.Y) / 2f;
+                else if (sp.TextVAlign == "bottom") baseY += sp.Height - allTextSize.Y;
+            }
+
+            float lineHeight = scaledFontSize + spacing;
+            float x = baseX + lastLineSize.X;
+            float y = baseY + Math.Max(0, lines.Length - 1) * lineHeight + scaledFontSize * 0.18f;
+            return new Vector2(x, y);
+        }
+
+        return new Vector2(state.DefaultTextboxX + state.DefaultTextboxPaddingX, state.DefaultTextboxY + state.DefaultTextboxPaddingY);
+    }
+
+    private Texture2D LoadCursorTextureWithColorKey(string resolvedPath)
+    {
+        Image image = Raylib.LoadImage(resolvedPath);
+
+        try
+        {
+            Raylib.ImageColorReplace(ref image, new Color(255, 0, 255, 255), Color.Blank);
+            Raylib.ImageColorReplace(ref image, new Color(128, 0, 128, 255), Color.Blank);
+            Raylib.ImageColorReplace(ref image, new Color(255, 0, 128, 255), Color.Blank);
+            var texture = Raylib.LoadTextureFromImage(image);
+            _colorKeyedCursorTextures.Add(resolvedPath);
+            return texture;
+        }
+        finally
+        {
+            Raylib.UnloadImage(image);
+        }
     }
 
     public void DrawUiText(string text, int x, int y, int size, Color color)

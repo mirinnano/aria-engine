@@ -7,7 +7,7 @@ namespace AriaEngine.Utility;
 /// LRU（Least Recently Used）キャッシュ実装
 /// メモリ使用量を制限しつつ、頻繁に使用されるアイテムを保持します。
 /// </summary>
-public class LRUCache<TKey, TValue>
+public class LRUCache<TKey, TValue> where TKey : notnull
 {
     private readonly int _capacity;
     private readonly Dictionary<TKey, LinkedListNode<CacheItem>> _cache;
@@ -142,6 +142,7 @@ public class LRUCache<TKey, TValue>
         while ((_lruList.Count > _capacity || _totalSize > _maxSize) && _lruList.Count > 0)
         {
             var lruNode = _lruList.Last; // 最も古いアイテム
+            if (lruNode == null) break;
             _lruList.RemoveLast();
             _cache.Remove(lruNode.Value.Key);
             _totalSize -= lruNode.Value.Size;

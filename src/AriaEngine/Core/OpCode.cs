@@ -28,6 +28,9 @@ public enum OpCode
     Textbox, Fontsize, Textcolor, TextboxColor, TextboxHide, TextboxShow,
     SetWindow, EraseTextWindow, TextClear, TextSpeed, DefaultSpeed, TextMode,
     Br, WaitClick, WaitClickClear, TextboxStyle, ChoiceStyle, TextTarget, CompatMode, UiTheme,
+    UiQuality, UiMotion, Ui, UiRect, UiText, UiImage, UiButton, UiGroup, UiGroupAdd,
+    UiGroupClear, UiGroupShow, UiGroupHide, UiLayout, UiAnchor, UiPack, UiStyle,
+    UiState, UiStateStyle, UiOn, UiHotkey, UiTween, UiFade, UiMove, UiScale,
 
     // システム・ダイアログ・環境設定
     YesNoBox, MesBox, SaveOn, SaveOff, Save, Load, LookbackOn, LookbackOff,

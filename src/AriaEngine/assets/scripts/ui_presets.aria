@@ -1,0 +1,58 @@
+; ARIA UI preset library.
+; Engine presets remain available through ui_theme/ui_quality/ui_motion.
+; These helpers are optional building blocks for project-specific UI.
+
+defsub ui_preset_mono
+defsub ui_preset_nvl
+defsub ui_preset_adv
+defsub ui_button_mono
+
+*ui_preset_mono
+ui_theme "mono"
+ui_quality "high"
+ui_motion "smooth"
+ui rmenu, align, "center"
+ui rmenu, w, 360
+ui save, columns, 2
+ui cursor, size, 12
+ui cursor, color, "#ffffff"
+return
+
+*ui_preset_adv
+textmode "adv"
+ui textbox, x, 72
+ui textbox, y, 500
+ui textbox, w, 1136
+ui textbox, h, 152
+ui textbox, padding, 28, 22
+ui textbox, fill, "#000000"
+ui textbox, fill_alpha, 210
+ui textbox, text_color, "#ffffff"
+ui textbox, font_size, 28
+ui textbox, radius, 0
+return
+
+*ui_preset_nvl
+textmode "nvl"
+ui textbox, x, 72
+ui textbox, y, 64
+ui textbox, w, 1136
+ui textbox, h, 592
+ui textbox, padding, 34, 30
+ui textbox, fill, "#000000"
+ui textbox, fill_alpha, 220
+ui textbox, text_color, "#ffffff"
+ui textbox, font_size, 30
+ui textbox, radius, 0
+return
+
+*ui_button_mono
+getparam %1,%2,%3,%4,%5,%6
+ui_rect %1, %2, %3, %4, %5
+ui sprite:%1, fill, "#000000"
+ui sprite:%1, fill_alpha, 0
+ui sprite:%1, border, 1, "#ffffff"
+ui sprite:%1, border_alpha, 120
+ui sprite:%1, hover_fill, "#151515"
+ui_button %1, %6
+return

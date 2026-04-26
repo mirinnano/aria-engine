@@ -36,6 +36,9 @@ public class Sprite
     public int TextShadowY { get; set; } = 0;
     public string TextOutlineColor { get; set; } = "";
     public int TextOutlineSize { get; set; } = 0;
+    public string TextEffect { get; set; } = "none";
+    public float TextEffectStrength { get; set; } = 0f;
+    public float TextEffectSpeed { get; set; } = 8f;
     
     // Rect properties
     public int Width { get; set; }
@@ -68,4 +71,11 @@ public class Sprite
     public string HoverFillColor { get; set; } = "";
     public float HoverScale { get; set; } = 1.0f;
     public bool IsHovered { get; set; } = false;
+
+    // Smooth UI presentation state. These are renderer-owned runtime values.
+    public float HoverProgress { get; set; } = 0f;
+    public float RenderScaleX { get; set; } = 1.0f;
+    public float RenderScaleY { get; set; } = 1.0f;
+    public float RenderOpacity { get; set; } = 1.0f;
+    public bool RenderStateInitialized { get; set; } = false;
 }

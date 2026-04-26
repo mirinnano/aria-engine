@@ -75,7 +75,21 @@ public class AudioManager
         {
             try
             {
-                Raylib.SetMusicVolume(_currentBgm.Value, state.BgmVolume / 100f);
+                float volume = state.BgmVolume / 100f;
+                if (state.BgmFadeOutTimerMs > 0f)
+                {
+                    float frameMs = Raylib.GetFrameTime() * 1000f;
+                    state.BgmFadeOutTimerMs = Math.Max(0f, state.BgmFadeOutTimerMs - frameMs);
+                    float ratio = state.BgmFadeOutDurationMs <= 0f ? 0f : state.BgmFadeOutTimerMs / state.BgmFadeOutDurationMs;
+                    volume *= Math.Clamp(ratio, 0f, 1f);
+                    if (state.BgmFadeOutTimerMs <= 0f)
+                    {
+                        state.BgmFadeOutDurationMs = 0f;
+                        state.CurrentBgm = "";
+                    }
+                }
+
+                Raylib.SetMusicVolume(_currentBgm.Value, volume);
                 Raylib.UpdateMusicStream(_currentBgm.Value);
             }
             catch (Exception ex)
@@ -89,34 +103,36 @@ public class AudioManager
             }
         }
 
-        while (state.PendingSe.Count > 0)
+        if (state.PendingSe.Count > 0)
         {
-            string sePath = state.PendingSe[0];
-            state.PendingSe.RemoveAt(0);
-
-            if (!_seCache.ContainsKey(sePath))
+            string[] pendingSe = state.PendingSe.ToArray();
+            state.PendingSe.Clear();
+            foreach (string sePath in pendingSe)
             {
-                if (_failedSe.Contains(sePath)) continue;
+                if (!_seCache.ContainsKey(sePath))
+                {
+                    if (_failedSe.Contains(sePath)) continue;
 
-                try
-                {
-                    string resolved = _assetProvider.MaterializeToFile(sePath);
-                    _seCache[sePath] = Raylib.LoadSound(resolved);
+                    try
+                    {
+                        string resolved = _assetProvider.MaterializeToFile(sePath);
+                        _seCache[sePath] = Raylib.LoadSound(resolved);
+                    }
+                    catch (Exception ex)
+                    {
+                        _failedSe.Add(sePath);
+                        _reporter?.ReportException(
+                            "AUDIO_SE_LOAD",
+                            ex,
+                            $"効果音 '{sePath}' を読み込めませんでした。無音で続行します。",
+                            AriaErrorLevel.Warning,
+                            hint: "音声ファイル名、Pak収録名、対応形式を確認してください。");
+                        continue;
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _failedSe.Add(sePath);
-                    _reporter?.ReportException(
-                        "AUDIO_SE_LOAD",
-                        ex,
-                        $"効果音 '{sePath}' を読み込めませんでした。無音で続行します。",
-                        AriaErrorLevel.Warning,
-                        hint: "音声ファイル名、Pak収録名、対応形式を確認してください。");
-                    continue;
-                }
+                Raylib.SetSoundVolume(_seCache[sePath], state.SeVolume / 100f);
+                Raylib.PlaySound(_seCache[sePath]);
             }
-            Raylib.SetSoundVolume(_seCache[sePath], state.SeVolume / 100f);
-            Raylib.PlaySound(_seCache[sePath]);
         }
     }
 
