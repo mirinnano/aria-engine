@@ -59,11 +59,8 @@ public sealed class ScriptCompiler
 
             bundle.Scripts[scriptPath] = compiled;
 
-            foreach (string dep in expanded.Dependencies)
-            {
-                if (!visited.Contains(dep))
-                    queue.Enqueue(dep);
-            }
+            // Includes are already expanded into the owning script. Compiling included
+            // files again as standalone scripts creates false unresolved-label errors.
         }
 
         return bundle;

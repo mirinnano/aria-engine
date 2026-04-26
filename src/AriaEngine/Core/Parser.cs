@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace AriaEngine.Core;
 
@@ -17,6 +18,8 @@ public class Parser
 
     public (List<Instruction> Instructions, Dictionary<string, int> Labels) Parse(string[] lines, string scriptFile = "")
     {
+        var preprocessedLines = PreprocessModernSyntax(lines);
+
         var instructions = new List<Instruction>();
         var labels = new Dictionary<string, int>();
         var defsubs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -25,9 +28,9 @@ public class Parser
         var ifStack = new Stack<(string elseLabel, string endLabel, IReadOnlyList<string> cond)>();
 
         // Pre-pass for Defsubs and Labels
-        for (int i = 0; i < lines.Length; i++)
+        for (int i = 0; i < preprocessedLines.Length; i++)
         {
-            var rawLine = lines[i];
+            var rawLine = preprocessedLines[i].Text;
             var line = StripComments(rawLine).TrimStart();
             if (string.IsNullOrEmpty(line)) continue;
 
@@ -43,16 +46,17 @@ public class Parser
             }
         }
 
-        for (int i = 0; i < lines.Length; i++)
+        for (int i = 0; i < preprocessedLines.Length; i++)
         {
-            var rawLine = lines[i];
+            var rawLine = preprocessedLines[i].Text;
+            int sourceLine = preprocessedLines[i].SourceLine;
             var line = StripComments(rawLine).TrimStart();
 
             if (string.IsNullOrEmpty(line)) continue;
 
             if (ShouldTreatAsPlainText(line, defsubs))
             {
-                AddTextInstructions(instructions, line, i + 1);
+                AddTextInstructions(instructions, line, sourceLine);
                 continue;
             }
 
@@ -93,9 +97,9 @@ public class Parser
                         var opArgs = parts.Skip(cmdIndex + 1).ToList();
 
                         if (CommandRegistry.TryGet(cmdToken, out OpCode op))
-                            instructions.Add(new Instruction(op, opArgs, i + 1, condTokens));
+                            instructions.Add(new Instruction(op, opArgs, sourceLine, condTokens));
                         else if (defsubs.Contains(cmdToken))
-                            instructions.Add(new Instruction(OpCode.Gosub, new List<string> { cmdToken }.Concat(opArgs).ToList(), i + 1, condTokens));
+                            instructions.Add(new Instruction(OpCode.Gosub, new List<string> { cmdToken }.Concat(opArgs).ToList(), sourceLine, condTokens));
                     }
                     else
                     {
@@ -105,7 +109,7 @@ public class Parser
                         string endLbl = $"__if_end_{ifCounter}";
                         ifCounter++;
                         
-                        instructions.Add(new Instruction(OpCode.JumpIfFalse, new List<string> { elseLbl }, i + 1, condTokens));
+                        instructions.Add(new Instruction(OpCode.JumpIfFalse, new List<string> { elseLbl }, sourceLine, condTokens));
                         ifStack.Push((elseLbl, endLbl, condTokens));
                     }
                     continue;
@@ -115,7 +119,7 @@ public class Parser
                     if (ifStack.Count > 0)
                     {
                         var popped = ifStack.Pop();
-                        instructions.Add(new Instruction(OpCode.Jmp, new List<string> { popped.endLabel }, i + 1));
+                        instructions.Add(new Instruction(OpCode.Jmp, new List<string> { popped.endLabel }, sourceLine));
                         labels[popped.elseLabel] = instructions.Count;
                         ifStack.Push(("", popped.endLabel, null!));
                     }
@@ -135,15 +139,15 @@ public class Parser
                 if (CommandRegistry.TryGet(firstToken, out OpCode statementOp))
                 {
                     var args = parts.Skip(1).ToList();
-                    instructions.Add(new Instruction(statementOp, args, i + 1));
+                    instructions.Add(new Instruction(statementOp, args, sourceLine));
                 }
                 else if (defsubs.Contains(firstToken))
                 {
-                    instructions.Add(new Instruction(OpCode.Gosub, new List<string> { firstToken }.Concat(parts.Skip(1)).ToList(), i + 1));
+                    instructions.Add(new Instruction(OpCode.Gosub, new List<string> { firstToken }.Concat(parts.Skip(1)).ToList(), sourceLine));
                 }
                 else
                 {
-                    AddTextInstructions(instructions, stmt, i + 1);
+                    AddTextInstructions(instructions, stmt, sourceLine);
                 }
             }
         }
@@ -186,6 +190,251 @@ public class Parser
             && !firstToken.Equals("endif", StringComparison.OrdinalIgnoreCase)
             && !CommandRegistry.Contains(firstToken)
             && !defsubs.Contains(firstToken);
+    }
+
+    private readonly record struct PreprocessedLine(string Text, int SourceLine);
+
+    private PreprocessedLine[] PreprocessModernSyntax(string[] lines)
+    {
+        var output = new List<PreprocessedLine>(lines.Length);
+        var constants = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var namespaceStack = new Stack<string>();
+        var blockStack = new Stack<string>();
+        string? enumName = null;
+        int enumNextValue = 0;
+
+        for (int lineIndex = 0; lineIndex < lines.Length; lineIndex++)
+        {
+            var rawLine = lines[lineIndex];
+            int sourceLine = lineIndex + 1;
+            var trimmed = StripComments(rawLine).Trim();
+            if (string.IsNullOrEmpty(trimmed))
+            {
+                output.Add(new PreprocessedLine(rawLine, sourceLine));
+                continue;
+            }
+
+            if (enumName is not null)
+            {
+                if (trimmed.StartsWith("}", StringComparison.Ordinal))
+                {
+                    enumName = null;
+                    enumNextValue = 0;
+                    continue;
+                }
+
+                ParseEnumMembers(trimmed, enumName, constants, ref enumNextValue);
+                continue;
+            }
+
+            if (TryParseConst(trimmed, constants)) continue;
+
+            if (TryStartEnum(trimmed, constants, ref enumName, ref enumNextValue)) continue;
+
+            if (TryStartNamespace(trimmed, namespaceStack)) continue;
+
+            if (TryCloseModernBlock(trimmed, namespaceStack, blockStack, output, sourceLine)) continue;
+
+            string line = rawLine;
+            line = RewriteFunctionStyleCall(line);
+            line = ReplaceConstantsOutsideQuotes(line, constants);
+            line = RewriteCppIf(line);
+            line = RewriteModernBlockOpen(line, blockStack);
+            line = RewriteNamespaceLabels(line, namespaceStack);
+            output.Add(new PreprocessedLine(line, sourceLine));
+        }
+
+        while (blockStack.Count > 0)
+        {
+            blockStack.Pop();
+            output.Add(new PreprocessedLine("endif", lines.Length));
+        }
+
+        return output.ToArray();
+    }
+
+    private static bool TryParseConst(string trimmed, Dictionary<string, string> constants)
+    {
+        var match = Regex.Match(trimmed, @"^const\s+([A-Za-z_][A-Za-z0-9_.]*)\s*(?:=)?\s*(.+?)\s*;?$", RegexOptions.IgnoreCase);
+        if (!match.Success) return false;
+
+        constants[match.Groups[1].Value] = match.Groups[2].Value.Trim();
+        return true;
+    }
+
+    private static bool TryStartEnum(string trimmed, Dictionary<string, string> constants, ref string? enumName, ref int enumNextValue)
+    {
+        var match = Regex.Match(trimmed, @"^enum\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{(.*)$", RegexOptions.IgnoreCase);
+        if (!match.Success) return false;
+
+        enumName = match.Groups[1].Value;
+        enumNextValue = 0;
+
+        string body = match.Groups[2].Value.Trim();
+        bool closesInline = body.Contains('}');
+        if (closesInline)
+        {
+            body = body.Substring(0, body.IndexOf('}'));
+        }
+
+        ParseEnumMembers(body, enumName, constants, ref enumNextValue);
+        if (closesInline)
+        {
+            enumName = null;
+            enumNextValue = 0;
+        }
+
+        return true;
+    }
+
+    private static void ParseEnumMembers(string body, string enumName, Dictionary<string, string> constants, ref int nextValue)
+    {
+        foreach (var rawMember in body.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var member = rawMember.Trim().TrimEnd(';');
+            if (member.Length == 0) continue;
+
+            var parts = member.Split('=', 2);
+            string name = parts[0].Trim();
+            if (!Regex.IsMatch(name, @"^[A-Za-z_][A-Za-z0-9_]*$")) continue;
+
+            if (parts.Length == 2 && int.TryParse(parts[1].Trim(), out int explicitValue))
+            {
+                nextValue = explicitValue;
+            }
+
+            constants[$"{enumName}.{name}"] = nextValue.ToString();
+            nextValue++;
+        }
+    }
+
+    private static bool TryStartNamespace(string trimmed, Stack<string> namespaceStack)
+    {
+        var match = Regex.Match(trimmed, @"^namespace\s+([A-Za-z_][A-Za-z0-9_.]*)\s*\{\s*$", RegexOptions.IgnoreCase);
+        if (!match.Success) return false;
+
+        namespaceStack.Push(match.Groups[1].Value);
+        return true;
+    }
+
+    private static bool TryCloseModernBlock(string trimmed, Stack<string> namespaceStack, Stack<string> blockStack, List<PreprocessedLine> output, int sourceLine)
+    {
+        if (Regex.IsMatch(trimmed, @"^\}\s*else\s*\{\s*$", RegexOptions.IgnoreCase))
+        {
+            output.Add(new PreprocessedLine("else", sourceLine));
+            return true;
+        }
+
+        if (!Regex.IsMatch(trimmed, @"^\}\s*;?\s*$")) return false;
+
+        if (blockStack.Count > 0)
+        {
+            blockStack.Pop();
+            output.Add(new PreprocessedLine("endif", sourceLine));
+        }
+        else if (namespaceStack.Count > 0)
+        {
+            namespaceStack.Pop();
+        }
+
+        return true;
+    }
+
+    private static string RewriteFunctionStyleCall(string line)
+    {
+        var ifMatch = Regex.Match(line, @"^(\s*)if\s*\((.*)\)\s*\{\s*$", RegexOptions.IgnoreCase);
+        if (ifMatch.Success) return $"{ifMatch.Groups[1].Value}if {ifMatch.Groups[2].Value} {{";
+
+        var callMatch = Regex.Match(line, @"^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*\((.*)\)\s*;?\s*$");
+        if (!callMatch.Success) return line;
+
+        string args = callMatch.Groups[3].Value.Trim();
+        return args.Length == 0
+            ? $"{callMatch.Groups[1].Value}{callMatch.Groups[2].Value}"
+            : $"{callMatch.Groups[1].Value}{callMatch.Groups[2].Value} {args}";
+    }
+
+    private static string RewriteCppIf(string line)
+    {
+        var match = Regex.Match(line, @"^(\s*)if\s*\((.*)\)(.*)$", RegexOptions.IgnoreCase);
+        if (!match.Success) return line;
+
+        return $"{match.Groups[1].Value}if {match.Groups[2].Value}{match.Groups[3].Value}";
+    }
+
+    private static string RewriteModernBlockOpen(string line, Stack<string> blockStack)
+    {
+        var ifBlock = Regex.Match(line, @"^(\s*if\s+.+?)\s*\{\s*$", RegexOptions.IgnoreCase);
+        if (ifBlock.Success)
+        {
+            blockStack.Push("if");
+            return ifBlock.Groups[1].Value;
+        }
+
+        var elseBlock = Regex.Match(line, @"^\s*else\s*\{\s*$", RegexOptions.IgnoreCase);
+        return elseBlock.Success ? "else" : line;
+    }
+
+    private static string ReplaceConstantsOutsideQuotes(string line, Dictionary<string, string> constants)
+    {
+        if (constants.Count == 0) return line;
+
+        var ordered = constants.Keys.OrderByDescending(k => k.Length).ToArray();
+        var result = new System.Text.StringBuilder(line.Length);
+        bool inQuotes = false;
+
+        for (int i = 0; i < line.Length;)
+        {
+            if (line[i] == '"')
+            {
+                inQuotes = !inQuotes;
+                result.Append(line[i++]);
+                continue;
+            }
+
+            if (!inQuotes)
+            {
+                string? key = ordered.FirstOrDefault(k => IsConstantMatch(line, i, k));
+                if (key is not null)
+                {
+                    result.Append(constants[key]);
+                    i += key.Length;
+                    continue;
+                }
+            }
+
+            result.Append(line[i++]);
+        }
+
+        return result.ToString();
+    }
+
+    private static bool IsConstantMatch(string line, int index, string key)
+    {
+        if (index + key.Length > line.Length) return false;
+        if (!line.AsSpan(index, key.Length).Equals(key.AsSpan(), StringComparison.OrdinalIgnoreCase)) return false;
+
+        bool beforeOk = index == 0 || !IsModernNameChar(line[index - 1]);
+        int after = index + key.Length;
+        bool afterOk = after >= line.Length || !IsModernNameChar(line[after]);
+        return beforeOk && afterOk;
+    }
+
+    private static bool IsModernNameChar(char c)
+    {
+        return char.IsLetterOrDigit(c) || c == '_' || c == '.';
+    }
+
+    private static string RewriteNamespaceLabels(string line, Stack<string> namespaceStack)
+    {
+        if (namespaceStack.Count == 0) return line;
+
+        string ns = string.Join(".", namespaceStack.Reverse());
+        string rewritten = Regex.Replace(line, @"^(\s*)\*([A-Za-z_][A-Za-z0-9_]*)\b", m => $"{m.Groups[1].Value}*{ns}.{m.Groups[2].Value}");
+
+        return Regex.Replace(rewritten, @"\b(goto|jmp|gosub|call|beq|bne|bgt|blt)\s+\*([A-Za-z_][A-Za-z0-9_]*)\b",
+            m => $"{m.Groups[1].Value} *{ns}.{m.Groups[2].Value}",
+            RegexOptions.IgnoreCase);
     }
 
     private void AddTextInstructions(List<Instruction> instructions, string sourceText, int sourceLine)
@@ -248,7 +497,7 @@ public class Parser
         for (int i = 0; i < line.Length; i++)
         {
             if (line[i] == '"') inQuotes = !inQuotes;
-            if (!inQuotes && line[i] == ':')
+            if (!inQuotes && line[i] == ':' && !IsUiTargetColon(line, i))
             {
                 result.Add(line.Substring(start, i - start).Trim());
                 start = i + 1;
@@ -256,6 +505,17 @@ public class Parser
         }
         result.Add(line.Substring(start).Trim());
         return result;
+    }
+
+    private static bool IsUiTargetColon(string line, int colonIndex)
+    {
+        int tokenStart = colonIndex - 1;
+        while (tokenStart >= 0 && !char.IsWhiteSpace(line[tokenStart]) && line[tokenStart] != ',') tokenStart--;
+        tokenStart++;
+
+        string prefix = line.Substring(tokenStart, colonIndex - tokenStart);
+        return prefix.Equals("sprite", StringComparison.OrdinalIgnoreCase) ||
+               prefix.Equals("group", StringComparison.OrdinalIgnoreCase);
     }
 
     private List<string> Tokenize(string line)
@@ -282,7 +542,7 @@ public class Parser
                 while (i < line.Length && !char.IsWhiteSpace(line[i]) && line[i] != ',' && line[i] != '"')
                 {
                     // Handle comparison operators
-                    if (i + 1 < line.Length && line.Substring(i, 2) == "==")
+                    if (i + 1 < line.Length && line[i] == '=' && line[i + 1] == '=')
                     {
                         if (i > start) break;
                         else
@@ -293,7 +553,7 @@ public class Parser
                             continue;
                         }
                     }
-                    else if (i + 1 < line.Length && line.Substring(i, 2) == "!=")
+                    else if (i + 1 < line.Length && line[i] == '!' && line[i + 1] == '=')
                     {
                         if (i > start) break;
                         else
@@ -304,7 +564,7 @@ public class Parser
                             continue;
                         }
                     }
-                    else if (i + 1 < line.Length && line.Substring(i, 2) == ">=")
+                    else if (i + 1 < line.Length && line[i] == '>' && line[i + 1] == '=')
                     {
                         if (i > start) break;
                         else
@@ -315,7 +575,7 @@ public class Parser
                             continue;
                         }
                     }
-                    else if (i + 1 < line.Length && line.Substring(i, 2) == "<=")
+                    else if (i + 1 < line.Length && line[i] == '<' && line[i + 1] == '=')
                     {
                         if (i > start) break;
                         else

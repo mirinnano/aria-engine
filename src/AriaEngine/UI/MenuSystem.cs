@@ -13,16 +13,19 @@ public class MenuSystem
         Save,
         Load,
         Backlog,
-        Settings
+        Settings,
+        Confirm
     }
 
     private const int SaveSlotCount = 10;
     private readonly VirtualMachine _vm;
     private MenuState _currentState = MenuState.Closed;
+    private MenuState _returnState = MenuState.Main;
     private double _openedAt;
     private int _backlogScroll;
+    private string _pendingConfirmAction = "";
+    private int? _pendingLoadSlot;
 
-    private static readonly Color Black = new(0, 0, 0, 238);
     private static readonly Color White = new(245, 245, 245, 255);
     private static readonly Color Gray = new(150, 150, 150, 255);
     private static readonly Color Line = new(245, 245, 245, 90);
@@ -60,7 +63,8 @@ public class MenuSystem
 
         if (Raylib.IsKeyPressed(KeyboardKey.Escape))
         {
-            if (_currentState == MenuState.Main) CloseMenu();
+            if (_currentState == MenuState.Confirm) Open(_returnState);
+            else if (_currentState == MenuState.Main) CloseMenu();
             else OpenMainMenu();
             return;
         }
@@ -89,6 +93,9 @@ public class MenuSystem
             case MenuState.Settings:
                 UpdateSettingsClick();
                 break;
+            case MenuState.Confirm:
+                UpdateConfirmClick();
+                break;
         }
     }
 
@@ -113,6 +120,9 @@ public class MenuSystem
                 break;
             case MenuState.Settings:
                 DrawSettings(renderer);
+                break;
+            case MenuState.Confirm:
+                DrawConfirm(renderer);
                 break;
         }
     }
@@ -139,7 +149,11 @@ public class MenuSystem
         {
             if (!Raylib.CheckCollisionPointRec(mouse, GetSaveSlotRect(i))) continue;
             if (_currentState == MenuState.Save) _vm.SaveGame(i);
-            else _vm.LoadGame(i);
+            else
+            {
+                RequestConfirmation("load_slot", _currentState, i);
+                return;
+            }
             CloseMenu();
             return;
         }
@@ -212,18 +226,69 @@ public class MenuSystem
                 CloseMenu();
                 break;
             case "reset":
-                CloseMenu();
-                _vm.ResetGame();
+                RequestConfirmation("reset", _currentState);
                 break;
             case "end":
             case "quit":
             case "close":
-                _vm.QuitGame();
+                RequestConfirmation("end", _currentState);
                 break;
             default:
                 CloseMenu();
                 if (!string.IsNullOrWhiteSpace(action)) _vm.JumpTo("*" + action.TrimStart('*'));
                 break;
+        }
+    }
+
+    private void RequestConfirmation(string action, MenuState returnState, int? loadSlot = null)
+    {
+        _pendingConfirmAction = action;
+        _pendingLoadSlot = loadSlot;
+        _returnState = returnState;
+        Open(MenuState.Confirm);
+    }
+
+    private void ExecuteConfirmedAction()
+    {
+        string action = _pendingConfirmAction;
+        int? loadSlot = _pendingLoadSlot;
+        _pendingConfirmAction = "";
+        _pendingLoadSlot = null;
+
+        switch (action)
+        {
+            case "load_slot" when loadSlot.HasValue:
+                _vm.LoadGame(loadSlot.Value);
+                CloseMenu();
+                break;
+            case "reset":
+                CloseMenu();
+                _vm.ResetGame();
+                break;
+            case "end":
+                _vm.QuitGame();
+                break;
+            default:
+                Open(_returnState);
+                break;
+        }
+    }
+
+    private void UpdateConfirmClick()
+    {
+        var mouse = Raylib.GetMousePosition();
+        var (yes, no) = GetConfirmRows();
+        if (Raylib.CheckCollisionPointRec(mouse, yes))
+        {
+            ExecuteConfirmedAction();
+            return;
+        }
+
+        if (Raylib.CheckCollisionPointRec(mouse, no))
+        {
+            _pendingConfirmAction = "";
+            _pendingLoadSlot = null;
+            Open(_returnState);
         }
     }
 
@@ -236,7 +301,7 @@ public class MenuSystem
     private void DrawMainMenu(SpriteRenderer renderer)
     {
         var entries = GetVisibleMainEntries();
-        int w = 360;
+        int w = Math.Clamp(_vm.State.RightMenuWidth, 220, Raylib.GetScreenWidth() - 72);
         int h = 78 + entries.Count * 42;
         var panel = CenterPanel(w, h);
         DrawPanel(renderer, panel, "MENU");
@@ -252,7 +317,7 @@ public class MenuSystem
 
     private void DrawSaveLoadMenu(SpriteRenderer renderer, bool isSave)
     {
-        var panel = CenterPanel(Math.Min(760, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+        var panel = CenterPanel(Math.Min(_vm.State.SaveLoadWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
         DrawPanel(renderer, panel, isSave ? "SAVE" : "LOAD");
 
         var mouse = Raylib.GetMousePosition();
@@ -265,7 +330,7 @@ public class MenuSystem
 
     private void DrawBacklog(SpriteRenderer renderer)
     {
-        var panel = CenterPanel(Math.Min(860, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+        var panel = CenterPanel(Math.Min(_vm.State.BacklogWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
         DrawPanel(renderer, panel, "BACKLOG");
 
         int visible = Math.Max(1, ((int)panel.Height - 116) / 34);
@@ -284,7 +349,7 @@ public class MenuSystem
                 string line = _vm.State.TextHistory[i].Replace("\r", " ").Replace("\n", " / ");
                 int maxChars = Math.Max(20, ((int)panel.Width - 96) / 12);
                 if (line.Length > maxChars) line = line[..maxChars] + "...";
-                DrawText(renderer, (i + 1).ToString("000"), (int)panel.X + 28, y, 14, Gray);
+                DrawText(renderer, (_vm.State.TextHistoryStartNumber + i).ToString("000"), (int)panel.X + 28, y, 14, Gray);
                 DrawText(renderer, line, (int)panel.X + 84, y - 2, 18, White);
                 y += 34;
             }
@@ -295,7 +360,7 @@ public class MenuSystem
 
     private void DrawSettings(SpriteRenderer renderer)
     {
-        var panel = CenterPanel(520, 306);
+        var panel = CenterPanel(Math.Min(_vm.State.SettingsWidth, Raylib.GetScreenWidth() - 72), 306);
         DrawPanel(renderer, panel, "SETTINGS");
 
         var rows = GetSettingsRows();
@@ -305,6 +370,26 @@ public class MenuSystem
         DrawTextRow(renderer, rows[2], "BACKLOG", _vm.State.BacklogEnabled ? "ON" : "OFF", Raylib.CheckCollisionPointRec(mouse, rows[2]));
         DrawTextRow(renderer, rows[3], "CLICK CURSOR", _vm.State.ShowClickCursor ? "ON" : "OFF", Raylib.CheckCollisionPointRec(mouse, rows[3]));
         DrawFooter(renderer, panel, "CLICK TO CHANGE / ESC  BACK");
+    }
+
+    private void DrawConfirm(SpriteRenderer renderer)
+    {
+        var panel = CenterPanel(Math.Min(420, Raylib.GetScreenWidth() - 72), 190);
+        DrawPanel(renderer, panel, "CONFIRM");
+
+        string message = _pendingConfirmAction switch
+        {
+            "load_slot" => $"LOAD SLOT {(_pendingLoadSlot.GetValueOrDefault() + 1):00}?",
+            "reset" => "RESET CURRENT GAME?",
+            "end" => "EXIT GAME?",
+            _ => "CONTINUE?"
+        };
+        DrawCenteredText(renderer, message, (int)panel.X, (int)panel.Y + 70, (int)panel.Width, 18, ColorFromHex(_vm.State.MenuTextColor, 255));
+
+        var (yes, no) = GetConfirmRows();
+        var mouse = Raylib.GetMousePosition();
+        DrawTextRow(renderer, yes, "YES", "CONFIRM", Raylib.CheckCollisionPointRec(mouse, yes));
+        DrawTextRow(renderer, no, "NO", "BACK", Raylib.CheckCollisionPointRec(mouse, no));
     }
 
     private void DrawSaveSlot(SpriteRenderer renderer, int index, Rectangle rect, bool hover, bool isSave)
@@ -346,7 +431,7 @@ public class MenuSystem
     private List<Rectangle> GetMainMenuRows()
     {
         var entries = GetVisibleMainEntries();
-        int w = 360;
+        int w = Math.Clamp(_vm.State.RightMenuWidth, 220, Raylib.GetScreenWidth() - 72);
         int h = 78 + entries.Count * 42;
         var panel = CenterPanel(w, h);
         var rows = new List<Rectangle>();
@@ -359,7 +444,7 @@ public class MenuSystem
 
     private List<Rectangle> GetSettingsRows()
     {
-        var panel = CenterPanel(520, 306);
+        var panel = CenterPanel(Math.Min(_vm.State.SettingsWidth, Raylib.GetScreenWidth() - 72), 306);
         var rows = new List<Rectangle>();
         for (int i = 0; i < 4; i++)
         {
@@ -370,12 +455,21 @@ public class MenuSystem
 
     private Rectangle GetSaveSlotRect(int index)
     {
-        var panel = CenterPanel(Math.Min(760, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
-        int col = index % 2;
-        int row = index / 2;
-        float slotW = (panel.Width - 72) / 2f;
+        var panel = CenterPanel(Math.Min(_vm.State.SaveLoadWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+        int columns = Math.Clamp(_vm.State.SaveLoadColumns, 1, 4);
+        int col = index % columns;
+        int row = index / columns;
+        float slotW = (panel.Width - 48 - (columns - 1) * 24) / columns;
         float slotH = 92;
         return new Rectangle(panel.X + 24 + col * (slotW + 24), panel.Y + 60 + row * (slotH + 8), slotW, slotH);
+    }
+
+    private (Rectangle Yes, Rectangle No) GetConfirmRows()
+    {
+        var panel = CenterPanel(Math.Min(420, Raylib.GetScreenWidth() - 72), 190);
+        var yes = new Rectangle(panel.X + 28, panel.Y + 106, (panel.Width - 68) / 2f, 36);
+        var no = new Rectangle(yes.X + yes.Width + 12, yes.Y, yes.Width, yes.Height);
+        return (yes, no);
     }
 
     private List<(string Action, Rectangle Rect)> GetSystemButtonRects()
@@ -413,7 +507,7 @@ public class MenuSystem
                 "load" => "L",
                 _ => "?"
             };
-            DrawCenteredText(renderer, label, (int)rect.X, (int)rect.Y + 5, (int)rect.Width, 14, hover ? Black : White);
+            DrawCenteredText(renderer, label, (int)rect.X, (int)rect.Y + 5, (int)rect.Width, 14, hover ? Color.Black : White);
         }
     }
 
@@ -434,18 +528,21 @@ public class MenuSystem
 
     private void DrawPanel(SpriteRenderer renderer, Rectangle rect, string title)
     {
-        Raylib.DrawRectangleRounded(rect, 0.025f, 16, Black);
-        Raylib.DrawRectangleRoundedLinesEx(rect, 0.025f, 16, 1, Line);
-        DrawText(renderer, title, (int)rect.X + 24, (int)rect.Y + 22, 20, White);
-        Raylib.DrawLine((int)rect.X + 24, (int)rect.Y + 48, (int)(rect.X + rect.Width - 24), (int)rect.Y + 48, Line);
+        var fill = ColorFromHex(_vm.State.MenuFillColor, _vm.State.MenuFillAlpha);
+        var line = ColorFromHex(_vm.State.MenuLineColor, 90);
+        float roundness = Math.Clamp(_vm.State.MenuCornerRadius / Math.Max(rect.Height, 1f), 0f, 1f);
+        Raylib.DrawRectangleRounded(rect, roundness, 16, fill);
+        Raylib.DrawRectangleRoundedLinesEx(rect, roundness, 16, 1, line);
+        DrawText(renderer, title, (int)rect.X + 24, (int)rect.Y + 22, 20, ColorFromHex(_vm.State.MenuTextColor, 255));
+        Raylib.DrawLine((int)rect.X + 24, (int)rect.Y + 48, (int)(rect.X + rect.Width - 24), (int)rect.Y + 48, line);
     }
 
     private void DrawTextRow(SpriteRenderer renderer, Rectangle rect, string left, string right, bool hover)
     {
         DrawRect(rect, hover);
-        DrawText(renderer, left, (int)rect.X + 14, (int)rect.Y + 8, 17, hover ? Black : White);
+        DrawText(renderer, left, (int)rect.X + 14, (int)rect.Y + 8, 17, hover ? Color.Black : ColorFromHex(_vm.State.MenuTextColor, 255));
         int rw = Raylib.MeasureText(right, 13);
-        DrawText(renderer, right, (int)(rect.X + rect.Width - rw - 14), (int)rect.Y + 11, 13, hover ? Black : Gray);
+        DrawText(renderer, right, (int)(rect.X + rect.Width - rw - 14), (int)rect.Y + 11, 13, hover ? Color.Black : Gray);
     }
 
     private static void DrawRect(Rectangle rect, bool hover)
@@ -468,6 +565,20 @@ public class MenuSystem
     private static void DrawText(SpriteRenderer renderer, string text, int x, int y, int size, Color color)
     {
         renderer.DrawUiText(text, x, y, size, color);
+    }
+
+    private static Color ColorFromHex(string hex, int alpha)
+    {
+        string value = hex.Trim().TrimStart('#');
+        if (value.Length == 6 &&
+            int.TryParse(value[..2], System.Globalization.NumberStyles.HexNumber, null, out int r) &&
+            int.TryParse(value.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, null, out int g) &&
+            int.TryParse(value.Substring(4, 2), System.Globalization.NumberStyles.HexNumber, null, out int b))
+        {
+            return new Color(r, g, b, Math.Clamp(alpha, 0, 255));
+        }
+
+        return new Color(0, 0, 0, Math.Clamp(alpha, 0, 255));
     }
 }
 

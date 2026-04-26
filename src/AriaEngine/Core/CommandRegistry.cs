@@ -14,6 +14,7 @@ public enum CommandCategory
     Save,
     Flags,
     System,
+    Ui,
     Compatibility
 }
 
@@ -57,6 +58,30 @@ public static class CommandRegistry
         Register(CommandCategory.Text, OpCode.TextTarget, "text_target");
         Register(CommandCategory.Compatibility, OpCode.CompatMode, "compat_mode");
         Register(CommandCategory.Text, OpCode.UiTheme, "ui_theme");
+        Register(CommandCategory.Text, OpCode.UiQuality, "ui_quality");
+        Register(CommandCategory.Text, OpCode.UiMotion, "ui_motion");
+        Register(CommandCategory.Ui, OpCode.Ui, "ui");
+        Register(CommandCategory.Ui, OpCode.UiRect, "ui_rect");
+        Register(CommandCategory.Ui, OpCode.UiText, "ui_text");
+        Register(CommandCategory.Ui, OpCode.UiImage, "ui_image");
+        Register(CommandCategory.Ui, OpCode.UiButton, "ui_button");
+        Register(CommandCategory.Ui, OpCode.UiGroup, "ui_group");
+        Register(CommandCategory.Ui, OpCode.UiGroupAdd, "ui_group_add");
+        Register(CommandCategory.Ui, OpCode.UiGroupClear, "ui_group_clear");
+        Register(CommandCategory.Ui, OpCode.UiGroupShow, "ui_group_show");
+        Register(CommandCategory.Ui, OpCode.UiGroupHide, "ui_group_hide");
+        Register(CommandCategory.Ui, OpCode.UiLayout, "ui_layout");
+        Register(CommandCategory.Ui, OpCode.UiAnchor, "ui_anchor");
+        Register(CommandCategory.Ui, OpCode.UiPack, "ui_pack");
+        Register(CommandCategory.Ui, OpCode.UiStyle, "ui_style");
+        Register(CommandCategory.Ui, OpCode.UiState, "ui_state");
+        Register(CommandCategory.Ui, OpCode.UiStateStyle, "ui_state_style");
+        Register(CommandCategory.Ui, OpCode.UiOn, "ui_on");
+        Register(CommandCategory.Ui, OpCode.UiHotkey, "ui_hotkey");
+        Register(CommandCategory.Ui, OpCode.UiTween, "ui_tween");
+        Register(CommandCategory.Ui, OpCode.UiFade, "ui_fade");
+        Register(CommandCategory.Ui, OpCode.UiMove, "ui_move");
+        Register(CommandCategory.Ui, OpCode.UiScale, "ui_scale");
         Register(CommandCategory.Text, OpCode.Br, "br");
         Register(CommandCategory.Text, OpCode.WaitClickClear, "\\");
         Register(CommandCategory.Text, OpCode.WaitClick, "@");
@@ -319,6 +344,17 @@ public static class CommandRegistry
             OpCode.GetSceneData => 1,
             OpCode.ChapterId or OpCode.ChapterTitle or OpCode.ChapterDesc or OpCode.ChapterScript => 1,
             OpCode.FontFilter => 1,
+            OpCode.UiQuality or OpCode.UiMotion => 1,
+            OpCode.Ui => 2,
+            OpCode.UiRect => 5,
+            OpCode.UiText or OpCode.UiImage => 4,
+            OpCode.UiButton or OpCode.UiGroupAdd or OpCode.UiLayout or OpCode.UiAnchor or OpCode.UiStyle or OpCode.UiState or OpCode.UiHotkey => 2,
+            OpCode.UiGroup or OpCode.UiGroupClear or OpCode.UiGroupShow or OpCode.UiGroupHide or OpCode.UiPack => 1,
+            OpCode.UiStateStyle => 4,
+            OpCode.UiOn => 3,
+            OpCode.UiTween => 5,
+            OpCode.UiFade => 3,
+            OpCode.UiMove or OpCode.UiScale => 4,
             _ => 0
         };
     }

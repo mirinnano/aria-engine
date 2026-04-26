@@ -13,6 +13,7 @@ namespace AriaEngine.Core;
 public class SaveManager
 {
     private const int CurrentSaveVersion = 2;
+    public const int AutoSaveSlot = 98;
     private static readonly byte[] SaveMagic = Encoding.ASCII.GetBytes("ARIASAVE2");
     private readonly ErrorReporter _reporter;
     private readonly string _saveDir = "saves";

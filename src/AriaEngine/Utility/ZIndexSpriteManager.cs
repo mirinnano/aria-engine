@@ -210,8 +210,6 @@ public class ZIndexSpriteManager
     public List<Sprite> GetSpritesInRange(int minZ, int maxZ, bool includeInvisible = false)
     {
         var result = new List<Sprite>();
-        bool inRange = false;
-
         foreach (var kvp in _zBuckets)
         {
             if (kvp.Key < minZ)
@@ -223,8 +221,6 @@ public class ZIndexSpriteManager
             {
                 break;
             }
-
-            inRange = true;
 
             foreach (var spriteId in kvp.Value)
             {

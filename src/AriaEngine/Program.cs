@@ -57,7 +57,7 @@ class Program
 
             var parser = new Parser(reporter);
 
-            var configParams = new ConfigManager();
+            var configParams = new ConfigManager(reporter);
             SafeStartup("CONFIG_LOAD", () => configParams.Load(), reporter, "config.jsonの読み込みに失敗しました。既定値で続行します。");
 
             IAssetProvider assetProvider = CreateAssetProvider(runOptions, reporter);
@@ -94,9 +94,10 @@ class Program
 
             Raylib.SetConfigFlags(ConfigFlags.VSyncHint);
             Raylib.InitWindow(vm.State.WindowWidth, vm.State.WindowHeight, vm.State.Title);
+            Raylib.SetExitKey((KeyboardKey)0);
             windowReady = true;
             string currentWindowTitle = vm.State.Title;
-            Raylib.SetTargetFPS(60);
+            Raylib.SetTargetFPS(120);
             SafeStartup("AUDIO_INIT", () => { Raylib.InitAudioDevice(); audioReady = true; }, reporter, "音声デバイスの初期化に失敗しました。無音で続行します。");
 
             renderer = new SpriteRenderer(assetProvider, reporter);
@@ -144,7 +145,12 @@ class Program
                 SafeFrame("transition.update", () => transition.Update(vm, dt), reporter);
                 SafeFrame("tweens.update", () => tweens.Update(vm.State, dtMs), reporter);
 
-                if (vm.State.State == VmState.Running)
+                if (vm.State.SkipMode || vm.State.ForceSkipMode)
+                {
+                    int skipBudget = vm.State.ForceSkipMode ? vm.State.ForceSkipAdvancePerFrame : vm.State.SkipAdvancePerFrame;
+                    SafeFrame("vm.skip", () => vm.ProcessSkipFrame(skipBudget), reporter);
+                }
+                else if (vm.State.State == VmState.Running)
                 {
                     SafeFrame("vm.step", vm.Step, reporter);
                 }
