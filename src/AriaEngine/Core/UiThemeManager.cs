@@ -37,6 +37,12 @@ public class UiThemeManager
             return;
         }
 
+        if (themeName is "steel" or "rugged" or "hard")
+        {
+            ResetToDefaults();
+            return;
+        }
+
         if (themeName == "mono")
         {
             ApplyMonoTheme();
@@ -62,6 +68,8 @@ public class UiThemeManager
         _state.DefaultTextboxShadowAlpha = UIThemeDefaults.TextboxShadowAlpha;
         _state.DefaultTextboxPaddingX = UIThemeDefaults.TextboxPaddingX;
         _state.DefaultTextboxPaddingY = UIThemeDefaults.TextboxPaddingY;
+        _state.DefaultTextboxBgColor = UIThemeDefaults.TextboxBgColor;
+        _state.DefaultTextboxBgAlpha = UIThemeDefaults.TextboxBgAlpha;
 
         _state.ChoiceWidth = UIThemeDefaults.ChoiceWidth;
         _state.ChoiceHeight = UIThemeDefaults.ChoiceHeight;
@@ -76,6 +84,12 @@ public class UiThemeManager
         _state.ChoiceBorderOpacity = UIThemeDefaults.ChoiceBorderOpacity;
         _state.ChoiceHoverColor = UIThemeDefaults.ChoiceHoverColor;
         _state.ChoicePaddingX = UIThemeDefaults.ChoicePaddingX;
+
+        _state.MenuFillColor = UIThemeDefaults.MenuFillColor;
+        _state.MenuFillAlpha = UIThemeDefaults.MenuFillAlpha;
+        _state.MenuLineColor = UIThemeDefaults.MenuLineColor;
+        _state.MenuTextColor = UIThemeDefaults.MenuTextColor;
+        _state.MenuCornerRadius = UIThemeDefaults.MenuCornerRadius;
     }
 
     private void ApplyClassicTheme()
@@ -110,51 +124,63 @@ public class UiThemeManager
     {
         _state.DefaultTextboxCornerRadius = 22;
         _state.DefaultTextboxBorderWidth = 1;
-        _state.DefaultTextboxBorderColor = "#ffffff";
-        _state.DefaultTextboxBorderOpacity = 70;
+        _state.DefaultTextboxBorderColor = "#b8c6d1";
+        _state.DefaultTextboxBorderOpacity = 82;
         _state.DefaultTextboxShadowOffsetX = 0;
-        _state.DefaultTextboxShadowOffsetY = 5;
+        _state.DefaultTextboxShadowOffsetY = 7;
         _state.DefaultTextboxShadowColor = "#000000";
-        _state.DefaultTextboxShadowAlpha = 90;
+        _state.DefaultTextboxShadowAlpha = 110;
         _state.DefaultTextboxPaddingX = 30;
         _state.DefaultTextboxPaddingY = 24;
+        _state.DefaultTextboxBgColor = "#14161b";
+        _state.DefaultTextboxBgAlpha = 202;
 
         _state.ChoiceWidth = 640;
         _state.ChoiceHeight = 62;
         _state.ChoiceSpacing = 18;
         _state.ChoiceFontSize = 28;
-        _state.ChoiceBgColor = "#101010";
-        _state.ChoiceBgAlpha = 220;
-        _state.ChoiceTextColor = "#ffffff";
+        _state.ChoiceBgColor = "#1a2026";
+        _state.ChoiceBgAlpha = 222;
+        _state.ChoiceTextColor = "#f7f5ef";
         _state.ChoiceCornerRadius = 20;
-        _state.ChoiceBorderColor = "#ffffff";
+        _state.ChoiceBorderColor = "#d2b982";
         _state.ChoiceBorderWidth = 1;
-        _state.ChoiceBorderOpacity = 70;
-        _state.ChoiceHoverColor = "#242424";
+        _state.ChoiceBorderOpacity = 84;
+        _state.ChoiceHoverColor = "#2b3339";
         _state.ChoicePaddingX = 24;
+
+        _state.MenuFillColor = "#14161b";
+        _state.MenuFillAlpha = 232;
+        _state.MenuLineColor = "#d2b982";
+        _state.MenuTextColor = "#f7f5ef";
+        _state.MenuCornerRadius = 22;
     }
 
     private void ApplyGlassTheme()
     {
-        _state.DefaultTextboxCornerRadius = 26;
+        _state.DefaultTextboxCornerRadius = 24;
         _state.DefaultTextboxBorderWidth = 1;
-        _state.DefaultTextboxBorderColor = "#ffffff";
-        _state.DefaultTextboxBorderOpacity = 110;
+        _state.DefaultTextboxBorderColor = "#9ad9d4";
+        _state.DefaultTextboxBorderOpacity = 96;
         _state.DefaultTextboxShadowOffsetX = 0;
         _state.DefaultTextboxShadowOffsetY = 8;
         _state.DefaultTextboxShadowColor = "#000000";
-        _state.DefaultTextboxShadowAlpha = 120;
+        _state.DefaultTextboxShadowAlpha = 132;
         _state.DefaultTextboxPaddingX = 34;
         _state.DefaultTextboxPaddingY = 26;
-        _state.DefaultTextboxBgColor = "#050505";
-        _state.DefaultTextboxBgAlpha = 168;
+        _state.DefaultTextboxBgColor = "#0d171b";
+        _state.DefaultTextboxBgAlpha = 188;
 
-        _state.MenuFillColor = "#050505";
-        _state.MenuFillAlpha = 218;
-        _state.MenuLineColor = "#ffffff";
-        _state.MenuTextColor = "#ffffff";
-        _state.MenuCornerRadius = 24;
-        _state.ChoiceHoverColor = "#2b2b2b";
+        _state.MenuFillColor = "#0d171b";
+        _state.MenuFillAlpha = 224;
+        _state.MenuLineColor = "#9ad9d4";
+        _state.MenuTextColor = "#f4f7f8";
+        _state.MenuCornerRadius = 18;
+        _state.ChoiceBgColor = "#132329";
+        _state.ChoiceBgAlpha = 218;
+        _state.ChoiceBorderColor = "#9ad9d4";
+        _state.ChoiceBorderOpacity = 96;
+        _state.ChoiceHoverColor = "#254148";
     }
 
     private void ApplyMonoTheme()

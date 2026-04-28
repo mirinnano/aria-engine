@@ -25,6 +25,10 @@ public class SpriteRenderer
     private readonly ErrorReporter? _reporter;
     private readonly HashSet<string> _failedTextures = new(StringComparer.OrdinalIgnoreCase);
 
+    // UI用フォント（メニュー等の英字表示用）
+    private string? _uiFontPath;
+    private readonly Dictionary<float, Font> _uiFontCache = new();
+
     // パフォーマンス統計
     public long TotalDrawCalls { get; private set; }
     public long TotalTextureLoads { get; private set; }
@@ -89,6 +93,7 @@ public class SpriteRenderer
             tex = Raylib.LoadTexture(resolved);
             if (tex.Id != 0)
             {
+                ApplyTextureFilter(ref tex, CurrentTextureFilter());
                 _textureCache.AddOrUpdate(resolved, tex, tex.Width * tex.Height * 4);
                 TotalTextureLoads++;
                 return tex;
@@ -107,6 +112,7 @@ public class SpriteRenderer
         var chars = new HashSet<int>();
         for (int c = 32; c < 127; c++) chars.Add(c);
         foreach (var c in "、。！？「」『』…―～（）") chars.Add(c);
+        foreach (var c in "■□●▶◆◇▲▼") chars.Add(c); // rmenu icons
         foreach (var line in scriptLines)
             foreach (var c in line)
                 chars.Add(c);
@@ -152,6 +158,16 @@ public class SpriteRenderer
         return Math.Clamp((int)MathF.Round(requestedFontSize), FontConstants.MinAtlasSize, FontConstants.MaxAtlasSize);
     }
 
+    public static int SelectSmoothFontAtlasSize(float requestedFontSize, Raylib_cs.TextureFilter filter)
+    {
+        if (filter == Raylib_cs.TextureFilter.Point)
+        {
+            return SelectFontAtlasSize(requestedFontSize);
+        }
+
+        return Math.Clamp((int)MathF.Round(requestedFontSize * 2f), FontConstants.MinAtlasSize, FontConstants.MaxAtlasSize);
+    }
+
     private Font GetFontForSize(float requestedFontSize)
     {
         if (!_fontLoaded)
@@ -159,7 +175,7 @@ public class SpriteRenderer
             return default;
         }
 
-        int size = SelectFontAtlasSize(requestedFontSize);
+        int size = SelectSmoothFontAtlasSize(requestedFontSize, _fontFilter);
         if (_fontCache.TryGetValue(size, out var cached) && cached.Texture.Id != 0)
         {
             return cached;
@@ -223,14 +239,7 @@ public class SpriteRenderer
 
         try
         {
-            if (_fontFilter == Raylib_cs.TextureFilter.Trilinear)
-            {
-                var texture = font.Texture;
-                Raylib.GenTextureMipmaps(ref texture);
-                font.Texture = texture;
-            }
-
-            Raylib.SetTextureFilter(font.Texture, _fontFilter);
+            ApplyTextureFilter(ref font, _fontFilter);
             _fontCache[size] = font;
         }
         catch (Exception ex)
@@ -243,6 +252,105 @@ public class SpriteRenderer
         }
 
         return font;
+    }
+
+    public void LoadUiFont(string fontPath)
+    {
+        try
+        {
+            _uiFontPath = _assetProvider.MaterializeToFile(fontPath);
+        }
+        catch (Exception ex)
+        {
+            _reporter?.ReportException(
+                "RENDER_UI_FONT_LOAD",
+                ex,
+                $"UIフォント '{fontPath}' を読み込めませんでした。",
+                AriaErrorLevel.Warning);
+            _uiFontPath = null;
+        }
+    }
+
+    private Font GetUiFontForSize(float requestedFontSize)
+    {
+        if (string.IsNullOrEmpty(_uiFontPath)) return default;
+
+        int size = SelectSmoothFontAtlasSize(requestedFontSize, _fontFilter);
+        if (_uiFontCache.TryGetValue(size, out var cached) && cached.Texture.Id != 0)
+        {
+            return cached;
+        }
+
+        try
+        {
+            var chars = new HashSet<int>();
+            for (int c = 32; c < 127; c++) chars.Add(c);
+            int[] codepoints = chars.ToArray();
+
+            var font = Raylib.LoadFontEx(_uiFontPath, size, codepoints, codepoints.Length);
+            if (font.Texture.Id != 0)
+            {
+                ApplyTextureFilter(ref font, _fontFilter);
+                _uiFontCache[size] = font;
+                return font;
+            }
+        }
+        catch (Exception ex)
+        {
+            _reporter?.ReportException(
+                "RENDER_UI_FONT_SIZE_LOAD",
+                ex,
+                $"UIフォントサイズ {size}px の生成に失敗しました。",
+                AriaErrorLevel.Warning);
+        }
+        return default;
+    }
+
+    public void DrawMenuText(string text, int x, int y, int size, Color color)
+    {
+        var font = GetUiFontForSize(size);
+        if (font.Texture.Id != 0)
+        {
+            Raylib.DrawTextEx(font, text, new Vector2(x, y), size, Math.Max(1, size / 10f), color);
+        }
+        else
+        {
+            Raylib.DrawText(text, x, y, size, color);
+        }
+    }
+
+    public int MeasureMenuText(string text, int size)
+    {
+        var font = GetUiFontForSize(size);
+        if (font.Texture.Id != 0)
+        {
+            return (int)Raylib.MeasureTextEx(font, text, size, Math.Max(1, size / 10f)).X;
+        }
+        return Raylib.MeasureText(text, size);
+    }
+
+    private static void ApplyTextureFilter(ref Font font, Raylib_cs.TextureFilter filter)
+    {
+        var texture = font.Texture;
+        ApplyTextureFilter(ref texture, filter);
+        font.Texture = texture;
+    }
+
+    private static void ApplyTextureFilter(ref Texture2D texture, Raylib_cs.TextureFilter filter)
+    {
+        if (texture.Id == 0) return;
+
+        if (filter == Raylib_cs.TextureFilter.Trilinear)
+        {
+            Raylib.GenTextureMipmaps(ref texture);
+        }
+
+        Raylib.SetTextureFilter(texture, filter);
+    }
+
+    private Raylib_cs.TextureFilter CurrentTextureFilter()
+    {
+        return _currentState?.HighQualityUiTextures == true ? Raylib_cs.TextureFilter.Trilinear : Raylib_cs.TextureFilter.Bilinear;
     }
 
     public void Draw(GameState state, TransitionManager transition)
@@ -307,33 +415,33 @@ public class SpriteRenderer
 
         if (_failedTextures.Contains(sp.ImagePath)) return;
 
-        string resolvedImagePath;
-        try
-        {
-            resolvedImagePath = _assetProvider.MaterializeToFile(sp.ImagePath);
-        }
-        catch (Exception ex)
-        {
-            _failedTextures.Add(sp.ImagePath);
-            _reporter?.ReportException(
-                "RENDER_TEXTURE_MISSING",
-                ex,
-                $"画像 '{sp.ImagePath}' を読み込めませんでした。このスプライトをスキップして続行します。",
-                AriaErrorLevel.Warning,
-                hint: "画像ファイル名、Pak収録名、大文字小文字、拡張子を確認してください。");
-            return;
-        }
-
-        if (_textureCache.TryGetValue(resolvedImagePath, out tex))
+        if (_textureCache.TryGetValue(sp.ImagePath, out tex))
         {
             // キャッシュヒット
         }
         else
         {
+            string resolvedImagePath;
+            try
+            {
+                resolvedImagePath = _assetProvider.MaterializeToFile(sp.ImagePath);
+            }
+            catch (Exception ex)
+            {
+                _failedTextures.Add(sp.ImagePath);
+                _reporter?.ReportException(
+                    "RENDER_TEXTURE_MISSING",
+                    ex,
+                    $"画像 '{sp.ImagePath}' を読み込めませんでした。このスプライトをスキップして続行します。",
+                    AriaErrorLevel.Warning,
+                    hint: "画像ファイル名、Pak収録名、大文字小文字、拡張子を確認してください。");
+                return;
+            }
+
             try
             {
                 tex = Raylib.LoadTexture(resolvedImagePath);
-                if (tex.Id != 0) Raylib.SetTextureFilter(tex, _currentState?.HighQualityUiTextures == true ? Raylib_cs.TextureFilter.Trilinear : Raylib_cs.TextureFilter.Bilinear);
+                if (tex.Id != 0) ApplyTextureFilter(ref tex, CurrentTextureFilter());
             }
             catch (Exception ex)
             {
@@ -349,7 +457,7 @@ public class SpriteRenderer
 
             if (tex.Id != 0)
             {
-                _textureCache.AddOrUpdate(resolvedImagePath, tex, tex.Width * tex.Height * 4);
+                _textureCache.AddOrUpdate(sp.ImagePath, tex, tex.Width * tex.Height * 4);
                 TotalTextureLoads++;
             }
             else
@@ -379,8 +487,8 @@ public class SpriteRenderer
         TotalDrawCalls++;
 
         Rectangle src = new Rectangle(0, 0, tex.Width, tex.Height);
-        float dw = sp.Width > 0 ? (sp.Width * sp.RenderScaleX) : (tex.Width * sp.RenderScaleX);
-        float dh = sp.Height > 0 ? (sp.Height * sp.RenderScaleY) : (tex.Height * sp.RenderScaleY);
+        float dw = SnapPixel(sp.Width > 0 ? (sp.Width * sp.RenderScaleX) : (tex.Width * sp.RenderScaleX), _currentState);
+        float dh = SnapPixel(sp.Height > 0 ? (sp.Height * sp.RenderScaleY) : (tex.Height * sp.RenderScaleY), _currentState);
 
         float rWidth = dw;
         float rHeight = dh;
@@ -388,12 +496,6 @@ public class SpriteRenderer
         float drawX = SnapPixel(sp.X + qx, _currentState);
         float drawY = SnapPixel(sp.Y + qy, _currentState);
         Rectangle dst = new Rectangle(drawX + rWidth / 2f, drawY + rHeight / 2f, rWidth, rHeight);
-
-        if (sp.Width <= 0 || sp.Height <= 0)
-        {
-            sp.Width = tex.Width;
-            sp.Height = tex.Height;
-        }
 
         try
         {
@@ -418,8 +520,8 @@ public class SpriteRenderer
         Color hoverFill = !string.IsNullOrEmpty(sp.HoverFillColor) ? ParseColor(sp.HoverFillColor, fillAlpha) : normalFill;
         Color fillColor = LerpColor(normalFill, hoverFill, sp.HoverProgress);
 
-        float rWidth = sp.Width * sp.RenderScaleX;
-        float rHeight = sp.Height * sp.RenderScaleY;
+        float rWidth = SnapPixel(sp.Width * sp.RenderScaleX, _currentState);
+        float rHeight = SnapPixel(sp.Height * sp.RenderScaleY, _currentState);
         float rx = sp.X + qx - (rWidth - sp.Width * sp.ScaleX) / 2f;
         float ry = sp.Y + qy - (rHeight - sp.Height * sp.ScaleY) / 2f;
         rx = SnapPixel(rx, _currentState);
@@ -642,8 +744,8 @@ public class SpriteRenderer
                 shakeY = (float)((seed * 9301 + 49297) % 233280 / 233280.0 * 2 - 1) * seg.Style.ShakeIntensity.Value;
             }
             
-            float drawX = lineX + shakeX;
-            float drawY = lineY + shakeY;
+            float drawX = SnapPixel(lineX + shakeX, _currentState);
+            float drawY = SnapPixel(lineY + shakeY, _currentState);
             
             // Bold: アウトラインで代替
             if (seg.Style.Bold && sp.TextOutlineSize == 0)
@@ -737,6 +839,7 @@ public class SpriteRenderer
 
         Vector2 pos = new Vector2(rx, ry);
         pos = ApplyTextEffect(sp, pos);
+        pos = SnapVector(pos, _currentState);
 
         // テキストシャドウ（条件を強化）
         if (!string.IsNullOrEmpty(sp.TextShadowColor) && (sp.TextShadowX != 0 || sp.TextShadowY != 0) && sp.Opacity > 0)
@@ -793,42 +896,41 @@ public class SpriteRenderer
 
         // StringBuilderプールを使用して効率的にラップ
         var builder = StringHelper.RentStringBuilder();
+        var lineBuilder = StringHelper.RentStringBuilder();
 
         try
         {
-            string currentLine = "";
-
             for (int i = 0; i < text.Length; i++)
             {
                 char c = text[i];
 
                 if (c == '\n')
                 {
-                    builder.Append(currentLine).Append("\n");
-                    currentLine = "";
+                    builder.Append(lineBuilder).Append('\n');
+                    lineBuilder.Clear();
                     continue;
                 }
 
-                string testLine = currentLine + c;
-                var size = Raylib.MeasureTextEx(font, testLine, fontSize, spacing);
+                lineBuilder.Append(c);
+                var size = Raylib.MeasureTextEx(font, lineBuilder.ToString(), fontSize, spacing);
 
-                if (size.X > maxWidth && currentLine.Length > 0)
+                if (size.X > maxWidth && lineBuilder.Length > 1)
                 {
-                    builder.Append(currentLine).Append("\n");
-                    currentLine = c.ToString();
-                }
-                else
-                {
-                    currentLine = testLine;
+                    // 追加した文字を取り除いて改行
+                    lineBuilder.Length--;
+                    builder.Append(lineBuilder).Append('\n');
+                    lineBuilder.Clear();
+                    lineBuilder.Append(c);
                 }
             }
 
-            builder.Append(currentLine);
+            builder.Append(lineBuilder);
             return builder.ToString();
         }
         finally
         {
             // StringBuilderプールに返却
+            StringHelper.ReturnStringBuilder(lineBuilder);
             StringHelper.ReturnStringBuilder(builder);
         }
     }
@@ -842,6 +944,11 @@ public class SpriteRenderer
     private static float SnapPixel(float value, GameState? state = null)
     {
         return state?.SubpixelUiRendering == true ? value : MathF.Round(value);
+    }
+
+    private static Vector2 SnapVector(Vector2 value, GameState? state = null)
+    {
+        return state?.SubpixelUiRendering == true ? value : new Vector2(MathF.Round(value.X), MathF.Round(value.Y));
     }
 
     private static int GetRoundSegments(GameState? state)
@@ -946,23 +1053,41 @@ public class SpriteRenderer
             }
         }
 
-        float t = (float)(Math.Sin(Raylib.GetTime() * 7.5) * 0.5 + 0.5);
-        float bob = (float)Math.Sin(Raylib.GetTime() * 4.0) * 1.5f;
-        byte alpha = (byte)(140 + t * 100);
-        var color = ParseColor(state.ClickCursorColor, alpha);
-        var edge = new Color(0, 0, 0, (int)(alpha * 0.55f));
-        float s = state.ClickCursorSize > 0 ? state.ClickCursorSize : Math.Clamp(state.DefaultFontSize * ClickCursorConstants.DefaultSizeRatio, ClickCursorConstants.MinSize, ClickCursorConstants.MaxSize);
-        y += bob;
+        // Silver filled cursor with smooth double-bounce float animation
+        // Constant size, gentle 4px amplitude, 2 bounces per 2.4s loop
+        float loopDuration = 2.4f;
+        float time = (float)Raylib.GetTime();
+        float t = (time % loopDuration) / loopDuration;
+
+        // Two gentle bounces using smooth sine composition
+        float bounce1 = MathF.Sin(t * MathF.PI * 2f);           // main bounce
+        float bounce2 = MathF.Sin(t * MathF.PI * 4f + 0.5f);    // secondary ripple
+        float combined = (bounce1 + bounce2 * 0.3f) / 1.3f;     // blend, keep range [-1, 1]
+
+        // Map to small upward float only (never dips below base position)
+        float floatOffset = -MathF.Abs(combined) * 4f; // max 4px up, smooth settle
+
+        float baseSize = state.ClickCursorSize > 0 ? state.ClickCursorSize : Math.Clamp(state.DefaultFontSize * ClickCursorConstants.DefaultSizeRatio, ClickCursorConstants.MinSize, ClickCursorConstants.MaxSize);
+        float s = baseSize; // constant size, no scale change
+
+        // Silver fill color
+        var silver = new Color(205, 205, 215, 255);
+        float cy = y + floatOffset;
+
+        // Simple filled downward triangle
         Raylib.DrawTriangle(
-            new Vector2(x, y),
-            new Vector2(x + s, y + s * 0.5f),
-            new Vector2(x, y + s),
-            color);
+            new Vector2(x, cy),
+            new Vector2(x + s, cy),
+            new Vector2(x + s * 0.5f, cy + s * 1.1f),
+            silver);
+
+        // Subtle white highlight edge for depth
+        var highlight = new Color(230, 230, 240, 200);
         Raylib.DrawTriangleLines(
-            new Vector2(x, y),
-            new Vector2(x + s, y + s * 0.5f),
-            new Vector2(x, y + s),
-            edge);
+            new Vector2(x, cy),
+            new Vector2(x + s, cy),
+            new Vector2(x + s * 0.5f, cy + s * 1.1f),
+            highlight);
     }
 
     private Vector2 GetTextEndCursorPosition(GameState state)
@@ -1143,6 +1268,34 @@ public class SpriteRenderer
         // スプライト統計
         int spriteCount = _currentState?.Sprites.Count ?? 0;
         Raylib.DrawText($"Sprites: {spriteCount}", 10, 170, 16, Color.Magenta);
+    }
+
+    /// <summary>
+    /// 指定した画像パスのテクスチャキャッシュを無効化する（live reload用）
+    /// </summary>
+    public void InvalidateTexture(string imagePath)
+    {
+        if (string.IsNullOrWhiteSpace(imagePath)) return;
+        lock (_renderLock)
+        {
+            string resolved = _assetProvider.MaterializeToFile(imagePath);
+            if (_textureCache.TryGetValue(resolved, out var tex))
+            {
+                try
+                {
+                    if (tex.Id != 0)
+                    {
+                        Raylib.UnloadTexture(tex);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _reporter?.ReportException("RENDER_TEXTURE_INVALIDATE", ex, $"画像 '{imagePath}' のキャッシュ無効化中にエラーが発生しました。", AriaErrorLevel.Warning);
+                }
+                _textureCache.Remove(resolved);
+            }
+            _failedTextures.Remove(imagePath);
+        }
     }
 
     public void Unload()

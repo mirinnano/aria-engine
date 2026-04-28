@@ -196,6 +196,59 @@ public class AudioManager
         }
     }
 
+    /// <summary>
+    /// Plays a voice file directly (used by backlog voice replay).
+    /// </summary>
+    public void PlayVoice(string path, int volumePercent)
+    {
+        if (_failedSe.Contains(path)) return;
+
+        if (!_seCache.ContainsKey(path))
+        {
+            try
+            {
+                string resolved = _assetProvider.MaterializeToFile(path);
+                var seSound = Raylib.LoadSound(resolved);
+                if (_seCache.Count >= MaxSeCache && _seOrder.Count > 0)
+                {
+                    string oldest = _seOrder[0];
+                    _seOrder.RemoveAt(0);
+                    if (_seCache.Remove(oldest, out var oldSound))
+                        Raylib.UnloadSound(oldSound);
+                }
+                _seCache[path] = seSound;
+                _seOrder.Add(path);
+            }
+            catch (Exception ex)
+            {
+                _failedSe.Add(path);
+                _reporter?.ReportException(
+                    "AUDIO_VOICE_LOAD",
+                    ex,
+                    $"Voice '{path}' を読み込めませんでした。",
+                    AriaErrorLevel.Warning);
+                return;
+            }
+        }
+
+        if (_seCache.TryGetValue(path, out var sound))
+        {
+            try
+            {
+                Raylib.SetSoundVolume(sound, volumePercent / 100f);
+                Raylib.PlaySound(sound);
+            }
+            catch (Exception ex)
+            {
+                _reporter?.ReportException(
+                    "AUDIO_VOICE_PLAY",
+                    ex,
+                    $"Voice '{path}' の再生に失敗しました。",
+                    AriaErrorLevel.Warning);
+            }
+        }
+    }
+
     public void Unload()
     {
         foreach (var bgm in _bgmCache.Values)

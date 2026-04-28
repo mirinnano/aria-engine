@@ -8,6 +8,17 @@ public class InputHandler
     public void Update(VirtualMachine vm)
     {
         if (Raylib.IsKeyPressed(KeyboardKey.F3)) vm.State.DebugMode = !vm.State.DebugMode;
+        if (Raylib.IsKeyPressed(KeyboardKey.F5))
+        {
+            vm.SaveGame(0);
+            return;
+        }
+        if (Raylib.IsKeyPressed(KeyboardKey.F9))
+        {
+            vm.Menu.CloseMenu();
+            vm.LoadGame(0);
+            return;
+        }
         vm.State.ForceSkipMode = IsForceSkipHeld();
 
         // スキップ中に読み進めキーが押されたら即停止
@@ -35,13 +46,21 @@ public class InputHandler
 
             if (IsAdvancePressed())
             {
-                if (vm.State.IsWaitingPageClear)
+                // テキストがまだ表示中の場合は、テキストを即座に完了させるだけ
+                if (vm.State.DisplayedTextLength < vm.State.CurrentTextBuffer.Length)
                 {
-                    vm.State.CurrentTextBuffer = "";
-                    vm.State.DisplayedTextLength = 0;
-                    vm.State.IsWaitingPageClear = false;
+                    vm.State.DisplayedTextLength = vm.State.CurrentTextBuffer.Length;
                 }
-                vm.ResumeFromClick();
+                else
+                {
+                    if (vm.State.IsWaitingPageClear)
+                    {
+                        vm.State.CurrentTextBuffer = "";
+                        vm.State.DisplayedTextLength = 0;
+                        vm.State.IsWaitingPageClear = false;
+                    }
+                    vm.ResumeFromClick();
+                }
             }
         }
         else if (vm.State.State == VmState.WaitingForAnimation)
@@ -51,15 +70,9 @@ public class InputHandler
                 if (IsAdvancePressed())
                 {
                     if (vm.State.SkipMode && !vm.State.ForceSkipMode) vm.StopSkip();
-                    if (CanAdvanceTextAnimation(vm.State))
-                    {
-                        vm.State.DisplayedTextLength = vm.State.CurrentTextBuffer.Length;
-                        vm.State.State = VmState.Running;
-                    }
-                    else
-                    {
-                        vm.State.DisplayedTextLength = vm.State.CurrentTextBuffer.Length;
-                    }
+                    // タイプライター中のクリックは常にテキストを即座に完了させるだけ
+                    // スクリプトの進行は Update() でテキスト完了後に自然に行われる
+                    vm.State.DisplayedTextLength = vm.State.CurrentTextBuffer.Length;
                 }
             }
         }
@@ -77,8 +90,13 @@ public class InputHandler
 
             var mousePoint = Raylib.GetMousePosition();
             bool clicked = Raylib.IsMouseButtonPressed(MouseButton.Left);
+            bool keyboardActivate = IsFocusedButtonActivatePressed();
+            if (IsFocusNextPressed()) MoveButtonFocus(vm.State, 1);
+            if (IsFocusPreviousPressed()) MoveButtonFocus(vm.State, -1);
+
             Sprite? clickedButton = null;
             int clickedZ = int.MinValue;
+            bool mouseHoverFound = false;
 
             foreach (var kvp in vm.State.Sprites)
             {
@@ -100,7 +118,14 @@ public class InputHandler
                 int bh = btn.ClickAreaH > 0 ? btn.ClickAreaH : Math.Max(btn.Height, 30);
 
                 Rectangle rect = new Rectangle(bx, by, bw * scaleX, bh * scaleY);
-                btn.IsHovered = Raylib.CheckCollisionPointRec(mousePoint, rect);
+                bool mouseHovered = Raylib.CheckCollisionPointRec(mousePoint, rect);
+                if (mouseHovered)
+                {
+                    vm.State.FocusedButtonId = btn.Id;
+                    mouseHoverFound = true;
+                }
+
+                btn.IsHovered = mouseHovered || btn.Id == vm.State.FocusedButtonId;
                 if (btn.IsHovered)
                 {
                     int resultValue = vm.State.SpriteButtonMap.TryGetValue(btn.Id, out int mappedValue) ? mappedValue : btn.Id;
@@ -121,8 +146,23 @@ public class InputHandler
                 }
             }
 
+            if (!mouseHoverFound && !IsFocusedButtonValid(vm.State))
+            {
+                MoveButtonFocus(vm.State, 1);
+            }
+
+            if (keyboardActivate &&
+                vm.State.FocusedButtonId >= 0 &&
+                vm.State.Sprites.TryGetValue(vm.State.FocusedButtonId, out var focusedButton) &&
+                focusedButton.Visible &&
+                focusedButton.IsButton)
+            {
+                clickedButton = focusedButton;
+            }
+
             if (clickedButton != null)
             {
+                int resultValue = vm.State.SpriteButtonMap.TryGetValue(clickedButton.Id, out int mappedValue) ? mappedValue : clickedButton.Id;
                 // スライダークリック処理
                 if (clickedButton.SliderMin < clickedButton.SliderMax)
                 {
@@ -193,6 +233,71 @@ public class InputHandler
         }
 
         return false;
+    }
+
+    public static int MoveButtonFocus(GameState state, int direction)
+    {
+        var buttons = GetFocusableButtons(state);
+        if (buttons.Count == 0)
+        {
+            state.FocusedButtonId = -1;
+            foreach (var sprite in state.Sprites.Values) sprite.IsHovered = false;
+            return -1;
+        }
+
+        int current = buttons.FindIndex(sprite => sprite.Id == state.FocusedButtonId);
+        int step = direction < 0 ? -1 : 1;
+        int next = current < 0
+            ? (step > 0 ? 0 : buttons.Count - 1)
+            : (current + step + buttons.Count) % buttons.Count;
+
+        state.FocusedButtonId = buttons[next].Id;
+        foreach (var sprite in state.Sprites.Values)
+        {
+            if (sprite.IsButton) sprite.IsHovered = sprite.Id == state.FocusedButtonId;
+        }
+
+        return state.FocusedButtonId;
+    }
+
+    private static List<Sprite> GetFocusableButtons(GameState state)
+    {
+        return state.Sprites.Values
+            .Where(sprite => sprite.Visible && sprite.IsButton)
+            .OrderBy(sprite => sprite.Y)
+            .ThenBy(sprite => sprite.X)
+            .ThenBy(sprite => sprite.Z)
+            .ThenBy(sprite => sprite.Id)
+            .ToList();
+    }
+
+    private static bool IsFocusedButtonValid(GameState state)
+    {
+        return state.FocusedButtonId >= 0 &&
+               state.Sprites.TryGetValue(state.FocusedButtonId, out var sprite) &&
+               sprite.Visible &&
+               sprite.IsButton;
+    }
+
+    private static bool IsFocusNextPressed()
+    {
+        return Raylib.IsKeyPressed(KeyboardKey.Down) ||
+               Raylib.IsKeyPressed(KeyboardKey.Right) ||
+               (Raylib.IsKeyPressed(KeyboardKey.Tab) && !Raylib.IsKeyDown(KeyboardKey.LeftShift) && !Raylib.IsKeyDown(KeyboardKey.RightShift));
+    }
+
+    private static bool IsFocusPreviousPressed()
+    {
+        return Raylib.IsKeyPressed(KeyboardKey.Up) ||
+               Raylib.IsKeyPressed(KeyboardKey.Left) ||
+               (Raylib.IsKeyPressed(KeyboardKey.Tab) && (Raylib.IsKeyDown(KeyboardKey.LeftShift) || Raylib.IsKeyDown(KeyboardKey.RightShift)));
+    }
+
+    private static bool IsFocusedButtonActivatePressed()
+    {
+        return Raylib.IsKeyPressed(KeyboardKey.Enter) ||
+               Raylib.IsKeyPressed(KeyboardKey.KpEnter) ||
+               Raylib.IsKeyPressed(KeyboardKey.Space);
     }
 
     private static bool IsForceSkipHeld()

@@ -45,6 +45,7 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                         X = GetVal(inst.Arguments[2]),
                         Y = GetVal(inst.Arguments[3])
                     };
+                    TrackSpriteLifetime(id, inst.Arguments[0]);
                 }
                 return true;
 
@@ -62,6 +63,7 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                         FontSize = State.DefaultFontSize,
                         Color = State.DefaultTextColor
                     };
+                    TrackSpriteLifetime(id, inst.Arguments[0]);
                 }
                 return true;
 
@@ -78,6 +80,7 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                         Width = GetVal(inst.Arguments[3]),
                         Height = GetVal(inst.Arguments[4])
                     };
+                    TrackSpriteLifetime(id, inst.Arguments[0]);
                 }
                 return true;
 
@@ -89,11 +92,14 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                     {
                         State.Sprites.Clear();
                         State.SpriteButtonMap.Clear();
+                        State.FocusedButtonId = -1;
+                        State.SpriteLifetimeStacks.Clear();
                     }
                     else
                     {
                         State.Sprites.Remove(id);
                         State.SpriteButtonMap.Remove(id);
+                        if (State.FocusedButtonId == id) State.FocusedButtonId = -1;
                     }
                 }
                 return true;
@@ -174,6 +180,11 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                 return true;
 
             case OpCode.Print:
+                if (inst.Arguments.Count > 0)
+                {
+                    Console.WriteLine($"[PRINT] {GetVal(inst.Arguments[0])}");
+                }
+                return true;
             case OpCode.Effect:
                 return true;
 
@@ -189,12 +200,31 @@ public sealed class RenderCommandHandler : BaseCommandHandler
             case OpCode.Clr:
                 State.Sprites.Clear();
                 State.SpriteButtonMap.Clear();
+                State.FocusedButtonId = -1;
                 ClearCompatUiSprites();
                 State.TextboxBackgroundSpriteId = -1;
+                State.SpriteLifetimeStacks.Clear();
                 return true;
 
             default:
                 return false;
+        }
+    }
+
+    /// <summary>
+    /// 関数スコープ内で作成されたスプライトを寿命管理に登録（C++like RAII）
+    /// T13: Owned sprites are always tracked, even outside explicit scope blocks.
+    /// </summary>
+    private void TrackSpriteLifetime(int spriteId, string? arg = null)
+    {
+        bool isOwned = arg != null && State.OwnedSprites.Contains(arg);
+        if (isOwned && State.SpriteLifetimeStacks.Count == 0)
+        {
+            State.SpriteLifetimeStacks.Push(new HashSet<int>());
+        }
+        if (State.SpriteLifetimeStacks.Count > 0)
+        {
+            State.SpriteLifetimeStacks.Peek().Add(spriteId);
         }
     }
 }

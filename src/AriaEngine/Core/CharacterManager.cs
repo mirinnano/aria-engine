@@ -123,7 +123,7 @@ public class CharacterManager
                 _tweens.Add(new Tween
                 {
                     SpriteId = spriteId,
-                    Property = "opacity",
+                    Property = TweenProperty.Opacity,
                     From = sprite.Opacity,
                     To = 0f,
                     DurationMs = fadeDuration,
@@ -153,7 +153,7 @@ public class CharacterManager
             _tweens.Add(new Tween
             {
                 SpriteId = spriteId,
-                Property = "x",
+                Property = TweenProperty.X,
                 From = sprite.X,
                 To = x,
                 DurationMs = duration,
@@ -163,7 +163,7 @@ public class CharacterManager
             _tweens.Add(new Tween
             {
                 SpriteId = spriteId,
-                Property = "y",
+                Property = TweenProperty.Y,
                 From = sprite.Y,
                 To = y,
                 DurationMs = duration,

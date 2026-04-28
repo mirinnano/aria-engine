@@ -4,6 +4,15 @@ namespace AriaEngine.Core.Commands;
 
 public sealed class UiCommandHandler : BaseCommandHandler
 {
+    private static readonly HashSet<string> ReservedMenuActions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "save",
+        "load",
+        "backlog",
+        "lookback",
+        "rmenu"
+    };
+
     public override IReadOnlySet<OpCode> HandledCodes { get; } = new HashSet<OpCode>
     {
         OpCode.Ui,
@@ -173,12 +182,12 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
             case OpCode.UiTween:
                 if (!ValidateArgs(inst, 5)) return true;
-                TweenProperty(GetVal(inst.Arguments[0]), GetString(inst.Arguments[1]), GetFloat(inst.Arguments[2], inst), GetVal(inst.Arguments[3]), GetString(inst.Arguments[4]));
+                AnimateProperty(GetVal(inst.Arguments[0]), GetString(inst.Arguments[1]), GetFloat(inst.Arguments[2], inst), GetVal(inst.Arguments[3]), GetString(inst.Arguments[4]), inst);
                 return true;
 
             case OpCode.UiFade:
                 if (!ValidateArgs(inst, 3)) return true;
-                TweenProperty(GetVal(inst.Arguments[0]), "opacity", NormalizeOpacity(GetFloat(inst.Arguments[1], inst)), GetVal(inst.Arguments[2]), "out_cubic");
+                AnimateProperty(GetVal(inst.Arguments[0]), "opacity", NormalizeOpacity(GetFloat(inst.Arguments[1], inst)), GetVal(inst.Arguments[2]), "out_cubic", inst);
                 return true;
 
             case OpCode.UiMove:
@@ -186,8 +195,8 @@ public sealed class UiCommandHandler : BaseCommandHandler
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var move))
                 {
                     int duration = GetVal(inst.Arguments[3]);
-                    Tweens.Add(new Tween { SpriteId = move.Id, Property = "x", From = move.X, To = GetVal(inst.Arguments[1]), DurationMs = duration, Ease = EaseType.EaseOut });
-                    Tweens.Add(new Tween { SpriteId = move.Id, Property = "y", From = move.Y, To = GetVal(inst.Arguments[2]), DurationMs = duration, Ease = EaseType.EaseOut });
+                    Tweens.Add(new Tween { SpriteId = move.Id, Property = TweenProperty.X, From = move.X, To = GetVal(inst.Arguments[1]), DurationMs = duration, Ease = EaseType.EaseOut });
+                    Tweens.Add(new Tween { SpriteId = move.Id, Property = TweenProperty.Y, From = move.Y, To = GetVal(inst.Arguments[2]), DurationMs = duration, Ease = EaseType.EaseOut });
                 }
                 return true;
 
@@ -196,8 +205,8 @@ public sealed class UiCommandHandler : BaseCommandHandler
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var scale))
                 {
                     int duration = GetVal(inst.Arguments[3]);
-                    Tweens.Add(new Tween { SpriteId = scale.Id, Property = "scaleX", From = scale.ScaleX, To = GetFloat(inst.Arguments[1], inst), DurationMs = duration, Ease = EaseType.EaseOut });
-                    Tweens.Add(new Tween { SpriteId = scale.Id, Property = "scaleY", From = scale.ScaleY, To = GetFloat(inst.Arguments[2], inst), DurationMs = duration, Ease = EaseType.EaseOut });
+                    Tweens.Add(new Tween { SpriteId = scale.Id, Property = TweenProperty.ScaleX, From = scale.ScaleX, To = GetFloat(inst.Arguments[1], inst), DurationMs = duration, Ease = EaseType.EaseOut });
+                    Tweens.Add(new Tween { SpriteId = scale.Id, Property = TweenProperty.ScaleY, From = scale.ScaleY, To = GetFloat(inst.Arguments[2], inst), DurationMs = duration, Ease = EaseType.EaseOut });
                 }
                 return true;
 
@@ -260,6 +269,18 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
         if (target == "menu_action")
         {
+            if (ReservedMenuActions.Contains(prop))
+            {
+                Reporter.Report(new AriaError(
+                    $"ui menu_action の '{prop}' はエンジン標準UIの予約アクションのため上書きできません。",
+                    inst.SourceLine,
+                    CurrentScriptFile,
+                    AriaErrorLevel.Warning,
+                    "UI_MENU_ACTION_RESERVED",
+                    hint: "save/load/backlog/rmenu はC#側の標準UIを使用します。settings/gallery/extra など作品固有画面だけを上書きしてください。"));
+                return;
+            }
+
             State.MenuActionOverrides[prop] = GetString(values[0]);
             return;
         }
@@ -282,7 +303,10 @@ public sealed class UiCommandHandler : BaseCommandHandler
             {
                 if (State.Sprites.TryGetValue(id, out var child)) ApplySpriteProperty(child, prop, values, inst);
             }
+            return;
         }
+
+        ReportUnsupportedTarget(target, prop, inst);
     }
 
     private void ApplyTextboxProperty(string prop, IReadOnlyList<string> values, Instruction inst)
@@ -314,6 +338,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
                 break;
             case "shadow_alpha": State.DefaultTextboxShadowAlpha = GetVal(values[0]); break;
             case "visible": State.TextboxVisible = IsTruthy(values[0]); break;
+            default: ReportUnsupportedProperty("textbox", prop, inst); break;
         }
     }
 
@@ -336,6 +361,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
             case "border_color": State.ChoiceBorderColor = GetString(values[0]); break;
             case "border_alpha": State.ChoiceBorderOpacity = GetVal(values[0]); break;
             case "hover_fill": State.ChoiceHoverColor = GetString(values[0]); break;
+            default: ReportUnsupportedProperty("choice", prop, inst); break;
         }
     }
 
@@ -392,6 +418,9 @@ public sealed class UiCommandHandler : BaseCommandHandler
                 State.DefaultTextEffectSpeed = GetFloat(values[0], inst, State.DefaultTextEffectSpeed);
                 ApplyCurrentTextDecoration();
                 break;
+            default:
+                ReportUnsupportedProperty("text", prop, inst);
+                break;
         }
     }
 
@@ -408,6 +437,9 @@ public sealed class UiCommandHandler : BaseCommandHandler
             case "force_steps":
             case "force_per_frame":
                 State.ForceSkipAdvancePerFrame = Math.Clamp(GetVal(values[0]), 1, 128);
+                break;
+            default:
+                ReportUnsupportedProperty("skip", prop, inst);
                 break;
         }
     }
@@ -432,6 +464,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
             case "text_color": State.MenuTextColor = GetString(values[0]); break;
             case "border_color": State.MenuLineColor = GetString(values[0]); break;
             case "radius": State.MenuCornerRadius = GetVal(values[0]); break;
+            default: ReportUnsupportedProperty(target, prop, inst); break;
         }
     }
 
@@ -447,6 +480,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
                 State.ClickCursorMode = GetString(values[0]).ToLowerInvariant();
                 if (State.ClickCursorMode is "engine" or "builtin" or "default") State.ClickCursorPath = "";
                 break;
+            default: ReportUnsupportedProperty("cursor", prop, inst); break;
         }
     }
 
@@ -525,6 +559,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
             case "text_outline": sp.TextOutlineSize = GetVal(values[0]); if (values.Count > 1) sp.TextOutlineColor = GetString(values[1]); break;
             case "text_effect": sp.TextEffect = GetString(values[0]).Trim().ToLowerInvariant(); if (values.Count > 1) sp.TextEffectStrength = GetFloat(values[1], inst, sp.TextEffectStrength); if (values.Count > 2) sp.TextEffectSpeed = GetFloat(values[2], inst, sp.TextEffectSpeed); break;
             case "button": SetButton(sp.Id, GetVal(values[0])); break;
+            default: ReportUnsupportedProperty($"sprite:{sp.Id}", prop, inst); break;
         }
     }
 
@@ -619,20 +654,25 @@ public sealed class UiCommandHandler : BaseCommandHandler
         Reporter.Report(new AriaError($"ui_state_style は state='{state}', prop='{prop}' の組み合わせをまだサポートしていません。", inst.SourceLine, CurrentScriptFile, AriaErrorLevel.Warning, "UI_STATE_STYLE_UNSUPPORTED"));
     }
 
-    private void TweenProperty(int id, string property, float to, int durationMs, string easeName)
+    private void AnimateProperty(int id, string property, float to, int durationMs, string easeName, Instruction inst)
     {
         if (!State.Sprites.TryGetValue(id, out var sp)) return;
-        string prop = NormalizeTweenProperty(property);
+        if (!TryNormalizeTweenProperty(property, out var prop))
+        {
+            ReportUnsupportedProperty($"sprite:{id}", property, inst);
+            return;
+        }
+
         float from = prop switch
         {
-            "x" => sp.X,
-            "y" => sp.Y,
-            "scaleX" => sp.ScaleX,
-            "scaleY" => sp.ScaleY,
-            "opacity" => sp.Opacity,
+            TweenProperty.X => sp.X,
+            TweenProperty.Y => sp.Y,
+            TweenProperty.ScaleX => sp.ScaleX,
+            TweenProperty.ScaleY => sp.ScaleY,
+            TweenProperty.Opacity => sp.Opacity,
             _ => 0f
         };
-        if (prop == "opacity") to = NormalizeOpacity(to);
+        if (prop == TweenProperty.Opacity) to = NormalizeOpacity(to);
         Tweens.Add(new Tween { SpriteId = id, Property = prop, From = from, To = to, DurationMs = durationMs, Ease = ParseEase(easeName) });
     }
 
@@ -712,15 +752,39 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
     private static float NormalizeOpacity(float value) => value > 1f ? Math.Clamp(value / 255f, 0f, 1f) : Math.Clamp(value, 0f, 1f);
 
-    private static string NormalizeTweenProperty(string property)
+    private static bool TryNormalizeTweenProperty(string property, out TweenProperty result)
     {
-        return property.Trim().ToLowerInvariant() switch
+        result = property.Trim().ToLowerInvariant() switch
         {
-            "scale_x" or "scalex" => "scaleX",
-            "scale_y" or "scaley" => "scaleY",
-            "alpha" => "opacity",
-            var p => p
+            "scale_x" or "scalex" => TweenProperty.ScaleX,
+            "scale_y" or "scaley" => TweenProperty.ScaleY,
+            "alpha" => TweenProperty.Opacity,
+            "x" => TweenProperty.X,
+            "y" => TweenProperty.Y,
+            "opacity" => TweenProperty.Opacity,
+            _ => TweenProperty.X
         };
+        return property.Trim().ToLowerInvariant() is "scale_x" or "scalex" or "scale_y" or "scaley" or "alpha" or "x" or "y" or "opacity";
+    }
+
+    private void ReportUnsupportedTarget(string target, string prop, Instruction inst)
+    {
+        Reporter.Report(new AriaError(
+            $"ui target='{target}', prop='{prop}' はサポートされていません。",
+            inst.SourceLine,
+            CurrentScriptFile,
+            AriaErrorLevel.Warning,
+            "UI_PROPERTY_UNSUPPORTED"));
+    }
+
+    private void ReportUnsupportedProperty(string target, string prop, Instruction inst)
+    {
+        Reporter.Report(new AriaError(
+            $"ui target='{target}', prop='{prop}' はサポートされていません。",
+            inst.SourceLine,
+            CurrentScriptFile,
+            AriaErrorLevel.Warning,
+            "UI_PROPERTY_UNSUPPORTED"));
     }
 
     private static EaseType ParseEase(string easeName)

@@ -55,16 +55,16 @@ public static class PakArchive
         byte[] magic = new byte[Magic.Length];
         fs.ReadExactly(magic);
         if (!magic.AsSpan().SequenceEqual(Magic))
-            throw new InvalidOperationException("Invalid pak header.");
+            throw new InvalidOperationException($"Invalid pak header. Expected magic 'ARPK1' but got '{Encoding.ASCII.GetString(magic)}'. The file may be corrupted or not a pak archive.");
 
         byte[] lenBuf = new byte[sizeof(int)];
         fs.ReadExactly(lenBuf);
         int manifestLen = BitConverter.ToInt32(lenBuf);
-        if (manifestLen <= 0) throw new InvalidOperationException("Invalid manifest length.");
+        if (manifestLen <= 0) throw new InvalidOperationException($"Invalid manifest length ({manifestLen}). The pak file may be corrupted.");
 
         byte[] manifestBytes = new byte[manifestLen];
         fs.ReadExactly(manifestBytes);
-        var manifest = JsonSerializer.Deserialize<PakManifest>(manifestBytes) ?? throw new InvalidOperationException("Manifest parse failed.");
+        var manifest = JsonSerializer.Deserialize<PakManifest>(manifestBytes) ?? throw new InvalidOperationException("Failed to parse pak manifest. The file may be corrupted.");
 
         long dataStart = Magic.Length + sizeof(int) + manifestLen;
         return new PakReader(pakPath, manifest, dataStart, decryptionKey);
@@ -91,6 +91,8 @@ public sealed class PakReader
     }
 
     public bool Contains(string logicalPath) => _entries.ContainsKey(PakArchive.NormalizePath(logicalPath));
+
+    public IReadOnlyCollection<PakManifestEntry> GetAllEntries() => _entries.Values;
 
     public byte[] ReadAllBytes(string logicalPath, bool verifyHash = true)
     {
@@ -119,7 +121,7 @@ public sealed class PakReader
         {
             string hash = CryptoHelper.Sha256Hex(plain);
             if (!hash.Equals(entry.Hash, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"Pak hash verification failed for {logicalPath}.");
+                throw new InvalidOperationException($"Corruption detected: hash mismatch for '{logicalPath}'. Expected {entry.Hash} but computed {hash}. The pak file may be corrupted or the wrong decryption key was provided.");
         }
 
         return plain;

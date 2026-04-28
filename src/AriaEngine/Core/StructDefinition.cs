@@ -30,6 +30,9 @@ public class StructDefinition
     
     /// <summary>構造体全体のバイトサイズ</summary>
     public int TotalSize => Fields.Count > 0 ? Fields[^1].Offset + Fields[^1].Size : 0;
+
+    /// <summary>ドキュメントコメント（/// から始まる行を連結）</summary>
+    public string? DocComment { get; set; }
     
     /// <summary>
     /// フィールド名からオフセットを取得

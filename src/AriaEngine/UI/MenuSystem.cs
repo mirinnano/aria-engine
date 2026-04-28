@@ -1,6 +1,7 @@
 using Raylib_cs;
 using AriaEngine.Core;
 using AriaEngine.Rendering;
+using System.IO;
 using System.Linq;
 
 namespace AriaEngine.UI;
@@ -29,11 +30,22 @@ public class MenuSystem
     private string _pendingConfirmAction = "";
     private int? _pendingLoadSlot;
     private string? _galleryFullImage;
+    private BacklogEntry? _pendingBacklogEntry;
+    private string _backlogSearchQuery = "";
+    private int _backlogLastOpenedCount = 0;
 
-    private static readonly Color White = new(245, 245, 245, 255);
-    private static readonly Color Gray = new(150, 150, 150, 255);
-    private static readonly Color Line = new(245, 245, 245, 90);
-    private static readonly Color Soft = new(245, 245, 245, 28);
+    private static readonly Color White = new(231, 226, 214, 255);
+    private static readonly Color Gray = new(139, 145, 138, 255);
+    private static readonly Color Line = new(154, 161, 143, 104);
+    private static readonly Color Soft = new(154, 161, 143, 18);
+    private static readonly HashSet<string> EngineOwnedActions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "save",
+        "load",
+        "backlog",
+        "lookback",
+        "rmenu"
+    };
 
     public bool IsOpen => _currentState != MenuState.Closed;
 
@@ -44,7 +56,18 @@ public class MenuSystem
 
     public void OpenMainMenu() => Open(MenuState.Main);
     public void OpenSaveLoadMenu(bool isSave) => Open(isSave ? MenuState.Save : MenuState.Load);
-    public void OpenBacklog() { _backlogScroll = 0; Open(MenuState.Backlog); }
+    public void OpenBacklog()
+    {
+        _backlogScroll = 0;
+        _backlogSearchQuery = "";
+        // Mark all existing entries as read; new entries added after this will be unread
+        foreach (var entry in _vm.State.TextHistory)
+        {
+            entry.IsRead = true;
+        }
+        _backlogLastOpenedCount = _vm.State.TextHistory.Count;
+        Open(MenuState.Backlog);
+    }
     public void OpenGallery() { _galleryScroll = 0; _galleryFullImage = null; Open(MenuState.Gallery); }
     public void CloseMenu() => _currentState = MenuState.Closed;
 
@@ -58,6 +81,7 @@ public class MenuSystem
     {
         if (Raylib.IsMouseButtonPressed(MouseButton.Right))
         {
+            _galleryFullImage = null;
             if (IsOpen) CloseMenu();
             else if (CanOpenRightMenu()) OpenMainMenu();
             return;
@@ -105,6 +129,11 @@ public class MenuSystem
             }
         }
 
+        if (_currentState == MenuState.Backlog)
+        {
+            UpdateBacklogSearchInput();
+        }
+
         if (!Raylib.IsMouseButtonPressed(MouseButton.Left)) return;
 
         switch (_currentState)
@@ -115,6 +144,9 @@ public class MenuSystem
             case MenuState.Save:
             case MenuState.Load:
                 UpdateSaveLoadClick();
+                break;
+            case MenuState.Backlog:
+                UpdateBacklogClick();
                 break;
             case MenuState.Settings:
                 UpdateSettingsClick();
@@ -133,7 +165,7 @@ public class MenuSystem
         DrawSystemButtons(renderer);
         if (!IsOpen) return;
 
-        Raylib.DrawRectangle(0, 0, Raylib.GetScreenWidth(), Raylib.GetScreenHeight(), new Color(0, 0, 0, 132));
+        DrawDimOverlay();
 
         switch (_currentState)
         {
@@ -162,15 +194,41 @@ public class MenuSystem
     private void UpdateMainMenuClick()
     {
         var mouse = Raylib.GetMousePosition();
-        var rows = GetMainMenuRows();
         var entries = GetVisibleMainEntries();
-        for (int i = 0; i < rows.Count; i++)
+        float startX = 48;
+        float startY = 48;
+        float lineHeight = 60;
+        float bw = 260;
+        float bh = 44;
+        float gapBeforeReset = 48;
+        float currentY = startY;
+
+        for (int i = 0; i < entries.Count; i++)
         {
-            if (Raylib.CheckCollisionPointRec(mouse, rows[i]))
+            var entry = entries[i];
+            bool isDanger = entry.Action.Equals("reset", StringComparison.OrdinalIgnoreCase) ||
+                            entry.Action.Equals("end", StringComparison.OrdinalIgnoreCase) ||
+                            entry.Action.Equals("quit", StringComparison.OrdinalIgnoreCase) ||
+                            entry.Action.Equals("close", StringComparison.OrdinalIgnoreCase);
+
+            if (isDanger && i > 0)
             {
-                ExecuteAction(entries[i].Action);
+                bool prevWasSafe = !entries[i - 1].Action.Equals("reset", StringComparison.OrdinalIgnoreCase) &&
+                                   !entries[i - 1].Action.Equals("end", StringComparison.OrdinalIgnoreCase) &&
+                                   !entries[i - 1].Action.Equals("quit", StringComparison.OrdinalIgnoreCase) &&
+                                   !entries[i - 1].Action.Equals("close", StringComparison.OrdinalIgnoreCase);
+                if (prevWasSafe)
+                    currentY += gapBeforeReset;
+            }
+
+            int iconW = string.IsNullOrEmpty(entry.Icon) ? 0 : Raylib.MeasureText(entry.Icon, 16) + 10;
+            var rect = new Rectangle(startX, currentY, bw + iconW, bh);
+            if (Raylib.CheckCollisionPointRec(mouse, rect))
+            {
+                ExecuteAction(entry.Action);
                 return;
             }
+            currentY += lineHeight;
         }
     }
 
@@ -260,7 +318,9 @@ public class MenuSystem
         string key = action.TrimStart('*').ToLowerInvariant();
 
         // スクリプトによる上書きを優先（gosub相当で呼び出し、returnで戻れる）
-        if (_vm.State.MenuActionOverrides.TryGetValue(key, out string? overrideLabel) && !string.IsNullOrWhiteSpace(overrideLabel))
+        if (!EngineOwnedActions.Contains(key) &&
+            _vm.State.MenuActionOverrides.TryGetValue(key, out string? overrideLabel) &&
+            !string.IsNullOrWhiteSpace(overrideLabel))
         {
             CloseMenu();
             _vm.CallSub(overrideLabel);
@@ -319,14 +379,19 @@ public class MenuSystem
     {
         string action = _pendingConfirmAction;
         int? loadSlot = _pendingLoadSlot;
+        var backlogEntry = _pendingBacklogEntry;
         _pendingConfirmAction = "";
         _pendingLoadSlot = null;
+        _pendingBacklogEntry = null;
 
         switch (action)
         {
             case "load_slot" when loadSlot.HasValue:
                 _vm.LoadGame(loadSlot.Value);
                 CloseMenu();
+                break;
+            case "jump_back" when backlogEntry != null:
+                _vm.JumpToBacklogEntry(backlogEntry);
                 break;
             case "reset":
                 CloseMenu();
@@ -355,8 +420,86 @@ public class MenuSystem
         {
             _pendingConfirmAction = "";
             _pendingLoadSlot = null;
+            _pendingBacklogEntry = null;
             Open(_returnState);
         }
+    }
+
+    private void UpdateBacklogSearchInput()
+    {
+        int key;
+        while ((key = Raylib.GetCharPressed()) != 0)
+        {
+            if (key >= 32 && key <= 125)
+            {
+                _backlogSearchQuery += (char)key;
+                _backlogScroll = 0;
+            }
+        }
+
+        if (Raylib.IsKeyPressed(KeyboardKey.Backspace) && _backlogSearchQuery.Length > 0)
+        {
+            _backlogSearchQuery = _backlogSearchQuery[..^1];
+            _backlogScroll = 0;
+        }
+
+        if (Raylib.IsKeyPressed(KeyboardKey.Escape) && !string.IsNullOrEmpty(_backlogSearchQuery))
+        {
+            _backlogSearchQuery = "";
+            _backlogScroll = 0;
+        }
+    }
+
+    private void UpdateBacklogClick()
+    {
+        var mouse = Raylib.GetMousePosition();
+        var panel = CenterPanel(Math.Min(_vm.State.BacklogWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+        var entries = GetFilteredBacklogEntries();
+        int visible = Math.Max(1, ((int)panel.Height - 146) / 34);
+        int maxStart = Math.Max(0, entries.Count - visible);
+        int start = Math.Clamp(maxStart - _backlogScroll, 0, maxStart);
+        int y = (int)panel.Y + 100;
+        float voiceIconX = panel.X + panel.Width - 48;
+
+        // Check search box click (clear button)
+        var searchClearRect = new Rectangle(panel.X + panel.Width - 56, panel.Y + 58, 28, 20);
+        if (!string.IsNullOrEmpty(_backlogSearchQuery) && Raylib.CheckCollisionPointRec(mouse, searchClearRect))
+        {
+            _backlogSearchQuery = "";
+            _backlogScroll = 0;
+            return;
+        }
+
+        for (int i = start; i < Math.Min(entries.Count, start + visible); i++)
+        {
+            var entry = entries[i];
+            var rowRect = new Rectangle(panel.X + 20, y - 2, panel.Width - 40, 30);
+            bool hasVoice = !string.IsNullOrEmpty(entry.VoicePath);
+            var voiceRect = new Rectangle(voiceIconX, y - 2, 28, 20);
+
+            if (hasVoice && Raylib.CheckCollisionPointRec(mouse, voiceRect) && _vm.Audio != null && entry.VoicePath != null)
+            {
+                _vm.Audio.PlayVoice(entry.VoicePath, _vm.State.SeVolume);
+                return;
+            }
+
+            if (Raylib.CheckCollisionPointRec(mouse, rowRect))
+            {
+                _pendingBacklogEntry = entry;
+                RequestConfirmation("jump_back", _currentState);
+                return;
+            }
+
+            y += 34;
+        }
+    }
+
+    private List<BacklogEntry> GetFilteredBacklogEntries()
+    {
+        var entries = _vm.State.TextHistory;
+        if (string.IsNullOrWhiteSpace(_backlogSearchQuery)) return entries;
+        string query = _backlogSearchQuery.Trim().ToLowerInvariant();
+        return entries.Where(e => e.Text.ToLowerInvariant().Contains(query)).ToList();
     }
 
     private bool CanOpenRightMenu()
@@ -364,21 +507,114 @@ public class MenuSystem
         return _vm.State.State is VmState.WaitingForClick or VmState.WaitingForAnimation or VmState.WaitingForButton or VmState.WaitingForDelay;
     }
 
+    private static readonly Dictionary<string, string> ActionDescriptions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["save"] = "PROGRESS TO FILE",
+        ["load"] = "LOAD FROM FILE",
+        ["backlog"] = "READ BACK",
+        ["lookback"] = "READ BACK",
+        ["skip"] = "FAST FORWARD",
+        ["settings"] = "OPEN SETTINGS",
+        ["config"] = "OPEN SETTINGS",
+        ["gallery"] = "VIEW GALLERY",
+        ["reset"] = "RETURN TO TITLE",
+        ["end"] = "QUIT GAME",
+        ["quit"] = "QUIT GAME",
+        ["close"] = "QUIT GAME"
+    };
+
     private void DrawMainMenu(SpriteRenderer renderer)
     {
         var entries = GetVisibleMainEntries();
-        int w = Math.Clamp(_vm.State.RightMenuWidth, 220, Raylib.GetScreenWidth() - 72);
-        int h = 78 + entries.Count * 42;
-        var panel = CenterPanel(w, h);
-        DrawPanel(renderer, panel, "MENU");
-
         var mouse = Raylib.GetMousePosition();
-        var rows = GetMainMenuRows();
-        for (int i = 0; i < rows.Count; i++)
+        double elapsed = Raylib.GetTime() - _openedAt;
+
+        // Top-left corner layout — slides down from above
+        float lineHeight = 60;
+        float fontSize = 26;
+        float iconSize = 16;
+        float bw = 260;
+        float bh = 44;
+        float startX = 48;
+        float startY = 48;
+        float gapBeforeReset = 48; // extra gap before reset/quit group
+
+        float currentY = startY;
+
+        for (int i = 0; i < entries.Count; i++)
         {
-            DrawTextRow(renderer, rows[i], entries[i].Label, entries[i].Action.ToUpperInvariant(), Raylib.CheckCollisionPointRec(mouse, rows[i]));
+            var entry = entries[i];
+            bool isDanger = entry.Action.Equals("reset", StringComparison.OrdinalIgnoreCase) ||
+                            entry.Action.Equals("end", StringComparison.OrdinalIgnoreCase) ||
+                            entry.Action.Equals("quit", StringComparison.OrdinalIgnoreCase) ||
+                            entry.Action.Equals("close", StringComparison.OrdinalIgnoreCase);
+
+            // Add gap before danger group (reset/quit)
+            if (isDanger && i > 0)
+            {
+                bool prevWasSafe = !entries[i - 1].Action.Equals("reset", StringComparison.OrdinalIgnoreCase) &&
+                                   !entries[i - 1].Action.Equals("end", StringComparison.OrdinalIgnoreCase) &&
+                                   !entries[i - 1].Action.Equals("quit", StringComparison.OrdinalIgnoreCase) &&
+                                   !entries[i - 1].Action.Equals("close", StringComparison.OrdinalIgnoreCase);
+                if (prevWasSafe)
+                    currentY += gapBeforeReset;
+            }
+
+            // Staggered animation: each item appears 0.06s after the previous
+            float itemDelay = i * 0.06f;
+            float itemT = Math.Clamp((float)(elapsed - itemDelay) / 0.25f, 0f, 1f);
+            itemT = 1f - MathF.Pow(1f - itemT, 3f); // ease-out cubic
+
+            float slideY = (1f - itemT) * -30f; // slide down from above
+            byte itemAlpha = (byte)(itemT * 255);
+
+            float bx = startX;
+            float by = currentY + slideY;
+            var rect = new Rectangle(bx, by, bw, bh);
+            bool hover = Raylib.CheckCollisionPointRec(mouse, rect);
+
+            // Pure black & white: crisp white on hover, muted silver-grey normally
+            var textColor = hover
+                ? new Color((byte)255, (byte)255, (byte)255, itemAlpha)
+                : new Color((byte)160, (byte)160, (byte)165, (byte)(itemAlpha * 0.85f));
+            var iconColor = hover
+                ? new Color((byte)255, (byte)255, (byte)255, itemAlpha)
+                : new Color((byte)120, (byte)120, (byte)125, (byte)(itemAlpha * 0.7f));
+
+            // Draw icon
+            if (!string.IsNullOrEmpty(entry.Icon))
+            {
+                DrawText(renderer, entry.Icon, (int)bx, (int)(by + 6), (int)iconSize, iconColor);
+            }
+
+            // Draw label after icon
+            string label = entry.Label.ToUpperInvariant();
+            int iconW = string.IsNullOrEmpty(entry.Icon) ? 0 : Raylib.MeasureText(entry.Icon, (int)iconSize) + 10;
+            DrawText(renderer, label, (int)(bx + iconW), (int)(by + 4), (int)fontSize, textColor);
+
+            // Hover underline — thin white line
+            if (hover)
+            {
+                int labelW = Raylib.MeasureText(label, (int)fontSize);
+                Raylib.DrawRectangle((int)(bx + iconW), (int)(by + bh - 4), labelW, 1, new Color((byte)255, (byte)255, (byte)255, (byte)(itemAlpha * 0.7f)));
+            }
+
+            // Description text on hover — small, silver, to the right of label
+            if (hover && ActionDescriptions.TryGetValue(entry.Action, out string? desc))
+            {
+                var descColor = new Color((byte)180, (byte)180, (byte)185, (byte)(itemAlpha * 0.7f));
+                int labelW = Raylib.MeasureText(label, (int)fontSize);
+                DrawText(renderer, desc, (int)(bx + iconW + labelW + 16), (int)(by + 6), 13, descColor);
+            }
+
+            currentY += lineHeight;
         }
-        DrawFooter(renderer, panel, "RIGHT CLICK / ESC  CLOSE");
+
+        // Close hint — minimal grey at bottom center
+        var hintColor = new Color(120, 120, 125, 100);
+        string hint = "ESC / RIGHT CLICK  CLOSE";
+        int hw = Raylib.MeasureText(hint, 12);
+        DrawText(renderer, hint, (Raylib.GetScreenWidth() - hw) / 2, Raylib.GetScreenHeight() - 28, 12, hintColor);
     }
 
     private void DrawSaveLoadMenu(SpriteRenderer renderer, bool isSave)
@@ -399,29 +635,77 @@ public class MenuSystem
         var panel = CenterPanel(Math.Min(_vm.State.BacklogWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
         DrawPanel(renderer, panel, "BACKLOG");
 
-        int visible = Math.Max(1, ((int)panel.Height - 116) / 34);
-        int maxStart = Math.Max(0, _vm.State.TextHistory.Count - visible);
+        var entries = GetFilteredBacklogEntries();
+        int visible = Math.Max(1, ((int)panel.Height - 146) / 34);
+        int maxStart = Math.Max(0, entries.Count - visible);
         int start = Math.Clamp(maxStart - _backlogScroll, 0, maxStart);
-        int y = (int)panel.Y + 70;
+        int y = (int)panel.Y + 100;
+        var mouse = Raylib.GetMousePosition();
 
-        if (_vm.State.TextHistory.Count == 0)
+        // Search box
+        float searchY = panel.Y + 58;
+        var searchRect = new Rectangle(panel.X + 24, searchY, panel.Width - 56, 28);
+        Raylib.DrawRectangleRounded(searchRect, 0.04f, 6, new Color(20, 22, 26, 220));
+        Raylib.DrawRectangleRoundedLinesEx(searchRect, 0.04f, 6, 1, Line);
+        string searchDisplay = string.IsNullOrEmpty(_backlogSearchQuery) ? "SEARCH..." : _backlogSearchQuery;
+        var searchColor = string.IsNullOrEmpty(_backlogSearchQuery) ? Gray : White;
+        DrawText(renderer, searchDisplay, (int)searchRect.X + 10, (int)searchRect.Y + 4, 14, searchColor);
+        if (!string.IsNullOrEmpty(_backlogSearchQuery))
         {
-            DrawCenteredText(renderer, "NO LOG", (int)panel.X, (int)panel.Y + (int)panel.Height / 2 - 10, (int)panel.Width, 20, Gray);
+            DrawText(renderer, "x", (int)(searchRect.X + searchRect.Width - 22), (int)searchRect.Y + 4, 14, Gray);
+        }
+
+        if (entries.Count == 0)
+        {
+            string emptyMsg = string.IsNullOrEmpty(_backlogSearchQuery) ? "NO LOG" : "NO MATCHES";
+            DrawCenteredText(renderer, emptyMsg, (int)panel.X, (int)panel.Y + (int)panel.Height / 2 - 10, (int)panel.Width, 20, Gray);
         }
         else
         {
-            for (int i = start; i < Math.Min(_vm.State.TextHistory.Count, start + visible); i++)
+            float voiceIconX = panel.X + panel.Width - 48;
+            for (int i = start; i < Math.Min(entries.Count, start + visible); i++)
             {
-                string line = _vm.State.TextHistory[i].Replace("\r", " ").Replace("\n", " / ");
-                int maxChars = Math.Max(20, ((int)panel.Width - 96) / 12);
+                var entry = entries[i];
+                string line = entry.Text.Replace("\r", " ").Replace("\n", " / ");
+                int maxChars = Math.Max(20, ((int)panel.Width - 136) / 12);
                 if (line.Length > maxChars) line = line[..maxChars] + "...";
-                DrawText(renderer, (_vm.State.TextHistoryStartNumber + i).ToString("000"), (int)panel.X + 28, y, 14, Gray);
-                DrawText(renderer, line, (int)panel.X + 84, y - 2, 18, White);
+
+                var rowRect = new Rectangle(panel.X + 20, y - 2, panel.Width - 40, 30);
+                bool hover = Raylib.CheckCollisionPointRec(mouse, rowRect);
+                if (hover)
+                {
+                    Raylib.DrawRectangleRounded(new Rectangle(rowRect.X, rowRect.Y, rowRect.Width, rowRect.Height), 0.03f, 6, Soft);
+                }
+
+                // Unread indicator: small dot
+                if (!entry.IsRead)
+                {
+                    Raylib.DrawCircle((int)(panel.X + 32), y + 8, 3, new Color(231, 226, 214, 255));
+                }
+
+                // Line number
+                int globalIndex = _vm.State.TextHistory.IndexOf(entry);
+                DrawText(renderer, (_vm.State.TextHistoryStartNumber + globalIndex).ToString("000"), (int)panel.X + 44, y, 14, Gray);
+
+                // Text: unread = bright white, read = slightly muted
+                var textColor = entry.IsRead
+                    ? new Color(200, 196, 186, 255)
+                    : White;
+                DrawText(renderer, line, (int)panel.X + 100, y - 2, 18, textColor);
+
+                // Voice icon
+                if (!string.IsNullOrEmpty(entry.VoicePath))
+                {
+                    var voiceRect = new Rectangle(voiceIconX, y - 2, 28, 20);
+                    bool voiceHover = Raylib.CheckCollisionPointRec(mouse, voiceRect);
+                    DrawText(renderer, "\u25B6", (int)voiceIconX, y - 2, 14, voiceHover ? White : Gray);
+                }
+
                 y += 34;
             }
         }
 
-        DrawFooter(renderer, panel, "MOUSE WHEEL  SCROLL / ESC  BACK");
+        DrawFooter(renderer, panel, "MOUSE WHEEL  SCROLL / CLICK  JUMP / ESC  BACK");
     }
 
     private void DrawSettings(SpriteRenderer renderer)
@@ -481,7 +765,7 @@ public class MenuSystem
             return;
         }
 
-        Raylib.DrawRectangle(0, 0, Raylib.GetScreenWidth(), Raylib.GetScreenHeight(), new Color(0, 0, 0, 132));
+        DrawDimOverlay();
 
         var entries = _vm.State.GalleryEntries.Values.ToList();
         var rects = GetGalleryItemRects();
@@ -524,8 +808,11 @@ public class MenuSystem
 
     private void DrawGalleryItem(SpriteRenderer renderer, Rectangle rect, GalleryEntry entry, bool unlocked, bool hover)
     {
-        Raylib.DrawRectangleRounded(rect, 0.04f, 12, hover ? new Color(60, 60, 60, 220) : new Color(40, 40, 40, 200));
-        Raylib.DrawRectangleRoundedLinesEx(rect, 0.04f, 12, 1, hover ? White : Line);
+        var fill = hover ? new Color(35, 40, 44, 232) : new Color(13, 16, 18, 222);
+        Raylib.DrawRectangleRounded(new Rectangle(rect.X + 4, rect.Y + 6, rect.Width, rect.Height), 0.035f, 8, new Color(0, 0, 0, 126));
+        Raylib.DrawRectangleRounded(rect, 0.035f, 8, fill);
+        Raylib.DrawRectangleRoundedLinesEx(rect, 0.035f, 8, 1, hover ? ColorFromHex(_vm.State.MenuLineColor, 216) : Line);
+        Raylib.DrawRectangle((int)rect.X + 12, (int)rect.Y + 10, 28, 2, hover ? ColorFromHex(_vm.State.MenuLineColor, 230) : Line);
 
         if (unlocked)
         {
@@ -555,6 +842,7 @@ public class MenuSystem
         string message = _pendingConfirmAction switch
         {
             "load_slot" => $"LOAD SLOT {(_pendingLoadSlot.GetValueOrDefault() + 1):00}?",
+            "jump_back" => "JUMP BACK TO THIS POINT?",
             "reset" => "RESET CURRENT GAME?",
             "end" => "EXIT GAME?",
             _ => "CONTINUE?"
@@ -573,48 +861,78 @@ public class MenuSystem
         var saveData = _vm.Saves.GetSaveData(index);
         DrawRect(rect, hover);
 
-        DrawText(renderer, $"SLOT {(index + 1):00}", (int)rect.X + 18, (int)rect.Y + 14, 18, White);
+        float textX = rect.X + 18;
+        float thumbW = 0;
+        if (hasSave && saveData != null && !string.IsNullOrEmpty(saveData.ScreenshotPath) && File.Exists(saveData.ScreenshotPath))
+        {
+            var thumb = renderer.GetOrLoadTexture(saveData.ScreenshotPath);
+            if (thumb.Width > 0)
+            {
+                thumbW = 80;
+                float thumbH = rect.Height - 16;
+                float thumbX = rect.X + 8;
+                float thumbY = rect.Y + 8;
+                Raylib.DrawTexturePro(thumb, new Rectangle(0, 0, thumb.Width, thumb.Height),
+                    new Rectangle(thumbX, thumbY, thumbW, thumbH), new System.Numerics.Vector2(0, 0), 0, Color.White);
+                textX += thumbW + 8;
+            }
+        }
+
+        DrawText(renderer, $"SLOT {(index + 1):00}", (int)textX, (int)rect.Y + 14, 18, White);
         string status = hasSave ? "SAVED" : isSave ? "EMPTY" : "NO DATA";
         int sw = Raylib.MeasureText(status, 14);
         DrawText(renderer, status, (int)(rect.X + rect.Width - sw - 18), (int)rect.Y + 18, 14, hasSave ? White : Gray);
+
+        if (hasSave && saveData != null && !string.IsNullOrWhiteSpace(saveData.ChapterTitle))
+        {
+            string chapter = saveData.ChapterTitle.Length > 28 ? saveData.ChapterTitle[..28] + "..." : saveData.ChapterTitle;
+            DrawText(renderer, chapter, (int)textX, (int)rect.Y + 32, 14, Gray);
+        }
 
         string preview = hasSave && saveData != null && !string.IsNullOrWhiteSpace(saveData.PreviewText)
             ? saveData.PreviewText
             : "----";
         if (preview.Length > 36) preview = preview[..36] + "...";
-        DrawText(renderer, preview, (int)rect.X + 18, (int)rect.Y + 44, 16, Gray);
+        DrawText(renderer, preview, (int)textX, (int)rect.Y + 50, 16, Gray);
 
         if (hasSave && saveData != null)
         {
-            DrawText(renderer, saveData.SaveTime.ToString("yyyy/MM/dd HH:mm"), (int)rect.X + 18, (int)rect.Y + 70, 14, Gray);
+            DrawText(renderer, saveData.SaveTime.ToString("yyyy/MM/dd HH:mm"), (int)textX, (int)rect.Y + 70, 14, Gray);
         }
     }
+
+    private static readonly Dictionary<string, string> EntryIcons = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["save"] = "\u25A0",
+        ["load"] = "\u25A1",
+        ["backlog"] = "\u25CF",
+        ["lookback"] = "\u25CF",
+        ["skip"] = "\u25B6",
+        ["settings"] = "\u25C6",
+        ["config"] = "\u25C6",
+        ["gallery"] = "\u25C7",
+        ["reset"] = "\u25B2",
+        ["end"] = "\u25BC",
+        ["quit"] = "\u25BC",
+        ["close"] = "\u25BC"
+    };
 
     private List<RightMenuEntry> GetVisibleMainEntries()
     {
         var entries = _vm.State.RightMenuEntries
-            .Select(e => new RightMenuEntry { Label = e.Label, Action = e.Action })
+            .Select(e => new RightMenuEntry
+            {
+                Label = e.Label,
+                Action = e.Action,
+                Icon = EntryIcons.GetValueOrDefault(e.Action, "")
+            })
             .ToList();
         if (!entries.Any(e => e.Action.Equals("settings", StringComparison.OrdinalIgnoreCase) ||
                               e.Action.Equals("config", StringComparison.OrdinalIgnoreCase)))
         {
-            entries.Add(new RightMenuEntry { Label = "SETTINGS", Action = "settings" });
+            entries.Add(new RightMenuEntry { Label = "SETTINGS", Action = "settings", Icon = "\u25C6" });
         }
         return entries;
-    }
-
-    private List<Rectangle> GetMainMenuRows()
-    {
-        var entries = GetVisibleMainEntries();
-        int w = Math.Clamp(_vm.State.RightMenuWidth, 220, Raylib.GetScreenWidth() - 72);
-        int h = 78 + entries.Count * 42;
-        var panel = CenterPanel(w, h);
-        var rows = new List<Rectangle>();
-        for (int i = 0; i < entries.Count; i++)
-        {
-            rows.Add(new Rectangle(panel.X + 24, panel.Y + 54 + i * 42, panel.Width - 48, 34));
-        }
-        return rows;
     }
 
     private List<Rectangle> GetSettingsRows()
@@ -704,26 +1022,31 @@ public class MenuSystem
     private void DrawPanel(SpriteRenderer renderer, Rectangle rect, string title)
     {
         var fill = ColorFromHex(_vm.State.MenuFillColor, _vm.State.MenuFillAlpha);
-        var line = ColorFromHex(_vm.State.MenuLineColor, 90);
+        var line = ColorFromHex(_vm.State.MenuLineColor, 144);
+        var accent = ColorFromHex(_vm.State.MenuLineColor, 218);
         float roundness = Math.Clamp(_vm.State.MenuCornerRadius / Math.Max(rect.Height, 1f), 0f, 1f);
-        Raylib.DrawRectangleRounded(rect, roundness, 16, fill);
-        Raylib.DrawRectangleRoundedLinesEx(rect, roundness, 16, 1, line);
-        DrawText(renderer, title, (int)rect.X + 24, (int)rect.Y + 22, 20, ColorFromHex(_vm.State.MenuTextColor, 255));
-        Raylib.DrawLine((int)rect.X + 24, (int)rect.Y + 48, (int)(rect.X + rect.Width - 24), (int)rect.Y + 48, line);
+        var shadow = new Rectangle(rect.X + 5, rect.Y + 7, rect.Width, rect.Height);
+        Raylib.DrawRectangleRounded(shadow, roundness, 10, new Color(0, 0, 0, 148));
+        Raylib.DrawRectangleRounded(rect, roundness, 10, fill);
+        Raylib.DrawRectangleRoundedLinesEx(rect, roundness, 10, 1, line);
+        Raylib.DrawRectangle((int)rect.X + 24, (int)rect.Y + 18, 34, 2, accent);
+        Raylib.DrawRectangle((int)rect.X + 24, (int)rect.Y + 22, 4, 20, accent);
+        DrawText(renderer, title, (int)rect.X + 66, (int)rect.Y + 18, 20, ColorFromHex(_vm.State.MenuTextColor, 255));
+        Raylib.DrawLine((int)rect.X + 24, (int)rect.Y + 52, (int)(rect.X + rect.Width - 24), (int)rect.Y + 52, line);
     }
 
     private void DrawTextRow(SpriteRenderer renderer, Rectangle rect, string left, string right, bool hover)
     {
-        DrawRect(rect, hover);
-        DrawText(renderer, left, (int)rect.X + 14, (int)rect.Y + 8, 17, hover ? Color.Black : ColorFromHex(_vm.State.MenuTextColor, 255));
+        DrawRect(rect, hover, _vm.State.MenuLineColor);
+        DrawText(renderer, left, (int)rect.X + 14, (int)rect.Y + 8, 17, hover ? ColorFromHex(_vm.State.MenuTextColor, 255) : ColorFromHex(_vm.State.MenuTextColor, 245));
         int rw = Raylib.MeasureText(right, 13);
-        DrawText(renderer, right, (int)(rect.X + rect.Width - rw - 14), (int)rect.Y + 11, 13, hover ? Color.Black : Gray);
+        DrawText(renderer, right, (int)(rect.X + rect.Width - rw - 14), (int)rect.Y + 11, 13, hover ? ColorFromHex(_vm.State.MenuLineColor, 230) : Gray);
     }
 
     private void DrawSliderRow(SpriteRenderer renderer, Rectangle rect, string label, int value, int min, int max, bool hover)
     {
-        DrawRect(rect, hover);
-        DrawText(renderer, label, (int)rect.X + 14, (int)rect.Y + 8, 17, hover ? Color.Black : ColorFromHex(_vm.State.MenuTextColor, 255));
+        DrawRect(rect, hover, _vm.State.MenuLineColor);
+        DrawText(renderer, label, (int)rect.X + 14, (int)rect.Y + 8, 17, ColorFromHex(_vm.State.MenuTextColor, hover ? 255 : 245));
 
         float trackX = rect.X + 180;
         float trackW = rect.Width - 320;
@@ -733,21 +1056,34 @@ public class MenuSystem
         float thumbX = trackX + ratio * trackW;
 
         // Track background
-        Raylib.DrawRectangleRounded(new Rectangle(trackX, trackY, trackW, trackH), 0.5f, 8, new Color(80, 80, 80, 255));
+        Raylib.DrawRectangleRounded(new Rectangle(trackX, trackY, trackW, trackH), 0.22f, 4, new Color(28, 32, 34, 255));
         // Track fill
-        Raylib.DrawRectangleRounded(new Rectangle(trackX, trackY, ratio * trackW, trackH), 0.5f, 8, hover ? Color.DarkGray : Line);
+        Raylib.DrawRectangleRounded(new Rectangle(trackX, trackY, ratio * trackW, trackH), 0.5f, 8, ColorFromHex(_vm.State.MenuLineColor, hover ? 230 : 178));
         // Thumb
-        Raylib.DrawCircle((int)thumbX, (int)(trackY + trackH / 2), 7, hover ? White : Line);
+        Raylib.DrawRectangleRounded(new Rectangle(thumbX - 5, trackY - 5, 10, 16), 0.18f, 4, hover ? White : ColorFromHex(_vm.State.MenuLineColor, 220));
 
         string valueText = value.ToString();
         int vw = Raylib.MeasureText(valueText, 13);
-        DrawText(renderer, valueText, (int)(rect.X + rect.Width - vw - 14), (int)rect.Y + 11, 13, hover ? Color.Black : Gray);
+        DrawText(renderer, valueText, (int)(rect.X + rect.Width - vw - 14), (int)rect.Y + 11, 13, hover ? ColorFromHex(_vm.State.MenuLineColor, 230) : Gray);
     }
 
-    private static void DrawRect(Rectangle rect, bool hover)
+    private static void DrawRect(Rectangle rect, bool hover, string accentHex = "#9aa18f")
     {
-        Raylib.DrawRectangleRounded(rect, 0.06f, 12, hover ? White : Soft);
-        Raylib.DrawRectangleRoundedLinesEx(rect, 0.06f, 12, 1, hover ? White : Line);
+        var fill = hover ? new Color(35, 40, 44, 232) : Soft;
+        var line = hover ? ColorFromHex(accentHex, 216) : Line;
+        Raylib.DrawRectangleRounded(rect, 0.035f, 8, fill);
+        Raylib.DrawRectangleRoundedLinesEx(rect, 0.035f, 8, 1, line);
+        if (hover) Raylib.DrawRectangle((int)rect.X, (int)rect.Y + 6, 3, (int)rect.Height - 12, ColorFromHex(accentHex, 230));
+    }
+
+    private static void DrawDimOverlay()
+    {
+        int sw = Raylib.GetScreenWidth();
+        int sh = Raylib.GetScreenHeight();
+        // Full-screen dark overlay — deep black-blue with high opacity
+        Raylib.DrawRectangle(0, 0, sw, sh, new Color(6, 7, 10, 225));
+        // Bottom vignette for extra depth
+        Raylib.DrawRectangleGradientV(0, sh - Math.Min(sh / 3, 280), sw, Math.Min(sh / 3, 280), new Color(6, 7, 10, 0), new Color(6, 7, 10, 180));
     }
 
     private void DrawFooter(SpriteRenderer renderer, Rectangle panel, string text)

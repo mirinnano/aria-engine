@@ -8,8 +8,26 @@ ui sprite:9999, fill, "#000000"
 ui sprite:9999, fill_alpha, 255
 ui sprite:9999, z, 1
 
+; T22: Calculate and display statistics
+; Read rate calculation
+let %_read_rate, ${state.GetReadRate()}
+; CG unlock rate (total CGs configurable per game, using 10 as placeholder)
+let %_cg_rate, ${state.GetCgUnlockRate(10)}
+
+; Statistics display
+ui_text 720, "READ: ${%_read_rate}%", 200, 40
+ui sprite:720, font_size, 18
+ui sprite:720, color, "#aaaaaa"
+ui sprite:720, z, 20
+
+ui_text 721, "CG: ${%_cg_rate}%", 1080, 40
+ui sprite:721, font_size, 18
+ui sprite:721, align, "right"
+ui sprite:721, color, "#aaaaaa"
+ui sprite:721, z, 20
+
 ; タイトル
-ui_text 700, "EXTRA", 640, 60
+ui_text 700, "EXTRA", 640, 80
 ui sprite:700, font_size, 36
 ui sprite:700, align, "center"
 ui sprite:700, color, "#ffffff"
@@ -64,7 +82,7 @@ ui sprite:719, border, 1, "#ffffff"
 ui sprite:719, hover_fill, "#151515"
 ui sprite:719, z, 10
 
-ui_text 718, "BACK", 640, 472
+ui_text 718, "BACK", 640, 488
 ui sprite:718, font_size, 20
 ui sprite:718, align, "center"
 ui sprite:718, color, "#ffffff"
@@ -78,7 +96,10 @@ print 1
 
 *omake_loop
 btnwait %0
-if %0 == 1 { gosub *gallery_ui : goto *omake_refresh }
+if %0 == 1
+    gosub *gallery_ui
+    goto *omake_refresh
+endif
 if %0 == 2 { goto *omake_loop }
 if %0 == 3 { goto *omake_loop }
 if %0 == 9 { goto *omake_back }
@@ -86,17 +107,9 @@ goto *omake_loop
 
 *omake_refresh
 ; スプライト再描画のため戻る
+csp -1
 goto *omake_ui
 
 *omake_back
-csp 700
-csp 710
-csp 711
-csp 712
-csp 713
-csp 714
-csp 715
-csp 718
-csp 719
-csp 9999
+csp -1
 return

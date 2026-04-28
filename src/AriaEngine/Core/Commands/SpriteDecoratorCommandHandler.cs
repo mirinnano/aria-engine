@@ -14,7 +14,8 @@ public sealed class SpriteDecoratorCommandHandler : BaseCommandHandler
         OpCode.SpTextVAlign,
         OpCode.SpRotation,
         OpCode.SpHoverColor,
-        OpCode.SpHoverScale
+        OpCode.SpHoverScale,
+        OpCode.SpCursor
     };
 
     public SpriteDecoratorCommandHandler(VirtualMachine vm) : base(vm)
@@ -101,6 +102,11 @@ public sealed class SpriteDecoratorCommandHandler : BaseCommandHandler
             case OpCode.SpHoverScale:
                 if (!ValidateArgs(inst, 2)) return true;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var sphs)) sphs.HoverScale = GetFloat(inst.Arguments[1], inst, 1.0f);
+                return true;
+
+            case OpCode.SpCursor:
+                if (!ValidateArgs(inst, 2)) return true;
+                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spc)) spc.Cursor = GetString(inst.Arguments[1]);
                 return true;
 
             default:

@@ -75,7 +75,7 @@ public class SaveStateNormalizer
         _state.TextAdvanceRatio = loaded.TextAdvanceRatio;
         _state.TextTimerMs = 0f;
         _state.IsWaitingPageClear = loaded.IsWaitingPageClear;
-        _state.TextHistory = new List<string>(loaded.TextHistory);
+        _state.TextHistory = new List<BacklogEntry>(loaded.TextHistory);
         _state.TextHistoryStartNumber = Math.Max(1, loaded.TextHistoryStartNumber);
         _state.TextTargetSpriteId = loaded.TextTargetSpriteId;
         _state.TextboxBackgroundSpriteId = loaded.TextboxBackgroundSpriteId;
@@ -218,6 +218,7 @@ public class SaveStateNormalizer
         {
             sprite.IsHovered = false;
         }
+        _state.FocusedButtonId = -1;
 
         // 無効なボタンのマッピングを削除
         _state.SpriteButtonMap = _state.SpriteButtonMap

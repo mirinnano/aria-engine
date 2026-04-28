@@ -1,0 +1,2 @@
+- Blocked by: None at this moment. Implemented fix for Let transpile parsing and verified via tests.
+- Next: Run full test suite to ensure no regressions.

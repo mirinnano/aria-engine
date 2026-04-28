@@ -243,16 +243,12 @@ public sealed class TextCommandHandler : BaseCommandHandler
     }
 
     private readonly TextEffectParser _textEffectParser = new();
-    private static readonly Regex StringRegisterRegex = new(@"\$\{([^}]+)\}", RegexOptions.Compiled);
 
     private void ExecuteText(Instruction inst)
     {
         string fullText = string.Join(" ", inst.Arguments);
-        fullText = StringRegisterRegex.Replace(fullText, m =>
-        {
-            string key = m.Groups[1].Value;
-            return State.StringRegisters.TryGetValue(key, out string? value) ? value : m.Value;
-        });
+        // GetString handles ${$name}, ${%name}, ${%0}, and ${expression} interpolation
+        fullText = GetString(fullText);
         State.CurrentTextBuffer += fullText;
         
         // テキストエフェクトをパース
@@ -498,7 +494,7 @@ public sealed class TextCommandHandler : BaseCommandHandler
         if (mode == "ultra")
         {
             State.SmoothUiMotion = true;
-            State.SubpixelUiRendering = true;
+            State.SubpixelUiRendering = false;
             State.HighQualityUiTextures = true;
             State.RoundedRectSegments = 96;
             State.UiMotionResponse = 16f;
@@ -531,7 +527,7 @@ public sealed class TextCommandHandler : BaseCommandHandler
 
         State.UiQualityMode = "high";
         State.SmoothUiMotion = true;
-        State.SubpixelUiRendering = true;
+        State.SubpixelUiRendering = false;
         State.HighQualityUiTextures = true;
         State.RoundedRectSegments = 64;
         State.UiMotionResponse = 14f;

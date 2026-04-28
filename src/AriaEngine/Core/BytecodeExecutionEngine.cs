@@ -30,7 +30,7 @@ public sealed class BytecodeExecutionEngine : IDisposable
         _vm = new OptimizedBytecodeVM();
 
         // VMのイベントハンドラを設定
-        _vm.OnDebugLog += msg => Console.WriteLine($"[VM] {msg}");
+
         _vm.OnError += (loc, ex) => _reporter.ReportException($"VM_ERROR_{loc}", ex, $"VM error at {loc}");
     }
 

@@ -14,8 +14,18 @@ public sealed class PakAssetProvider : IAssetProvider
 
     public PakAssetProvider(string pakPath, string? keyMaterial = null)
     {
+        if (!File.Exists(pakPath))
+            throw new FileNotFoundException($"Pak file not found: {pakPath}. Verify the path and ensure the file exists.");
+
         byte[]? key = string.IsNullOrWhiteSpace(keyMaterial) ? null : CryptoHelper.DeriveKey(keyMaterial);
-        _pak = PakArchive.Open(pakPath, key);
+        try
+        {
+            _pak = PakArchive.Open(pakPath, key);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new InvalidOperationException($"Failed to open pak file '{pakPath}': {ex.Message} The file may be corrupted or not a valid pak archive.", ex);
+        }
         _tempRoot = Path.Combine(Path.GetTempPath(), "aria_pak_cache", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempRoot);
     }

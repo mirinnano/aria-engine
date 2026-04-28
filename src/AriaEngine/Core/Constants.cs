@@ -90,7 +90,7 @@ public static class FontConstants
     /// <summary>
     /// 最大フォントアトラスサイズ
     /// </summary>
-    public const int MaxAtlasSize = 192;
+    public const int MaxAtlasSize = 384;
 }
 
 /// <summary>

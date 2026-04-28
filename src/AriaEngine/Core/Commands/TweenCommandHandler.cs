@@ -9,6 +9,7 @@ public sealed class TweenCommandHandler : BaseCommandHandler
         OpCode.Amsp,
         OpCode.Afade,
         OpCode.Ascale,
+        OpCode.Acolor,
         OpCode.Await,
         OpCode.Ease
     };
@@ -30,8 +31,8 @@ public sealed class TweenCommandHandler : BaseCommandHandler
                     float dur = GetVal(inst.Arguments[3]);
                     if (State.Sprites.TryGetValue(tweenId, out var sp))
                     {
-                        Tweens.Add(new Tween { SpriteId = sp.Id, Property = "x", From = sp.X, To = toX, DurationMs = dur, Ease = Tweens.CurrentEaseType });
-                        Tweens.Add(new Tween { SpriteId = sp.Id, Property = "y", From = sp.Y, To = toY, DurationMs = dur, Ease = Tweens.CurrentEaseType });
+                        Tweens.Add(new Tween { SpriteId = sp.Id, Property = TweenProperty.X, From = sp.X, To = toX, DurationMs = dur, Ease = Tweens.CurrentEaseType });
+                        Tweens.Add(new Tween { SpriteId = sp.Id, Property = TweenProperty.Y, From = sp.Y, To = toY, DurationMs = dur, Ease = Tweens.CurrentEaseType });
                     }
                 }
                 return true;
@@ -40,7 +41,7 @@ public sealed class TweenCommandHandler : BaseCommandHandler
                 if (!ValidateArgs(inst, 3)) return true;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var fadeSprite))
                 {
-                    Tweens.Add(new Tween { SpriteId = fadeSprite.Id, Property = "opacity", From = fadeSprite.Opacity, To = GetVal(inst.Arguments[1]) / 255f, DurationMs = GetVal(inst.Arguments[2]), Ease = Tweens.CurrentEaseType });
+                    Tweens.Add(new Tween { SpriteId = fadeSprite.Id, Property = TweenProperty.Opacity, From = fadeSprite.Opacity, To = GetVal(inst.Arguments[1]) / 255f, DurationMs = GetVal(inst.Arguments[2]), Ease = Tweens.CurrentEaseType });
                 }
                 return true;
 
@@ -48,8 +49,16 @@ public sealed class TweenCommandHandler : BaseCommandHandler
                 if (!ValidateArgs(inst, 4)) return true;
                 if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var scaleSprite))
                 {
-                    Tweens.Add(new Tween { SpriteId = scaleSprite.Id, Property = "scaleX", From = scaleSprite.ScaleX, To = GetFloat(inst.Arguments[1], inst), DurationMs = GetVal(inst.Arguments[3]), Ease = Tweens.CurrentEaseType });
-                    Tweens.Add(new Tween { SpriteId = scaleSprite.Id, Property = "scaleY", From = scaleSprite.ScaleY, To = GetFloat(inst.Arguments[2], inst), DurationMs = GetVal(inst.Arguments[3]), Ease = Tweens.CurrentEaseType });
+                    Tweens.Add(new Tween { SpriteId = scaleSprite.Id, Property = TweenProperty.ScaleX, From = scaleSprite.ScaleX, To = GetFloat(inst.Arguments[1], inst), DurationMs = GetVal(inst.Arguments[3]), Ease = Tweens.CurrentEaseType });
+                    Tweens.Add(new Tween { SpriteId = scaleSprite.Id, Property = TweenProperty.ScaleY, From = scaleSprite.ScaleY, To = GetFloat(inst.Arguments[2], inst), DurationMs = GetVal(inst.Arguments[3]), Ease = Tweens.CurrentEaseType });
+                }
+                return true;
+
+            case OpCode.Acolor:
+                if (!ValidateArgs(inst, 2)) return true;
+                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var colorSprite))
+                {
+                    colorSprite.Color = GetString(inst.Arguments[1]);
                 }
                 return true;
 

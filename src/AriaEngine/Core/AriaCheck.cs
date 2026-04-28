@@ -54,17 +54,43 @@ public class AriaCheck
                     "ARIA_CHECK_GETPARAM"));
             }
             
-            // gosub 引数付きの使用を検出（func呼び出し構文を推奨）
+            // gosub の使用を検出（func呼び出し構文を推奨）
             if (features.FuncSyntax && System.Text.RegularExpressions.Regex.IsMatch(
-                trimmed, @"^gosub\s+\*\w+\s*,", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                trimmed, @"^gosub\s+\*\w+", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
             {
                 _reporter.Report(new AriaError(
-                    "旧構文 'gosub *name, args' が検出されました。'name(args)' を推奨します。",
+                    "旧構文 'gosub' が検出されました。'call name(args)' または 'name(args)' を推奨します。",
                     lineNum,
                     scriptFile,
                     AriaErrorLevel.Warning,
-                    "ARIA_CHECK_GOSUB_ARGS",
+                    "ARIA_CHECK_GOSUB",
                     hint: "関数呼び出し構文は可読性が高く、型チェックも可能になります。"));
+            }
+
+            // 1行if構文の検出（ブロックifを推奨）
+            // { を含む行はブロックifなので除外
+            if (!trimmed.Contains("{") && System.Text.RegularExpressions.Regex.IsMatch(
+                trimmed, @"^if\s+.+\s+(goto|jmp|gosub)\s+\*", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            {
+                _reporter.Report(new AriaError(
+                    "旧構文 'if cond goto *label' が検出されました。ブロックifを推奨します。",
+                    lineNum,
+                    scriptFile,
+                    AriaErrorLevel.Warning,
+                    "ARIA_CHECK_ONE_LINE_IF",
+                    hint: "if %0 == 1\n    goto *label\nendif"));
+            }
+
+            // cmp + beq/bne の使用を検出（直接比較を推奨）
+            if (trimmed.StartsWith("cmp ", StringComparison.OrdinalIgnoreCase))
+            {
+                _reporter.Report(new AriaError(
+                    "旧構文 'cmp' が検出されました。if文で直接比較を推奨します。",
+                    lineNum,
+                    scriptFile,
+                    AriaErrorLevel.Warning,
+                    "ARIA_CHECK_CMP",
+                    hint: "if %0 == %1 ... のように直接比較できます。"));
             }
             
             // let %var = ... の検出（auto/var を推奨、将来のバージョンで）
@@ -93,6 +119,68 @@ public class AriaCheck
         }
     }
     
+    /// <summary>
+    /// readonly変数への再代入を検出
+    /// </summary>
+    public void CheckReadonlyReassignment(ParseResult result, string scriptFile)
+    {
+        if (result.ReadonlyDeclarations == null || result.ReadonlyDeclarations.Count == 0) return;
+
+        // Build function scope map: instruction index -> function name (null = global)
+        var funcRanges = result.Functions
+            .Where(f => result.Labels.ContainsKey(f.QualifiedName))
+            .Select(f => (Name: f.QualifiedName, Start: result.Labels[f.QualifiedName]))
+            .OrderBy(f => f.Start)
+            .ToList();
+
+        string? GetFunctionForIndex(int idx)
+        {
+            string? currentFunc = null;
+            foreach (var range in funcRanges)
+            {
+                if (idx >= range.Start)
+                    currentFunc = range.Name;
+                else
+                    break;
+            }
+            return currentFunc;
+        }
+
+        // Opcodes that mutate their first argument
+        static bool IsMutatingOp(OpCode op) => op switch
+        {
+            OpCode.Let or OpCode.Mov or OpCode.Add or OpCode.Sub or
+            OpCode.Mul or OpCode.Div or OpCode.Mod or OpCode.SetArray or
+            OpCode.Inc or OpCode.Dec => true,
+            _ => false
+        };
+
+        foreach (var (declIndex, varName) in result.ReadonlyDeclarations)
+        {
+            if (declIndex < 0 || declIndex >= result.Instructions.Count) continue;
+            string? declFunc = GetFunctionForIndex(declIndex);
+
+            for (int i = declIndex + 1; i < result.Instructions.Count; i++)
+            {
+                string? instFunc = GetFunctionForIndex(i);
+                if (instFunc != declFunc) continue; // Different scope, skip
+
+                var inst = result.Instructions[i];
+                if (IsMutatingOp(inst.Op) &&
+                    inst.Arguments.Count > 0 &&
+                    string.Equals(inst.Arguments[0], varName, StringComparison.OrdinalIgnoreCase))
+                {
+                    _reporter.Report(new AriaError(
+                        $"readonly変数{varName}に再代入できません",
+                        inst.SourceLine,
+                        scriptFile,
+                        AriaErrorLevel.Error,
+                        "ARIA_CHECK_READONLY_REASSIGN"));
+                }
+            }
+        }
+    }
+
     /// <summary>
     /// バージョン互換性の警告
     /// </summary>

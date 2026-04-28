@@ -51,7 +51,7 @@ public sealed class SystemCommandHandler : BaseCommandHandler
                     string bText = "";
                     if (bIndex >= 0 && bIndex < State.TextHistory.Count)
                     {
-                        bText = State.TextHistory[bIndex].Replace("\r", " ").Replace("\n", " / ");
+                        bText = State.TextHistory[bIndex].Text.Replace("\r", " ").Replace("\n", " / ");
                     }
                     SetStr(GetString(inst.Arguments[1]), bText);
                 }

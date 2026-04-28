@@ -279,7 +279,7 @@ wait 1500 ; 1.5秒間、真っ暗な状態をキープ
 30分ぐらい寝ただろうか。\
 温かい手の感触と、女の子の声が聞こえる。\
 ; 声の後に背景を表示して「目覚め」を演出
-fadein "bg/bg_train_inside_tokai.bmp", 2
+fadein("bg/bg_train_inside_tokai.bmp", 2)
 ミオ「ねえっ。起きてってば、もう浜松なんだよ」\
 ミオ「起きないとほっぺたつねっちゃいますからねっ」\
 ミオ「こんなに声かけても起きないか……」\
@@ -377,7 +377,7 @@ scenechange("bg/bg_maibara_platform.bmp", 2)
 ; --- 三ノ宮駅（長い時間経過） ---
 fadeout(2)
 wait 2000 ; 2秒間しっかり暗転させて長旅を表現
-fadein "bg/bg_sannomiya_night.bmp", 2
+fadein("bg/bg_sannomiya_night.bmp", 2)
 
 列車は早速スピードを上げ、京都、高槻、新大阪、大阪に停車をした。\
 まるでアトラクションのように市街地を駆け抜け、列車は三ノ宮に停車しようとしたときのこと。\
@@ -448,7 +448,7 @@ fadeout(2)
 wait 1500
 
 それから三時間ほど経ち、ミオがゆっくりと起き上がる。\
-fadein "bg/bg_hotel_room.bmp", 2
+fadein("bg/bg_hotel_room.bmp", 2)
 俺「おはよう」\
 ミオ「……んっ……まだ……私たち、逃げてるんだよね……」\
 俺「ああ、そうだ。ミオ、腹減ったか？」\
@@ -532,7 +532,7 @@ fadein "bg/bg_hotel_room.bmp", 2
 俺は無意識に身を強張らせ、バラエティ番組のノイズを浴びながら、時間が経つのを感じた。\
 fadeout(2)
 wait 1000 ; 1秒間、真っ暗なままタメる
-fadein "bg/bg_hotel_room.bmp", 2
+fadein("bg/bg_hotel_room.bmp", 2)
 
 そうしているうちにぶかぶかなガウンに包まれたミオが脱衣所から出てきた。\
 開いたドアから、甘ったるい匂いが部屋へと流れ込んできた。\

@@ -12,10 +12,19 @@ public enum EaseType
     EaseInOut
 }
 
+public enum TweenProperty
+{
+    X,
+    Y,
+    ScaleX,
+    ScaleY,
+    Opacity
+}
+
 public class Tween
 {
     public int SpriteId { get; set; }
-    public string Property { get; set; } = "x"; // "x", "y", "scaleX", "scaleY", "opacity", "color_r", "color_g", "color_b"
+    public TweenProperty Property { get; set; } = TweenProperty.X;
     public float From { get; set; }
     public float To { get; set; }
     public float DurationMs { get; set; }
@@ -38,19 +47,24 @@ public class TweenManager
 
     public bool IsAnimating => _activeTweens.Count > 0;
 
+    private static void ApplyValue(Sprite sp, TweenProperty prop, float value)
+    {
+        switch (prop)
+        {
+            case TweenProperty.X: sp.X = value; break;
+            case TweenProperty.Y: sp.Y = value; break;
+            case TweenProperty.ScaleX: sp.ScaleX = value; break;
+            case TweenProperty.ScaleY: sp.ScaleY = value; break;
+            case TweenProperty.Opacity: sp.Opacity = value; break;
+        }
+    }
+
     public void FinishAll(GameState state)
     {
         foreach (var t in _activeTweens)
         {
             if (!state.Sprites.TryGetValue(t.SpriteId, out var sp)) continue;
-            switch (t.Property)
-            {
-                case "x": sp.X = t.To; break;
-                case "y": sp.Y = t.To; break;
-                case "scaleX": sp.ScaleX = t.To; break;
-                case "scaleY": sp.ScaleY = t.To; break;
-                case "opacity": sp.Opacity = t.To; break;
-            }
+            ApplyValue(sp, t.Property, t.To);
             t.OnComplete?.Invoke(state, sp);
         }
         _activeTweens.Clear();
@@ -75,30 +89,11 @@ public class TweenManager
             float eased = ApplyEasing(progress, t.Ease);
             float current = t.From + (t.To - t.From) * eased;
 
-            switch (t.Property)
-            {
-                case "x": sp.X = current; break;
-                case "y": sp.Y = current; break;
-                case "scaleX": sp.ScaleX = current; break;
-                case "scaleY": sp.ScaleY = current; break;
-                case "opacity": sp.Opacity = current; break;
-                case "color_r": 
-                    // To animate colors smoothly, we'd need to parse hex into RGB, animate, then back to hex string.
-                    // For simplicity, we implement it manually if needed or delegate string properties differently.
-                    break;
-            }
+            ApplyValue(sp, t.Property, current);
 
             if (t.IsComplete)
             {
-                // Ensure final value is set exactly
-                switch (t.Property)
-                {
-                    case "x": sp.X = t.To; break;
-                    case "y": sp.Y = t.To; break;
-                    case "scaleX": sp.ScaleX = t.To; break;
-                    case "scaleY": sp.ScaleY = t.To; break;
-                    case "opacity": sp.Opacity = t.To; break;
-                }
+                ApplyValue(sp, t.Property, t.To);
                 t.OnComplete?.Invoke(state, sp);
                 _activeTweens.RemoveAt(i);
             }

@@ -22,6 +22,10 @@
     <PackageReference Include="Raylib-cs" Version="7.0.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="AriaEngine.Tests" />
+  </ItemGroup>
+
   <!-- 通常モード: テストファイルとバイトコード関連を除外 -->
   <ItemGroup Condition="'$(ARIA_TEST)'==''">
     <Compile Remove="Tests\**\*.cs" />
