@@ -1,6 +1,7 @@
 {
   "active_plan": "C:\\Users\\quicp\\OneDrive\\Desktop\\engine\\.sisyphus\\plans\\aria-v3-roadmap.md",
   "started_at": "2026-04-28T18:09:13.759Z",
+  "completed_at": "2026-04-29T00:00:00.000Z",
   "session_ids": [
     "ses_22ba5fa60ffeNUypBCrJMjhxoC"
   ],
@@ -8,5 +9,8 @@
     "ses_22ba5fa60ffeNUypBCrJMjhxoC": "direct"
   },
   "plan_name": "aria-v3-roadmap",
-  "agent": "atlas"
+  "agent": "atlas",
+  "status": "completed",
+  "tasks_completed": 29,
+  "tasks_total": 29
 }
