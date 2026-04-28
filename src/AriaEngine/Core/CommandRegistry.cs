@@ -82,6 +82,8 @@ public static class CommandRegistry
         Register(CommandCategory.Ui, OpCode.UiFade, "ui_fade");
         Register(CommandCategory.Ui, OpCode.UiMove, "ui_move");
         Register(CommandCategory.Ui, OpCode.UiScale, "ui_scale");
+        Register(CommandCategory.Ui, OpCode.UiSlider, "ui_slider");
+        Register(CommandCategory.Ui, OpCode.UiCheckbox, "ui_checkbox");
         Register(CommandCategory.Text, OpCode.Br, "br");
         Register(CommandCategory.Text, OpCode.WaitClickClear, "\\");
         Register(CommandCategory.Text, OpCode.WaitClick, "@");
@@ -92,6 +94,9 @@ public static class CommandRegistry
         Register(CommandCategory.Save, OpCode.SaveOff, "saveoff");
         Register(CommandCategory.Save, OpCode.Save, "save");
         Register(CommandCategory.Save, OpCode.Load, "load");
+        Register(CommandCategory.Save, OpCode.SaveInfo, "saveinfo");
+        Register(CommandCategory.System, OpCode.BacklogCount, "backlog_count");
+        Register(CommandCategory.System, OpCode.BacklogEntry, "backlog_entry");
         Register(CommandCategory.Text, OpCode.LookbackOn, "lookback_on");
         Register(CommandCategory.Text, OpCode.LookbackOff, "lookback_off");
         Register(CommandCategory.System, OpCode.AutoModeTime, "automode_time");
@@ -103,7 +108,7 @@ public static class CommandRegistry
         Register(CommandCategory.System, OpCode.WindowTitle, "window_title");
         Register(CommandCategory.System, OpCode.SystemButton, "system_button");
 
-        Register(CommandCategory.Core, OpCode.Delay, "delay");
+        Register(CommandCategory.Core, OpCode.Wait, "delay");
         Register(CommandCategory.Core, OpCode.Rnd, "rnd");
         Register(CommandCategory.Core, OpCode.Inc, "inc");
         Register(CommandCategory.Core, OpCode.Dec, "dec");
@@ -114,6 +119,9 @@ public static class CommandRegistry
         Register(CommandCategory.Core, OpCode.WaitTimer, "waittimer");
 
         Register(CommandCategory.Core, OpCode.Mov, "mov", "let");
+        Register(CommandCategory.Core, OpCode.SetArray, "setarray");
+        Register(CommandCategory.Core, OpCode.GetArray, "getarray");
+        Register(CommandCategory.Core, OpCode.Throw, "throw");
         Register(CommandCategory.Script, OpCode.Alias, "numalias", "alias");
         Register(CommandCategory.Core, OpCode.Add, "add");
         Register(CommandCategory.Core, OpCode.Sub, "sub");
@@ -248,6 +256,14 @@ public static class CommandRegistry
         Register(CommandCategory.Compatibility, OpCode.ChapterScript, "chapter_script");
         Register(CommandCategory.Compatibility, OpCode.EndChapter, "endchapter");
         Register(CommandCategory.Text, OpCode.FontFilter, "font_filter");
+        Register(CommandCategory.System, OpCode.GalleryEntry, "gallery_entry");
+        Register(CommandCategory.System, OpCode.CgUnlock, "cgunlock");
+        Register(CommandCategory.System, OpCode.GalleryCount, "gallery_count");
+        Register(CommandCategory.System, OpCode.GalleryInfo, "gallery_info");
+        Register(CommandCategory.Script, OpCode.Include, "include");
+        Register(CommandCategory.System, OpCode.GetConfig, "getconfig");
+        Register(CommandCategory.System, OpCode.SetConfig, "setconfig");
+        Register(CommandCategory.System, OpCode.SaveConfig, "saveconfig");
     }
 
     public static IReadOnlyDictionary<string, CommandInfo> All => Commands;
@@ -331,7 +347,7 @@ public static class CommandRegistry
             OpCode.BgmVol or OpCode.SeVol => 1,
             OpCode.SystemButton => 2,
             OpCode.Rnd => 3,
-            OpCode.Inc or OpCode.Dec or OpCode.Delay or OpCode.GetTimer or OpCode.WaitTimer => 1,
+            OpCode.Inc or OpCode.Dec or OpCode.GetTimer or OpCode.WaitTimer => 1,
             OpCode.For => 3,
             OpCode.UnlockChapter or OpCode.CharLoad => 1,
             OpCode.ChapterThumbnail or OpCode.ChapterProgress => 2,
@@ -344,6 +360,11 @@ public static class CommandRegistry
             OpCode.GetSceneData => 1,
             OpCode.ChapterId or OpCode.ChapterTitle or OpCode.ChapterDesc or OpCode.ChapterScript => 1,
             OpCode.FontFilter => 1,
+            OpCode.GalleryEntry => 3,
+            OpCode.CgUnlock => 1,
+            OpCode.GalleryCount => 1,
+            OpCode.GalleryInfo => 4,
+            OpCode.Include => 1,
             OpCode.UiQuality or OpCode.UiMotion => 1,
             OpCode.Ui => 2,
             OpCode.UiRect => 5,
@@ -355,6 +376,14 @@ public static class CommandRegistry
             OpCode.UiTween => 5,
             OpCode.UiFade => 3,
             OpCode.UiMove or OpCode.UiScale => 4,
+            OpCode.UiSlider => 7,
+            OpCode.UiCheckbox => 5,
+            OpCode.GetConfig => 2,
+            OpCode.SetConfig => 2,
+            OpCode.SaveConfig => 0,
+            OpCode.SaveInfo => 4,
+            OpCode.BacklogCount => 1,
+            OpCode.BacklogEntry => 2,
             _ => 0
         };
     }

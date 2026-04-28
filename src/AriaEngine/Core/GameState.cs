@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using AriaEngine.Text;
 using Raylib_cs;
 
 namespace AriaEngine.Core;
@@ -20,7 +21,6 @@ public enum VmState
 {
     Running,
     WaitingForClick,
-    WaitingForChoice, // 互換性のため残すが、基本は WaitingForButton に移行
     WaitingForButton,
     WaitingForDelay,
     WaitingForAnimation,
@@ -45,8 +45,9 @@ public class RightMenuEntry
 
 public sealed class RegisterState
 {
-    public Dictionary<string, int> Registers { get; set; } = new();
-    public Dictionary<string, string> StringRegisters { get; set; } = new();
+    public Dictionary<string, int> Registers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> StringRegisters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, int[]> Arrays { get; set; } = new();
 }
 
 public sealed class VmExecutionState
@@ -56,7 +57,10 @@ public sealed class VmExecutionState
     public int CompareFlag { get; set; }
     public Stack<int> CallStack { get; set; } = new();
     public Stack<string> ParamStack { get; set; } = new();
+    public Stack<Dictionary<string, string>> RefStack { get; set; } = new();
+    public Dictionary<string, string> CurrentRefMap { get; set; } = new();
     public Stack<LoopState> LoopStack { get; set; } = new();
+    public Stack<int> TryStack { get; set; } = new();
     public float DelayTimerMs { get; set; }
     public float ScriptTimerMs { get; set; }
 }
@@ -71,7 +75,7 @@ public sealed class InteractionState
 
 public sealed class RenderState
 {
-    public Dictionary<int, Sprite> Sprites { get; set; } = new();
+    public FastSpriteDictionary Sprites { get; set; } = new();
     public float FadeProgress { get; set; } = 1.0f;
     public bool IsFading { get; set; }
     public int FadeDurationMs { get; set; } = 1000;
@@ -137,6 +141,7 @@ public sealed class TextRuntimeState
 {
     public int TextSpeedMs { get; set; }
     public string CurrentTextBuffer { get; set; } = "";
+    public List<TextSegment>? CurrentTextSegments { get; set; }
     public int DisplayedTextLength { get; set; }
     public string TextAdvanceMode { get; set; } = "complete";
     public float TextAdvanceRatio { get; set; } = 1.0f;
@@ -165,9 +170,11 @@ public sealed class PlaybackControlState
     public float AutoModeTimerMs { get; set; }
     public bool SkipMode { get; set; }
     public bool ForceSkipMode { get; set; }
-    public int SkipAdvancePerFrame { get; set; } = 3;
-    public int ForceSkipAdvancePerFrame { get; set; } = 64;
+    public int SkipAdvancePerFrame { get; set; } = SkipConstants.SkipAdvancePerFrame;
+    public int ForceSkipAdvancePerFrame { get; set; } = SkipConstants.ForceSkipAdvancePerFrame;
     public bool SkipUnread { get; set; }
+    public float SkipTimerMs { get; set; }
+    public int SkipRateMs { get; set; } = 200; // デフォルト5msg/秒
 }
 
 public sealed class MenuRuntimeState
@@ -182,6 +189,7 @@ public sealed class MenuRuntimeState
         new RightMenuEntry { Label = "リセット", Action = "reset" },
         new RightMenuEntry { Label = "終了", Action = "end" }
     };
+    public Dictionary<string, string> MenuActionOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool SaveMode { get; set; } = true;
     public bool ShowSystemCloseButton { get; set; } = true;
     public bool ShowSystemResetButton { get; set; }
@@ -232,7 +240,7 @@ public sealed class EngineSettingsState
     public int WindowHeight { get; set; } = 720;
     public string Title { get; set; } = "Aria Engine";
     public string FontPath { get; set; } = "";
-    public int FontAtlasSize { get; set; } = 192;
+    public int FontAtlasSize { get; set; } = FontConstants.DefaultAtlasSize;
     public string MainScript { get; set; } = "assets/scripts/main.aria";
     public bool DebugMode { get; set; }
     public TextureFilter FontFilter { get; set; } = TextureFilter.Bilinear;
@@ -244,8 +252,8 @@ public sealed class UiQualityState
     public bool SmoothMotion { get; set; } = true;
     public bool SubpixelRendering { get; set; } = true;
     public bool HighQualityTextures { get; set; } = true;
-    public int RoundedRectSegments { get; set; } = 64;
-    public float MotionResponse { get; set; } = 14f;
+    public int RoundedRectSegments { get; set; } = UiQualityConstants.DefaultRoundedRectSegments;
+    public float MotionResponse { get; set; } = UiQualityConstants.DefaultMotionResponse;
 }
 
 public sealed class SceneRuntimeState
@@ -270,6 +278,15 @@ public sealed class FlagRuntimeState
     public Dictionary<string, bool> VolatileFlags { get; set; } = new();
     public Dictionary<string, int> Counters { get; set; } = new();
     public ChapterInfo? CurrentChapterDefinition { get; set; }
+    public HashSet<string> UnlockedCgs { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, GalleryEntry> GalleryEntries { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public class GalleryEntry
+{
+    public string FlagName { get; set; } = "";
+    public string ImagePath { get; set; } = "";
+    public string Title { get; set; } = "";
 }
 
 public class GameState
@@ -295,14 +312,18 @@ public class GameState
     public int ProgramCounter { get => Execution.ProgramCounter; set => Execution.ProgramCounter = value; }
     public Dictionary<string, int> Registers { get => RegisterState.Registers; set => RegisterState.Registers = value; }
     public Dictionary<string, string> StringRegisters { get => RegisterState.StringRegisters; set => RegisterState.StringRegisters = value; }
+    public Dictionary<string, int[]> Arrays { get => RegisterState.Arrays; set => RegisterState.Arrays = value; }
     public int CompareFlag { get => Execution.CompareFlag; set => Execution.CompareFlag = value; }
     public Stack<int> CallStack { get => Execution.CallStack; set => Execution.CallStack = value; }
     public Stack<string> ParamStack { get => Execution.ParamStack; set => Execution.ParamStack = value; }
+    public Stack<Dictionary<string, string>> RefStack { get => Execution.RefStack; set => Execution.RefStack = value; }
+    public Dictionary<string, string> CurrentRefMap { get => Execution.CurrentRefMap; set => Execution.CurrentRefMap = value; }
     public Stack<LoopState> LoopStack { get => Execution.LoopStack; set => Execution.LoopStack = value; }
+    public Stack<int> TryStack { get => Execution.TryStack; set => Execution.TryStack = value; }
     public int ButtonTimeoutMs { get => Interaction.ButtonTimeoutMs; set => Interaction.ButtonTimeoutMs = value; }
     public float ButtonTimer { get => Interaction.ButtonTimer; set => Interaction.ButtonTimer = value; }
     public string ButtonResultRegister { get => Interaction.ButtonResultRegister; set => Interaction.ButtonResultRegister = value; }
-    public Dictionary<int, Sprite> Sprites { get => Render.Sprites; set => Render.Sprites = value; }
+    public FastSpriteDictionary Sprites { get => Render.Sprites; set => Render.Sprites = value; }
     public Dictionary<int, int> SpriteButtonMap { get => Interaction.SpriteButtonMap; set => Interaction.SpriteButtonMap = value; }
     public VmState State { get => Execution.State; set => Execution.State = value; }
     public string CurrentBgm { get => Audio.CurrentBgm; set => Audio.CurrentBgm = value; }
@@ -354,6 +375,7 @@ public class GameState
     public int ChoicePaddingX { get => ChoiceStyle.ChoicePaddingX; set => ChoiceStyle.ChoicePaddingX = value; }
     public int TextSpeedMs { get => TextRuntime.TextSpeedMs; set => TextRuntime.TextSpeedMs = value; }
     public string CurrentTextBuffer { get => TextRuntime.CurrentTextBuffer; set => TextRuntime.CurrentTextBuffer = value; }
+    public List<TextSegment>? CurrentTextSegments { get => TextRuntime.CurrentTextSegments; set => TextRuntime.CurrentTextSegments = value; }
     public int DisplayedTextLength { get => TextRuntime.DisplayedTextLength; set => TextRuntime.DisplayedTextLength = value; }
     public string TextAdvanceMode { get => TextRuntime.TextAdvanceMode; set => TextRuntime.TextAdvanceMode = value; }
     public float TextAdvanceRatio { get => TextRuntime.TextAdvanceRatio; set => TextRuntime.TextAdvanceRatio = value; }
@@ -369,6 +391,8 @@ public class GameState
     public int SkipAdvancePerFrame { get => Playback.SkipAdvancePerFrame; set => Playback.SkipAdvancePerFrame = value; }
     public int ForceSkipAdvancePerFrame { get => Playback.ForceSkipAdvancePerFrame; set => Playback.ForceSkipAdvancePerFrame = value; }
     public bool SkipUnread { get => Playback.SkipUnread; set => Playback.SkipUnread = value; }
+    public float SkipTimerMs { get => Playback.SkipTimerMs; set => Playback.SkipTimerMs = value; }
+    public int SkipRateMs { get => Playback.SkipRateMs; set => Playback.SkipRateMs = value; }
     public bool BacklogEnabled { get => TextRuntime.BacklogEnabled; set => TextRuntime.BacklogEnabled = value; }
     public bool KidokuMode { get => TextRuntime.KidokuMode; set => TextRuntime.KidokuMode = value; }
     public HashSet<string> ReadKeys { get => TextRuntime.ReadKeys; set => TextRuntime.ReadKeys = value; }
@@ -384,6 +408,7 @@ public class GameState
     public string RightMenuLabel { get => MenuRuntime.RightMenuLabel; set => MenuRuntime.RightMenuLabel = value; }
     public List<RightMenuEntry> RightMenuEntries { get => MenuRuntime.RightMenuEntries; set => MenuRuntime.RightMenuEntries = value; }
     public bool SaveMode { get => MenuRuntime.SaveMode; set => MenuRuntime.SaveMode = value; }
+    public Dictionary<string, string> MenuActionOverrides { get => MenuRuntime.MenuActionOverrides; set => MenuRuntime.MenuActionOverrides = value; }
     public bool RequestClose { get => UiRuntime.RequestClose; set => UiRuntime.RequestClose = value; }
     public bool RequestReset { get => UiRuntime.RequestReset; set => UiRuntime.RequestReset = value; }
     public bool ShowClickCursor { get => UiRuntime.ShowClickCursor; set => UiRuntime.ShowClickCursor = value; }
@@ -445,4 +470,6 @@ public class GameState
     public Dictionary<string, bool> VolatileFlags { get => FlagRuntime.VolatileFlags; set => FlagRuntime.VolatileFlags = value; }
     public Dictionary<string, int> Counters { get => FlagRuntime.Counters; set => FlagRuntime.Counters = value; }
     public ChapterInfo? CurrentChapterDefinition { get => FlagRuntime.CurrentChapterDefinition; set => FlagRuntime.CurrentChapterDefinition = value; }
+    public HashSet<string> UnlockedCgs { get => FlagRuntime.UnlockedCgs; set => FlagRuntime.UnlockedCgs = value; }
+    public Dictionary<string, GalleryEntry> GalleryEntries { get => FlagRuntime.GalleryEntries; set => FlagRuntime.GalleryEntries = value; }
 }

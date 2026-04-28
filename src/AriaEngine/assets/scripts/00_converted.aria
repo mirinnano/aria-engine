@@ -345,7 +345,7 @@ if %0 == 112 goto *day12
 if %0 == 113 goto *day13
 if %0 == 114 goto *day14
 
-if %0 >= 102 && %0 <= 114 mesbox "このシナリオはまだ実装されていません。","通知" : goto *chapter_select
+if %0 >= 107 && %0 <= 114 mesbox "このシナリオはまだ実装されていません。","通知" : goto *chapter_select
 
 goto *chapter_loop
 
@@ -388,28 +388,28 @@ goto *settings_loop
 ; 未移植シナリオのスタブ（ラベル未定義エラー回避）
 ; ===========================================================
 *init
-mesbox "prologue/init はまだAriaへ未移植です。","通知"
-goto *chapter_select
+include "assets/scripts/scenario_01.aria"
+goto *scenario_01
 
 *day1
-mesbox "day1 はまだAriaへ未移植です。","通知"
-goto *chapter_select
+include "assets/scripts/scenario_02.aria"
+goto *scenario_02
 
 *day2
-mesbox "day2 はまだAriaへ未移植です。","通知"
-goto *chapter_select
+include "assets/scripts/scenario_03.aria"
+goto *scenario_03
 
 *day3
-mesbox "day3 はまだAriaへ未移植です。","通知"
-goto *chapter_select
+include "assets/scripts/scenario_04.aria"
+goto *scenario_04
 
 *day4
-mesbox "day4 はまだAriaへ未移植です。","通知"
-goto *chapter_select
+include "assets/scripts/scenario_05.aria"
+goto *scenario_05
 
 *day5
-mesbox "day5 はまだAriaへ未移植です。","通知"
-goto *chapter_select
+include "assets/scripts/scenario_06.aria"
+goto *scenario_06
 
 *day6
 mesbox "day6 はまだAriaへ未移植です。","通知"

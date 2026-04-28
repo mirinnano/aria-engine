@@ -72,6 +72,18 @@ public class Sprite
     public float HoverScale { get; set; } = 1.0f;
     public bool IsHovered { get; set; } = false;
 
+    // Slider properties
+    public int SliderMin { get; set; } = 0;
+    public int SliderMax { get; set; } = 0;
+    public int SliderValue { get; set; } = 0;
+    public string SliderTrackColor { get; set; } = "#555555";
+    public string SliderFillColor { get; set; } = "#f5f5f5";
+    public string SliderThumbColor { get; set; } = "#ffffff";
+
+    // Checkbox properties
+    public bool CheckboxValue { get; set; } = false;
+    public string CheckboxLabel { get; set; } = "";
+
     // Smooth UI presentation state. These are renderer-owned runtime values.
     public float HoverProgress { get; set; } = 0f;
     public float RenderScaleX { get; set; } = 1.0f;

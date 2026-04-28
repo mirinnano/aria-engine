@@ -1,7 +1,7 @@
 ; converted from NScripter source: 05.txt
 ; generated for ARIA main/init entry flow
 *scenario_05
-gosub *cls
+cls()
 set_vflag in_scene, 1
 set_sflag scenario_05_started, 1
 set_pflag chapter_05, 1
@@ -969,5 +969,5 @@ adv
 set_pflag chapter_05, 1
 set_pflag chapter_06, 1
 clear_vflag in_scene
-gosub *cls
+cls()
 goto *chapter_select

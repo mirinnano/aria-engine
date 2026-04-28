@@ -1,0 +1,207 @@
+# aria-version: 2.0
+; ギャラリー画面（スクリプト主導UI）
+
+*gallery_ui
+; 全面黒背景（既存スプライトを保護）
+ui_rect 9999, 0, 0, 1280, 720
+ui sprite:9999, fill, "#000000"
+ui sprite:9999, fill_alpha, 255
+ui sprite:9999, z, 1
+
+gallery_count %count
+let %page = 0
+
+*gallery_refresh
+csp 500
+csp 501
+csp 502
+; 前ページのエントリスプライトをクリア
+for %i = 0 to 5
+    let %tmpid = 510 + %i
+    csp %tmpid
+    let %tmpid = 520 + %i
+    csp %tmpid
+next
+; ボタンスプライトもクリア
+csp 596
+csp 597
+csp 598
+csp 599
+
+; タイトル
+ui_text 500, "GALLERY", 640, 50
+ui sprite:500, font_size, 36
+ui sprite:500, align, "center"
+ui sprite:500, color, "#ffffff"
+
+; エントリ数表示
+ui_text 501, "", 640, 100
+ui sprite:501, font_size, 14
+ui sprite:501, align, "center"
+ui sprite:501, color, "#888888"
+
+let %pagestr = ""
+let %totalpages = (%count + 5) / 6
+if %count > 0 {
+    let %pagestr = "PAGE " + (%page + 1) + " / " + %totalpages
+} else {
+    let %pagestr = "NO ENTRIES"
+}
+ui sprite:501, text, %pagestr
+
+; 6個表示 (2列x3行)
+let %start = %page * 6
+let %end = %start + 6
+if %end > %count { let %end = %count }
+
+let %idx = %start
+let %slot = 0
+
+*gallery_loop_items
+if %idx >= %end { goto *gallery_draw_buttons }
+
+let %col = %slot % 2
+let %row = %slot / 2
+let %ix = 240 + %col * 400
+let %iy = 140 + %row * 190
+
+; 背景枠
+let %bgid = 510 + %slot
+ui_rect %bgid, %ix, %iy, 380, 170
+ui sprite:%bgid, fill, "#1a1a1a"
+ui sprite:%bgid, fill_alpha, 200
+ui sprite:%bgid, border, 1, "#444444"
+ui sprite:%bgid, radius, 4
+ui sprite:%bgid, z, 10
+
+; 情報取得
+gallery_info %idx, $gtitle, $gpath, %gunlocked
+
+let %txtid = 520 + %slot
+if %gunlocked == 1 {
+    ui_text %txtid, $gtitle, %ix + 190, %iy + 75
+    ui sprite:%txtid, font_size, 16
+    ui sprite:%txtid, align, "center"
+    ui sprite:%txtid, color, "#cccccc"
+    ui sprite:%txtid, z, 20
+    ; クリックでフルスクリーン
+    ui_button %bgid, 100 + %idx
+} else {
+    ui_text %txtid, "???", %ix + 190, %iy + 75
+    ui sprite:%txtid, font_size, 22
+    ui sprite:%txtid, align, "center"
+    ui sprite:%txtid, color, "#555555"
+    ui sprite:%txtid, z, 20
+}
+
+let %idx = %idx + 1
+let %slot = %slot + 1
+goto *gallery_loop_items
+
+*gallery_draw_buttons
+; PREV
+if %page > 0 {
+    ui_rect 598, 260, 640, 140, 38
+    ui sprite:598, fill, "#000000"
+    ui sprite:598, fill_alpha, 0
+    ui sprite:598, border, 1, "#ffffff"
+    ui sprite:598, hover_fill, "#151515"
+    ui sprite:598, z, 10
+    ui_text 597, "PREV", 330, 632
+    ui sprite:597, font_size, 18
+    ui sprite:597, align, "center"
+    ui sprite:597, color, "#ffffff"
+    ui sprite:597, z, 20
+    ui_button 598, 97
+}
+
+; NEXT
+if %end < %count {
+    ui_rect 596, 860, 640, 140, 38
+    ui sprite:596, fill, "#000000"
+    ui sprite:596, fill_alpha, 0
+    ui sprite:596, border, 1, "#ffffff"
+    ui sprite:596, hover_fill, "#151515"
+    ui sprite:596, z, 10
+    ui_text 595, "NEXT", 930, 632
+    ui sprite:595, font_size, 18
+    ui sprite:595, align, "center"
+    ui sprite:595, color, "#ffffff"
+    ui sprite:595, z, 20
+    ui_button 596, 96
+}
+
+; BACK
+ui_rect 599, 540, 700, 200, 42
+ui sprite:599, fill, "#000000"
+ui sprite:599, fill_alpha, 0
+ui sprite:599, border, 1, "#ffffff"
+ui sprite:599, hover_fill, "#151515"
+ui sprite:599, z, 10
+ui_text 598, "BACK", 640, 692
+ui sprite:598, font_size, 22
+ui sprite:598, align, "center"
+ui sprite:598, color, "#ffffff"
+ui sprite:598, z, 20
+ui_button 599, 99
+
+if %page > 0 { ui_button 598, 97 }
+if %end < %count { ui_button 596, 96 }
+ui_button 599, 99
+
+; エントリボタン再登録（forループ）
+for %i = 0 to 5
+    let %eidx = %start + %i
+    if %eidx >= %end { goto *gallery_skip_btn }
+    gallery_info %eidx, $gt, $gp, %gu
+    if %gu == 1 {
+        let %ebgid = 510 + %i
+        ui_button %ebgid, 100 + %eidx
+    }
+    *gallery_skip_btn
+next
+
+print 1
+
+*gallery_wait
+btnwait %0
+
+if %0 == 99 { goto *gallery_back }
+if %0 == 96 {
+    let %page = %page + 1
+    goto *gallery_refresh
+}
+if %0 == 97 {
+    let %page = %page - 1
+    goto *gallery_refresh
+}
+if %0 >= 100 {
+    let %gidx = %0 - 100
+    gallery_info %gidx, $gtitle, $gpath, %gunlocked
+    if %gunlocked == 1 {
+        cls()
+        bg $gpath, 1
+        ; 待機（クリックで戻る）
+        btnwait %0
+        goto *gallery_refresh
+    }
+}
+goto *gallery_wait
+
+*gallery_back
+csp 500
+csp 501
+csp 502
+for %i = 0 to 5
+    let %tmpid = 510 + %i
+    csp %tmpid
+    let %tmpid = 520 + %i
+    csp %tmpid
+next
+csp 595
+csp 596
+csp 597
+csp 598
+csp 599
+csp 9999
+return

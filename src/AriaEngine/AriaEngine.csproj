@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -11,10 +11,33 @@
     <AriaPackKey Condition="'$(AriaPackKey)'=='' and '$(ARIA_PACK_KEY)'!=''">$(ARIA_PACK_KEY)</AriaPackKey>
   </PropertyGroup>
 
+  <!-- テストモードの設定 -->
+  <PropertyGroup Condition="'$(ARIA_TEST)'!=''">
+    <DefineConstants>ARIA_TEST</DefineConstants>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <StartupObject>AriaEngine.Tests.TestProgram</StartupObject>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Raylib-cs" Version="7.0.2" />
   </ItemGroup>
 
+  <!-- 通常モード: テストファイルとバイトコード関連を除外 -->
+  <ItemGroup Condition="'$(ARIA_TEST)'==''">
+    <Compile Remove="Tests\**\*.cs" />
+    <Compile Remove="VM\**\*.cs" />
+    <Compile Remove="Compiler\**\*.cs" />
+  </ItemGroup>
+
+  <!-- テストモード: メインファイルを除外し、テストファイルを含める -->
+  <ItemGroup Condition="'$(ARIA_TEST)'!=''">
+    <Compile Remove="Program.cs" />
+    <Compile Include="Tests\**\*.cs" />
+    <Compile Include="VM\**\*.cs" />
+    <Compile Include="Compiler\**\*.cs" />
+  </ItemGroup>
+
+  <!-- パッケージングターゲット -->
   <Target Name="AriaPackageAfterPublish" AfterTargets="Publish" Condition="'$(AriaCompileOnPublish)'=='true'">
     <Error Condition="'$(AriaPackKey)'==''" Text="AriaPackKey is required. Set /p:AriaPackKey=... or ARIA_PACK_KEY environment variable." />
     <PropertyGroup>

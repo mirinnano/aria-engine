@@ -1,7 +1,7 @@
 ; converted from NScripter source: 02.txt
 ; generated for ARIA main/init entry flow
 *scenario_02
-gosub *cls
+cls()
 set_vflag in_scene, 1
 set_sflag scenario_02_started, 1
 set_pflag chapter_02, 1
@@ -16,7 +16,7 @@ nvl
 　\
 
 ; --- 横浜駅ホーム ---
-scenechange "bg/bg_yokohama_platform.bmp", 2
+scenechange("bg/bg_yokohama_platform.bmp", 2)
 adv
 
 ミオ「本当に行くんだね……」\
@@ -31,7 +31,7 @@ adv
 俺は降りてくる人々を先に通し、乗り込む。\
 
 ; --- 列車内 ---
-scenechange "bg/bg_train_inside.bmp", 2
+scenechange("bg/bg_train_inside.bmp", 2)
 
 ミオ「もう嫌になってきたんだけどっ……」\
 俺「お前が『旅をしよう』って言ったクセになぁ……」\
@@ -108,7 +108,7 @@ MDウォーカー、折りたたみ傘、筆記用具、何にも使えなさそ
 強引にシャッターを切って嫌われるのも本意ではない。\
 これから撮るチャンスはいくらでもあるだろう。\
 そう思い、窓に映る海にフォーカスを当て、シャッターボタンを押した。\
-playse "sound/shutter.mp3"
+playse("assets/sound/shutter.mp3")
 俺「よし、撮れたっ」\
 ミオ「見せて見せてっ」\
 拗ねていたミオが、いきなり元気を取り戻す。\
@@ -116,7 +116,7 @@ playse "sound/shutter.mp3"
 そこには画質が粗く抽象的であるものの、美しさを捉えた写真があった。\
 
 ; --- 沼津駅 ---
-scenechange "bg/bg_numazu16.bmp", 2
+scenechange("bg/bg_numazu16.bmp", 2)
 電車は神奈川県を抜け、ＪＲ東日本と東海の境界線である熱海へと到着した。\
 ここからは会社が変わり、ＪＲ東海だ。\
 熱海を出て、耳が痛くなるような長い丹那トンネルを抜け、函南に停車し、ついにこの電車の終点・沼津に着いた。\
@@ -150,7 +150,7 @@ scenechange "bg/bg_numazu16.bmp", 2
 ドアが開き、客を降ろした後に速攻で乗り込み、ボックス席を取るためにミオの手を強く握って席へと走り出す。\
 まるで椅子取りゲームみたいだ。\
 ゲームと違って、やる人間が全員本気ってこと以外はな。\
-scenechange "bg/bg_train_inside_tokai.bmp", 2
+scenechange("bg/bg_train_inside_tokai.bmp", 2)
 なんとかミオと席を取ることができ、安心してここから静岡まで乗れる。\
 俺「鯛めし食うのはもっと後にしようぜ」\
 ミオ「そりゃそうだよ。こんな朝からみんなが通勤してる中、美味しいご飯食べるなんて罪だよ」\
@@ -195,7 +195,7 @@ adv
 それまで、必死に生きよう。\
 
 ; --- 静岡駅 ホーム ---
-scenechange "bg/bg_shizuoka_station.bmp", 2
+scenechange("bg/bg_shizuoka_station.bmp", 2)
 30分ほど経ったら、終点の静岡に到着したとのアナウンスが耳に入ってきて、はっと我に返った。\
 ミオもアナウンスでハッとし、鯛めしを抱えて列車を降りた。\
 俺「とりあえずさ、座れるところ行こうぜ」\
@@ -252,7 +252,7 @@ scenechange "bg/bg_shizuoka_station.bmp", 2
 そうやって喧嘩まがいのことをしていると、アナウンスが流れ、浜松行きの列車がホームにゆっくりと入線してきた。\
 
 ; --- 浜松行き 列車内 ---
-scenechange "bg/bg_train_inside_tokai.bmp", 2
+scenechange("bg/bg_train_inside_tokai.bmp", 2)
 今回はあまり混んでいないので、ゆっくりとミオの手を引いていつものボックス席へと向かう。\
 俺「さすがにもう空いてるみたいだな」\
 ミオ「これで混んでたら泣くところだったよ……」\
@@ -273,7 +273,7 @@ scenechange "bg/bg_train_inside_tokai.bmp", 2
 季節特有の乾いた風を通していたドアが閉まり、浜松へとゆっくり走り出した。\
 俺も眠さを感じてきて、ゆっくりと目を閉じた。\
 ; 画面を暗転させて睡眠を表現
-fadeout 2
+fadeout(2)
 wait 1500 ; 1.5秒間、真っ暗な状態をキープ
 
 30分ぐらい寝ただろうか。\
@@ -329,14 +329,14 @@ fadein "bg/bg_train_inside_tokai.bmp", 2
 起こさないようにしよう。\
 話し相手がいなくなった俺は、無意味に流れる窓の景色を見つめた。\
 ミオが寝ていることをいいことに、ｊ－ｐｈｏｎｅで景色をバックにミオの寝顔を写すことにした。\
-playse "sound/shutter.mp3"
+playse("assets/sound/shutter.mp3")
 ガラガラの列車に、シャッター音とジョイント音のみが響いた。\
 それから先は、ただひたすらに距離を稼ぐだけの無機質な時間が過ぎていった。\
 愛知県の平野部を抜けていく間、ミオは一度も目を覚まさなかった。\
 豊橋で特別快速に乗り換え、名古屋という主要ターミナルを通り過ぎ、ついに大垣へと到着した。\
 
 ; --- 大垣駅：大垣ダッシュ ---
-scenechange "bg/bg_ogaki_platform.bmp", 2
+scenechange("bg/bg_ogaki_platform.bmp", 2)
 急いでミオを起こす。\
 俺「起きろっ、ミオ！　行くぞ！」\
 と眠い目をこすっているミオの手を引き、一気に駆け出す。\
@@ -362,7 +362,7 @@ quake
 発車の合図を示すベルが鳴り響き、列車が米原へと向かい出した。\
 
 ; --- 米原駅・琵琶湖線 ---
-scenechange "bg/bg_maibara_platform.bmp", 2
+scenechange("bg/bg_maibara_platform.bmp", 2)
 そうして車窓に写る雰囲気が変わりゆくころ、米原に到着するとのアナウンスがあった。\
 ここが、民営化後の境界線か。\
 ミオと一緒に降り、ゆっくりと跨線橋を渡る。\
@@ -375,7 +375,7 @@ scenechange "bg/bg_maibara_platform.bmp", 2
 発車ベルが鳴り、初めてのＪＲ西日本区間へと踏み出す。\
 
 ; --- 三ノ宮駅（長い時間経過） ---
-fadeout 2
+fadeout(2)
 wait 2000 ; 2秒間しっかり暗転させて長旅を表現
 fadein "bg/bg_sannomiya_night.bmp", 2
 
@@ -405,7 +405,7 @@ fadein "bg/bg_sannomiya_night.bmp", 2
 そうやって黙って歩き出し、ミオもそれに合わせてついてくる。\
 
 ; --- ホテル街 ---
-scenechange "bg/bg_lovehotel_street.bmp", 2
+scenechange("bg/bg_lovehotel_street.bmp", 2)
 歩くこと数分。\
 周囲の空気が少し変わり、けばけばしい照明の建物が並ぶホテル街へとたどり着いた。\
 ミオ「ねえ、ここってさ……」\
@@ -423,7 +423,7 @@ scenechange "bg/bg_lovehotel_street.bmp", 2
 薄暗い廊下を渡り、鍵に書かれた室番と照らし合わせ、そのドアを開ける。\
 
 ; --- ラブホテル 室内 ---
-scenechange "bg/bg_hotel_room.bmp", 2
+scenechange("bg/bg_hotel_room.bmp", 2)
 無駄に広く、無駄に豪華な壁紙に囲われた密室。\
 ミオ「…………」\
 ベッドを見つけた途端、ミオは電池が切れたかのように倒れ込む。\
@@ -444,7 +444,7 @@ scenechange "bg/bg_hotel_room.bmp", 2
 そしてまた布団へと戻った。\
 
 ; --- 三時間後 ---
-fadeout 2
+fadeout(2)
 wait 1500
 
 それから三時間ほど経ち、ミオがゆっくりと起き上がる。\
@@ -530,7 +530,7 @@ fadein "bg/bg_hotel_room.bmp", 2
 テレビから流れる耳をつんざくような芸人の声すら耳を通り抜けていく。\
 脳に浮かぶのは、いつか自分たちがニュースになるかもしれないという想像だ。\
 俺は無意識に身を強張らせ、バラエティ番組のノイズを浴びながら、時間が経つのを感じた。\
-fadeout 2
+fadeout(2)
 wait 1000 ; 1秒間、真っ暗なままタメる
 fadein "bg/bg_hotel_room.bmp", 2
 
@@ -558,7 +558,7 @@ fadein "bg/bg_hotel_room.bmp", 2
 @
 
 ; --- 深夜 ---
-fadeout 2
+fadeout(2)
 cls
 nvl
 布団にくるまってボーっとしていると、今日の朝のことを思い出した。\
@@ -578,5 +578,5 @@ nvl
 set_pflag chapter_02, 1
 set_pflag chapter_03, 1
 clear_vflag in_scene
-gosub *cls
+cls()
 goto *chapter_select

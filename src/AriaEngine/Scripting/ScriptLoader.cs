@@ -27,7 +27,7 @@ public sealed class ScriptLoader
         _bundle = bundle;
     }
 
-    public (List<Instruction> Instructions, Dictionary<string, int> Labels, string[] SourceLines) LoadScript(string path)
+    public ParseResult LoadScript(string path)
     {
         string normalized = ScriptPreprocessor.NormalizePath(path);
         if (_mode == RunMode.Release)
@@ -39,11 +39,17 @@ public sealed class ScriptLoader
             var instructions = compiled.Instructions.Select(x =>
                 new Instruction((OpCode)x.Op, x.Arguments, x.SourceLine, x.Condition)).ToList();
 
-            return (instructions, new Dictionary<string, int>(compiled.Labels, StringComparer.OrdinalIgnoreCase), compiled.SourceLines);
+            return new ParseResult
+            {
+                Instructions = instructions,
+                Labels = new Dictionary<string, int>(compiled.Labels, StringComparer.OrdinalIgnoreCase),
+                Functions = new List<FunctionInfo>(),
+                Structs = new List<StructDefinition>(),
+                SourceLines = compiled.SourceLines
+            };
         }
 
         var expanded = ScriptPreprocessor.ExpandIncludes(normalized, _provider);
-        var (inst, labels) = _parser.Parse(expanded.Lines, normalized);
-        return (inst, labels, expanded.Lines);
+        return _parser.Parse(expanded.Lines, normalized);
     }
 }

@@ -96,8 +96,18 @@ try
     skipVm.LoadScript(skipScript.Instructions, skipScript.Labels, "skip.aria");
     skipVm.State.SkipMode = true;
     skipVm.State.SkipUnread = true;
-    int skippedWaits = skipVm.ProcessSkipFrame(16);
-    Assert(skippedWaits >= 3, "Skip should advance through multiple waits in one frame");
+    skipVm.State.SkipRateMs = 1; // テスト用に最短間隔
+    int skippedWaits = 0;
+    for (int i = 0; i < 20 && skippedWaits < 3; i++)
+    {
+        skippedWaits += skipVm.ProcessSkipFrame(250);
+    }
+    Assert(skippedWaits >= 3, "Skip should advance through multiple waits");
+    // スキップ後の残り命令を実行させる
+    for (int i = 0; i < 10 && !skipVm.State.VolatileFlags.ContainsKey("skip_done"); i++)
+    {
+        skipVm.ProcessSkipFrame(250);
+    }
     Assert(skipVm.State.VolatileFlags.TryGetValue("skip_done", out var skipDone) && skipDone, "Fast skip should continue script execution after skipped waits");
     skipVm.StopSkip();
     Assert(!skipVm.State.SkipMode, "Manual advance input should be able to stop skip mode");
@@ -105,7 +115,12 @@ try
     var forceSkipVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
     forceSkipVm.LoadScript(skipScript.Instructions, skipScript.Labels, "skip.aria");
     forceSkipVm.State.ForceSkipMode = true;
-    int forceSkippedWaits = forceSkipVm.ProcessSkipFrame(16);
+    forceSkipVm.State.SkipRateMs = 1;
+    int forceSkippedWaits = 0;
+    for (int i = 0; i < 20 && forceSkippedWaits < 3; i++)
+    {
+        forceSkippedWaits += forceSkipVm.ProcessSkipFrame(250);
+    }
     Assert(forceSkippedWaits >= 3, "Ctrl force skip should skip unread waits without enabling SkipUnread");
 
     var throttledSkipScript = parser.Parse(new[]
@@ -128,8 +143,9 @@ try
     throttledSkipVm.LoadScript(throttledSkipScript.Instructions, throttledSkipScript.Labels, "throttled-skip.aria");
     throttledSkipVm.State.SkipMode = true;
     throttledSkipVm.State.SkipUnread = true;
-    int throttledWaits = throttledSkipVm.ProcessSkipFrame(throttledSkipVm.State.SkipAdvancePerFrame);
-    Assert(throttledWaits == throttledSkipVm.State.SkipAdvancePerFrame, "normal skip should be throttled by SkipAdvancePerFrame");
+    throttledSkipVm.State.SkipRateMs = 200; // デフォルト5msg/秒
+    int throttledWaits = throttledSkipVm.ProcessSkipFrame(250);
+    Assert(throttledWaits == 1, "normal skip should advance exactly 1 wait per ~200ms");
     Assert(!throttledSkipVm.State.VolatileFlags.ContainsKey("throttled_skip_done"), "normal skip should not finish long wait chains in one frame by default");
 
     var uiScript = parser.Parse(new[]
@@ -361,6 +377,109 @@ try
     int loadedChoiceButton = choiceLoadedVm.State.SpriteButtonMap.Keys.First();
     choiceLoadedVm.ResumeFromButton(loadedChoiceButton);
     Assert(!choiceLoadedVm.State.Sprites.Values.Any(s => s.Z is 9500 or 9501), "Loaded compat choice sprites should be tracked and cleared after button resume");
+
+    // --- func syntax test ---
+    var funcReporter = new ErrorReporter();
+    var funcParser = new Parser(funcReporter);
+    var funcScript = funcParser.Parse(new[]
+    {
+        "textspeed 0",
+        "textbox 0, 0, 640, 120",
+        "func greet(name: string) -> void",
+        "    text \"Hello, \", $name",
+        "endfunc",
+        "func calc_sum(a: int, b: int) -> int",
+        "    let %result = %a + %b",
+        "    return %result",
+        "endfunc",
+        "greet(\"World\")",
+        "calc_sum(10, 20)",
+        "@"
+    }, "func-test.aria");
+
+    Assert(funcScript.Functions.Count == 2, $"Expected 2 functions, got {funcScript.Functions.Count}");
+    Assert(funcScript.Functions.Any(f => f.QualifiedName == "greet"), "greet function not found");
+    Assert(funcScript.Functions.Any(f => f.QualifiedName == "calc_sum"), "calc_sum function not found");
+    Assert(funcScript.Instructions.Any(i => i.Op == OpCode.Gosub && i.Arguments.Count > 0 && i.Arguments[0] == "*greet"), "greet call not expanded to gosub");
+    Assert(funcScript.Instructions.Any(i => i.Op == OpCode.Gosub && i.Arguments.Count > 0 && i.Arguments[0] == "*calc_sum"), "calc_sum call not expanded to gosub");
+
+    // --- switch syntax test ---
+    var switchReporter = new ErrorReporter();
+    var switchParser = new Parser(switchReporter);
+    var switchScript = switchParser.Parse(new[]
+    {
+        "#define TEST_VAL 2",
+        "auto %x = TEST_VAL",
+        "switch %x {",
+        "    case 1:",
+        "        text \"one\"",
+        "    case 2:",
+        "        text \"two\"",
+        "    default:",
+        "        text \"other\"",
+        "}",
+        "@"
+    }, "switch-test.aria");
+    
+    Assert(switchScript.Instructions.Any(i => i.Op == OpCode.Text && i.Arguments.Any(a => a.Contains("two"))), "switch case 2 should expand to text 'two'");
+    Assert(!switchReporter.Errors.Any(e => e.Level == AriaErrorLevel.Error), $"Switch syntax should not report parser errors. Errors: {string.Join(", ", switchReporter.Errors.Select(e => e.Message))}");
+
+    // --- array test ---
+    var arrayReporter = new ErrorReporter();
+    var arrayVm = new VirtualMachine(arrayReporter, new TweenManager(), new SaveManager(arrayReporter), new ConfigManager());
+    var arrayParser = new Parser(arrayReporter);
+    var arrayScript = arrayParser.Parse(new[]
+    {
+        "let %arr[0] = 100",
+        "let %arr[1] = 200",
+        "let %x = %arr[0]",
+        "let %y = %arr[1]",
+        "for %i = 0 to arr",
+        "    let %z = %arr[%i]",
+        "next",
+        "@"
+    }, "array-test.aria");
+    arrayVm.LoadScript(arrayScript, "array-test.aria");
+    
+    // Run until end or waiting state
+    for (int i = 0; i < 50 && arrayVm.State.State == VmState.Running; i++)
+    {
+        arrayVm.Step();
+    }
+    
+    Assert(arrayVm.State.Arrays.ContainsKey("arr"), "Array 'arr' should be created");
+    Assert(arrayVm.State.Arrays["arr"].Length >= 2, "Array should have at least 2 elements");
+    Assert(arrayVm.State.Arrays["arr"][0] == 100, "arr[0] should be 100");
+    Assert(arrayVm.State.Arrays["arr"][1] == 200, "arr[1] should be 200");
+    Assert(arrayVm.State.Registers.GetValueOrDefault("x", 0) == 100, "x should be loaded from arr[0]");
+    Assert(arrayVm.State.Registers.GetValueOrDefault("y", 0) == 200, "y should be loaded from arr[1]");
+
+    // --- ref test ---
+    var refReporter = new ErrorReporter();
+    var refVm = new VirtualMachine(refReporter, new TweenManager(), new SaveManager(refReporter), new ConfigManager());
+    var refParser = new Parser(refReporter);
+    var refScript = refParser.Parse(new[]
+    {
+        "func swap(ref a: int, ref b: int)",
+        "    let %temp = %a",
+        "    let %a = %b",
+        "    let %b = %temp",
+        "endfunc",
+        "let %x = 10",
+        "let %y = 20",
+        "swap(ref %x, ref %y)",
+        "@"
+    }, "ref-test.aria");
+    refVm.LoadScript(refScript, "ref-test.aria");
+    
+    for (int i = 0; i < 50 && refVm.State.State == VmState.Running; i++)
+    {
+        refVm.Step();
+    }
+    
+    Console.WriteLine($"REF x={refVm.State.Registers.GetValueOrDefault("x", 0)} y={refVm.State.Registers.GetValueOrDefault("y", 0)}");
+    Assert(refVm.State.Registers.GetValueOrDefault("x", 0) == 20, "x should be swapped to 20");
+    Assert(refVm.State.Registers.GetValueOrDefault("y", 0) == 10, "y should be swapped to 10");
 
     Console.WriteLine("ARIA smoke tests passed.");
 }

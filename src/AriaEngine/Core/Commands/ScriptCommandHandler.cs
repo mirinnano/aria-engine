@@ -9,7 +9,8 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
         OpCode.Defsub,
         OpCode.Getparam,
         OpCode.Alias,
-        OpCode.SystemCall
+        OpCode.SystemCall,
+        OpCode.Throw
     };
 
     public ScriptCommandHandler(VirtualMachine vm) : base(vm)
@@ -23,6 +24,8 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
             case OpCode.Gosub:
                 if (!ValidateArgs(inst, 1)) return true;
                 State.CallStack.Push(State.ProgramCounter);
+                // ref マップを保存
+                State.RefStack.Push(new Dictionary<string, string>(State.CurrentRefMap));
                 JumpTo(inst.Arguments[0]);
                 for (int i = inst.Arguments.Count - 1; i >= 1; i--)
                 {
@@ -31,6 +34,15 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
                 return true;
 
             case OpCode.Return:
+                // ref マップを復元
+                if (State.RefStack.Count > 0)
+                {
+                    State.CurrentRefMap = State.RefStack.Pop();
+                }
+                else
+                {
+                    State.CurrentRefMap.Clear();
+                }
                 Vm.ReturnFromSubroutine();
                 return true;
 
@@ -47,7 +59,15 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
                     if (State.ParamStack.Count == 0) break;
 
                     var val = State.ParamStack.Pop();
-                    if (arg.StartsWith("$"))
+                    
+                    // REF| プレフィックス処理
+                    if (val.StartsWith("REF|", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string originalReg = val.Substring(4).Trim();
+                        string destReg = arg.TrimStart('%');
+                        State.CurrentRefMap[destReg] = originalReg;
+                    }
+                    else if (arg.StartsWith("$"))
                     {
                         SetStr(arg, GetString(val));
                     }
@@ -55,6 +75,23 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
                     {
                         SetReg(arg, GetVal(val));
                     }
+                }
+                return true;
+
+            case OpCode.Throw:
+                if (State.TryStack.Count > 0)
+                {
+                    State.ProgramCounter = State.TryStack.Pop();
+                }
+                else
+                {
+                    Reporter.Report(new AriaError(
+                        "未処理の例外 (throw)。catch ブロックがありません。",
+                        State.ProgramCounter,
+                        CurrentScriptFile,
+                        AriaErrorLevel.Error,
+                        "VM_UNHANDLED_THROW"));
+                    State.State = VmState.Ended;
                 }
                 return true;
 

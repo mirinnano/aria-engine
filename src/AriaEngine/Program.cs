@@ -11,6 +11,11 @@ using AriaEngine.Assets;
 using AriaEngine.Scripting;
 using AriaEngine.Tools;
 
+// 条件付きでテスト名前空間をインポート
+#if ARIA_TEST
+using AriaEngine.Tests;
+#endif
+
 namespace AriaEngine;
 
 class Program
@@ -24,16 +29,30 @@ class Program
         public string? PakPath { get; set; }
         public string? Key { get; set; } = Environment.GetEnvironmentVariable("ARIA_PACK_KEY");
         public string CompiledPath { get; set; } = "scripts/scripts.ariac";
+        public string? BytecodePath { get; set; }  // .aribファイルパス
     }
 
     [STAThread]
     static void Main(string[] args)
     {
+#if ARIA_TEST
+        // テストモード
+        return BytecodeVMTest.RunTests();
+#endif
+
         if (args.Length > 0 && args[0].Equals("aria-compile", StringComparison.OrdinalIgnoreCase))
         {
             Environment.ExitCode = AriaCompileCommand.Run(args[1..]);
             return;
         }
+
+#if ARIA_BYTECODE
+        if (args.Length > 0 && args[0].Equals("aria-bytecode-compile", StringComparison.OrdinalIgnoreCase))
+        {
+            Environment.ExitCode = AriaBytecodeCompileCommand.Run(args[1..]);
+            return;
+        }
+#endif
 
         if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnoreCase))
         {
@@ -84,7 +103,7 @@ class Program
             var initLoaded = TryLoadScript(scriptLoader, parser, initScriptPath, assetProvider, effectiveMode, reporter, fallbackMessage: "");
             if (initLoaded.Instructions.Count > 0)
             {
-                vm.LoadScript(initLoaded.Instructions, initLoaded.Labels, initScriptPath);
+                vm.LoadScript(initLoaded, initScriptPath);
 
                 while (vm.State.State == VmState.Running && vm.State.ProgramCounter < initLoaded.Instructions.Count)
                 {
@@ -123,7 +142,15 @@ class Program
                 reporter.Report(new AriaError("フォントパスが未設定です。既定フォントで続行します。", -1, initScriptPath, AriaErrorLevel.Warning, "BOOT_FONT_MISSING"));
             }
 
-            vm.LoadScript(loaded.Instructions, loaded.Labels, vm.State.MainScript);
+            vm.LoadScript(loaded, vm.State.MainScript);
+
+            // 動的 include 用のリゾルバを登録（スクリプト内で include "path" を使えるように）
+            vm.SetIncludeResolver(path =>
+            {
+                var result = TryLoadScript(scriptLoader, parser, path, assetProvider, effectiveMode, reporter, fallbackMessage: "");
+                return result.Instructions.Count > 0 ? result : null;
+            });
+
             SafeFrame("vm.step.initial", vm.Step, reporter);
 
             while (!Raylib.WindowShouldClose())
@@ -145,14 +172,16 @@ class Program
                 SafeFrame("transition.update", () => transition.Update(vm, dt), reporter);
                 SafeFrame("tweens.update", () => tweens.Update(vm.State, dtMs), reporter);
 
-                if (vm.State.SkipMode || vm.State.ForceSkipMode)
+                if (!vm.Menu.IsOpen)
                 {
-                    int skipBudget = vm.State.ForceSkipMode ? vm.State.ForceSkipAdvancePerFrame : vm.State.SkipAdvancePerFrame;
-                    SafeFrame("vm.skip", () => vm.ProcessSkipFrame(skipBudget), reporter);
-                }
-                else if (vm.State.State == VmState.Running)
-                {
-                    SafeFrame("vm.step", vm.Step, reporter);
+                    if (vm.State.SkipMode || vm.State.ForceSkipMode)
+                    {
+                        SafeFrame("vm.skip", () => vm.ProcessSkipFrame(dtMs), reporter);
+                    }
+                    else if (vm.State.State == VmState.Running)
+                    {
+                        SafeFrame("vm.step", vm.Step, reporter);
+                    }
                 }
 
                 Raylib.BeginDrawing();
@@ -231,6 +260,10 @@ class Program
                     i++;
                     if (i < args.Length) options.CompiledPath = args[i];
                     break;
+                case "--bytecode":
+                    i++;
+                    if (i < args.Length) options.BytecodePath = args[i];
+                    break;
                 case "--init":
                     i++;
                     if (i < args.Length) options.InitPath = args[i];
@@ -301,7 +334,7 @@ class Program
         }
     }
 
-    private static (List<Instruction> Instructions, Dictionary<string, int> Labels, string[] SourceLines) TryLoadScript(
+    private static ParseResult TryLoadScript(
         ScriptLoader loader,
         Parser parser,
         string path,
@@ -331,12 +364,19 @@ class Program
 
             if (string.IsNullOrWhiteSpace(fallbackMessage))
             {
-                return (new List<Instruction>(), new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase), Array.Empty<string>());
+                return new ParseResult
+                {
+                    Instructions = new List<Instruction>(),
+                    Labels = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+                    Functions = new List<FunctionInfo>(),
+                    Structs = new List<StructDefinition>(),
+                    SourceLines = Array.Empty<string>()
+                };
             }
 
             string[] lines = { $"text \"{fallbackMessage.Replace("\"", "'")}\"", "@" };
             var parsed = parser.Parse(lines, path);
-            return (parsed.Instructions, parsed.Labels, lines);
+            return parsed;
         }
     }
 

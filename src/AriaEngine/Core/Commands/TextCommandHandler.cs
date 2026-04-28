@@ -1,3 +1,6 @@
+using System.Text.RegularExpressions;
+using AriaEngine.Text;
+
 namespace AriaEngine.Core.Commands;
 
 public sealed class TextCommandHandler : BaseCommandHandler
@@ -169,6 +172,7 @@ public sealed class TextCommandHandler : BaseCommandHandler
             case OpCode.WaitClick:
                 CompleteTextForClick();
                 AddBacklogEntry();
+                State.IsWaitingPageClear = false;
                 State.State = VmState.WaitingForClick;
                 Vm.AutoSaveGame();
                 return true;
@@ -210,6 +214,7 @@ public sealed class TextCommandHandler : BaseCommandHandler
     private void ClearText()
     {
         State.CurrentTextBuffer = "";
+        State.CurrentTextSegments = null;
         State.DisplayedTextLength = 0;
         State.IsWaitingPageClear = false;
         if (State.UseManualTextLayout || !State.CompatAutoUi)
@@ -237,14 +242,33 @@ public sealed class TextCommandHandler : BaseCommandHandler
         }
     }
 
+    private readonly TextEffectParser _textEffectParser = new();
+    private static readonly Regex StringRegisterRegex = new(@"\$\{([^}]+)\}", RegexOptions.Compiled);
+
     private void ExecuteText(Instruction inst)
     {
         string fullText = string.Join(" ", inst.Arguments);
-        foreach (var kvp in State.StringRegisters)
+        fullText = StringRegisterRegex.Replace(fullText, m =>
         {
-            fullText = fullText.Replace($"${{{kvp.Key}}}", kvp.Value);
-        }
+            string key = m.Groups[1].Value;
+            return State.StringRegisters.TryGetValue(key, out string? value) ? value : m.Value;
+        });
         State.CurrentTextBuffer += fullText;
+        
+        // テキストエフェクトをパース
+        var segments = _textEffectParser.Parse(State.CurrentTextBuffer);
+        
+        // フェードエフェクトの開始時刻を設定
+        float now = (float)Raylib_cs.Raylib.GetTime() * 1000f;
+        foreach (var seg in segments)
+        {
+            if (seg.Style.FadeDuration.HasValue && seg.Style.FadeDuration.Value > 0)
+            {
+                seg.FadeStartTime = now;
+            }
+        }
+        
+        State.CurrentTextSegments = segments;
 
         if (State.CompatAutoUi && !State.UseManualTextLayout && State.TextboxVisible)
         {
@@ -253,27 +277,32 @@ public sealed class TextCommandHandler : BaseCommandHandler
                 State.TextboxBackgroundSpriteId = AllocateCompatUiSpriteId();
             }
 
-            State.Sprites[State.TextboxBackgroundSpriteId] = new Sprite
+            if (!State.Sprites.TryGetValue(State.TextboxBackgroundSpriteId, out var bgSprite) || bgSprite.Type != SpriteType.Rect)
             {
-                Id = State.TextboxBackgroundSpriteId,
-                Type = SpriteType.Rect,
-                Z = 9000,
-                X = State.DefaultTextboxX,
-                Y = State.DefaultTextboxY,
-                Width = State.DefaultTextboxW,
-                Height = State.DefaultTextboxH,
-                FillColor = State.DefaultTextboxBgColor,
-                FillAlpha = State.DefaultTextboxBgAlpha,
-                CornerRadius = State.DefaultTextboxCornerRadius,
-                BorderColor = State.DefaultTextboxBorderColor,
-                BorderWidth = State.DefaultTextboxBorderWidth,
-                BorderOpacity = State.DefaultTextboxBorderOpacity,
-                ShadowColor = State.DefaultTextboxShadowColor,
-                ShadowOffsetX = State.DefaultTextboxShadowOffsetX,
-                ShadowOffsetY = State.DefaultTextboxShadowOffsetY,
-                ShadowAlpha = State.DefaultTextboxShadowAlpha,
-                IsHovered = false
-            };
+                bgSprite = new Sprite
+                {
+                    Id = State.TextboxBackgroundSpriteId,
+                    Type = SpriteType.Rect,
+                    Z = 9000
+                };
+                State.Sprites[State.TextboxBackgroundSpriteId] = bgSprite;
+            }
+
+            bgSprite.X = State.DefaultTextboxX;
+            bgSprite.Y = State.DefaultTextboxY;
+            bgSprite.Width = State.DefaultTextboxW;
+            bgSprite.Height = State.DefaultTextboxH;
+            bgSprite.FillColor = State.DefaultTextboxBgColor;
+            bgSprite.FillAlpha = State.DefaultTextboxBgAlpha;
+            bgSprite.CornerRadius = State.DefaultTextboxCornerRadius;
+            bgSprite.BorderColor = State.DefaultTextboxBorderColor;
+            bgSprite.BorderWidth = State.DefaultTextboxBorderWidth;
+            bgSprite.BorderOpacity = State.DefaultTextboxBorderOpacity;
+            bgSprite.ShadowColor = State.DefaultTextboxShadowColor;
+            bgSprite.ShadowOffsetX = State.DefaultTextboxShadowOffsetX;
+            bgSprite.ShadowOffsetY = State.DefaultTextboxShadowOffsetY;
+            bgSprite.ShadowAlpha = State.DefaultTextboxShadowAlpha;
+            bgSprite.IsHovered = false;
         }
 
         if (State.TextTargetSpriteId < 0)
@@ -299,15 +328,17 @@ public sealed class TextCommandHandler : BaseCommandHandler
             {
                 Id = State.TextTargetSpriteId,
                 Type = SpriteType.Text,
-                Z = 9001,
-                X = State.DefaultTextboxX + State.DefaultTextboxPaddingX,
-                Y = State.DefaultTextboxY + State.DefaultTextboxPaddingY,
-                Width = State.DefaultTextboxW - (State.DefaultTextboxPaddingX * 2),
-                Height = State.DefaultTextboxH - (State.DefaultTextboxPaddingY * 2),
-                FontSize = State.DefaultFontSize,
-                Color = State.DefaultTextColor
+                Z = 9001
             };
             State.Sprites[State.TextTargetSpriteId] = textSprite;
+        }
+
+        if (State.CompatAutoUi && !State.UseManualTextLayout)
+        {
+            textSprite.X = State.DefaultTextboxX + State.DefaultTextboxPaddingX;
+            textSprite.Y = State.DefaultTextboxY + State.DefaultTextboxPaddingY;
+            textSprite.Width = Math.Max(0, State.DefaultTextboxW - (State.DefaultTextboxPaddingX * 2));
+            textSprite.Height = Math.Max(0, State.DefaultTextboxH - (State.DefaultTextboxPaddingY * 2));
         }
 
         textSprite.FontSize = State.DefaultFontSize;

@@ -18,6 +18,9 @@ public class AppConfig
     public bool IsFullscreen { get; set; } = false;
     public string TextMode { get; set; } = "adv"; // "adv" or "nvl"
     public bool SkipUnread { get; set; } = false;
+    public int AutoModeWaitTimeMs { get; set; } = 2000;
+    public int WindowWidth { get; set; } = 1280;
+    public int WindowHeight { get; set; } = 720;
 }
 
 public class PersistentGameData
@@ -28,6 +31,7 @@ public class PersistentGameData
     public Dictionary<string, int> Counters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> ReadKeys { get; set; } = new();
     public bool SkipUnread { get; set; }
+    public List<string> UnlockedCgs { get; set; } = new();
 }
 
 public class ConfigManager

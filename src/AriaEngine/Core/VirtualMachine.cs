@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using AriaEngine.Core.Commands;
 using AriaEngine.Rendering;
@@ -25,13 +26,33 @@ public class VirtualMachine
     public MenuSystem Menu { get; private set; }
     public SpritePool SpritePool { get; private set; }
 
+    // マネージャー
+    public UiThemeManager UiThemeManager { get; private set; }
+    public CompatUiManager CompatUiManager { get; private set; }
+    public SkipModeManager SkipModeManager { get; private set; }
+    public SaveStateNormalizer SaveStateNormalizer { get; private set; }
+
+    // パフォーマンス最適化: 共通オブジェクトのキャッシュ
+    private static readonly CultureInfo InvariantCulture = CultureInfo.InvariantCulture;
+
     private Dictionary<string, string> _characterPaths = new();
-    private readonly HashSet<int> _activeCompatUiSpriteIds = new();
-    private int _nextCompatUiSpriteId = 50000;
     private bool _persistentDirty;
     private float _persistentSaveTimerMs;
     private readonly List<ICommandHandler> _commandHandlers;
-    private readonly Dictionary<OpCode, ICommandHandler> _handlerMap;
+    private readonly ICommandHandler?[] _handlerTable;
+    
+    // レジスタ高速化: %0-%9 を固定配列でキャッシュ
+    private readonly int[] _fastRegisters = new int[10];
+    
+    // 文字列リテラルキャッシュ（intern）
+    private readonly Dictionary<string, string> _stringCache = new();
+
+    // 動的 include
+    private readonly HashSet<string> _includedFiles = new(StringComparer.OrdinalIgnoreCase);
+    private Func<string, ParseResult?>? _includeResolver;
+    
+    // VMステップ制限（SkipMode時は解除）
+    private const int MaxInstructionsPerFrame = 500;
 
     public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager saves, ConfigManager config)
     {
@@ -41,7 +62,14 @@ public class VirtualMachine
         Config = config;
         State = new GameState();
         Menu = new MenuSystem(this);
-        SpritePool = new SpritePool(128); // スプライトプールを初期化
+        SpritePool = new SpritePool(CacheConstants.SpritePoolDefaultSize);
+
+        // マネージャーを初期化
+        UiThemeManager = new UiThemeManager(State);
+        CompatUiManager = new CompatUiManager(State);
+        SkipModeManager = new SkipModeManager(State, this);
+        SaveStateNormalizer = new SaveStateNormalizer(State, reporter);
+
         _commandHandlers = new List<ICommandHandler>
         {
             new CoreCommandHandler(this),
@@ -59,14 +87,22 @@ public class VirtualMachine
             new FlagCommandHandler(this),
             new CompatibilityCommandHandler(this)
         };
-        _handlerMap = _commandHandlers
-            .SelectMany(handler => handler.HandledCodes.Select(code => new { code, handler }))
-            .ToDictionary(item => item.code, item => item.handler);
+        _handlerTable = new ICommandHandler?[(int)OpCode.FontFilter + 1];
+        foreach (var handler in _commandHandlers)
+        {
+            foreach (var code in handler.HandledCodes)
+            {
+                int index = (int)code;
+                if (index >= 0 && index < _handlerTable.Length)
+                    _handlerTable[index] = handler;
+            }
+        }
 
         // Load initial config into GameState
         State.TextSpeedMs = Config.Config.GlobalTextSpeedMs;
         State.BgmVolume = Config.Config.BgmVolume;
         State.SeVolume = Config.Config.SeVolume;
+        State.AutoModeWaitTimeMs = Config.Config.AutoModeWaitTimeMs;
         var persistent = Config.LoadPersistentGameData();
         State.SkipUnread = persistent.SkipUnread;
         State.Registers = new Dictionary<string, int>(persistent.Registers, StringComparer.OrdinalIgnoreCase);
@@ -74,6 +110,7 @@ public class VirtualMachine
         State.SaveFlags = new Dictionary<string, bool>(persistent.SaveFlags, StringComparer.OrdinalIgnoreCase);
         State.Counters = new Dictionary<string, int>(persistent.Counters, StringComparer.OrdinalIgnoreCase);
         State.ReadKeys = new HashSet<string>(persistent.ReadKeys, StringComparer.OrdinalIgnoreCase);
+        State.UnlockedCgs = new HashSet<string>(persistent.UnlockedCgs, StringComparer.OrdinalIgnoreCase);
 
         // Initialize new managers
         ChapterManager = new ChapterManager(reporter);
@@ -84,12 +121,91 @@ public class VirtualMachine
 
         CharacterManager = new CharacterManager(State, tweens, reporter);
         CharacterManager.LoadCharacterData();
+        
+        FunctionTable = new FunctionTable();
+        StructManager = new StructManager();
+        NamespaceManager = new NamespaceManager();
+        VersionManager = new VersionManager();
+        AriaCheck = new AriaCheck(reporter, VersionManager);
     }
 
     public ChapterManager ChapterManager { get; private set; }
     public GameFlowManager GameFlow { get; private set; }
     public CharacterManager CharacterManager { get; private set; }
+    
+    // C++的現代構文マネージャー
+    public FunctionTable FunctionTable { get; private set; }
+    public StructManager StructManager { get; private set; }
+    public NamespaceManager NamespaceManager { get; private set; }
+    
+    // バージョン管理・診断
+    public VersionManager VersionManager { get; private set; }
+    public AriaCheck AriaCheck { get; private set; }
 
+    public void LoadScript(ParseResult result, string file)
+    {
+        _instructions = result.Instructions;
+        _labels = result.Labels;
+        _currentScriptFile = file;
+        State.ProgramCounter = 0;
+        State.State = VmState.Running;
+        
+        // Register functions and structs from parse result
+        foreach (var func in result.Functions)
+        {
+            func.EntryPC = _labels.GetValueOrDefault(func.QualifiedName, -1);
+            FunctionTable.Register(func);
+        }
+        
+        foreach (var st in result.Structs)
+        {
+            StructManager.RegisterDefinition(st);
+        }
+        
+        // Run compatibility check
+        AriaCheck.CheckScript(result.SourceLines, file);
+        AriaCheck.CheckCompatibility();
+    }
+
+    /// <summary>
+    /// 追加スクリプトを現在の命令リストにマージする。
+    /// 別ファイルのラベルを呼び出せるようにするための実行時 include。
+    /// </summary>
+    public void AppendScript(ParseResult result, string file)
+    {
+        int offset = _instructions.Count;
+
+        foreach (var inst in result.Instructions)
+        {
+            var shifted = new Instruction(inst.Op, inst.Arguments, inst.SourceLine, inst.Condition)
+            {
+                ScriptFile = file
+            };
+            _instructions.Add(shifted);
+        }
+
+        foreach (var pair in result.Labels)
+        {
+            string key = pair.Key.ToLowerInvariant();
+            if (!_labels.ContainsKey(key))
+            {
+                _labels[key] = pair.Value + offset;
+            }
+        }
+
+        foreach (var func in result.Functions)
+        {
+            func.EntryPC = _labels.GetValueOrDefault(func.QualifiedName, -1);
+            FunctionTable.Register(func);
+        }
+
+        foreach (var st in result.Structs)
+        {
+            StructManager.RegisterDefinition(st);
+        }
+    }
+    
+    [Obsolete("Use LoadScript(ParseResult, string) instead")]
     public void LoadScript(List<Instruction> instructions, Dictionary<string, int> labels, string file)
     {
         _instructions = instructions;
@@ -161,11 +277,27 @@ public class VirtualMachine
 
     public void Step()
     {
-        while (State.State == VmState.Running && State.ProgramCounter < _instructions.Count)
+        var state = State; // ローカルキャッシュ
+        int maxSteps = (state.SkipMode || state.ForceSkipMode) ? int.MaxValue : MaxInstructionsPerFrame;
+        int executed = 0;
+        
+        while (state.State == VmState.Running && executed < maxSteps)
         {
-            var inst = _instructions[State.ProgramCounter];
-            State.ProgramCounter++;
-            State.CurrentInstructionWasRead = IsInstructionRead(inst);
+            if (state.ProgramCounter < 0 || state.ProgramCounter > _instructions.Count)
+            {
+                string scriptFile = (state.ProgramCounter >= 0 && state.ProgramCounter < _instructions.Count)
+                    ? _instructions[state.ProgramCounter].ScriptFile
+                    : _currentScriptFile;
+                _reporter.Report(new AriaError(
+                    $"プログラムカウンタが範囲外です (PC={state.ProgramCounter}, 命令数={_instructions.Count})。スクリプト実行を終了します。",
+                    0, scriptFile, AriaErrorLevel.Error, "VM_PC_OUT_OF_BOUNDS"));
+                state.State = VmState.Ended;
+                break;
+            }
+            if (state.ProgramCounter >= _instructions.Count) break;
+            var inst = _instructions[state.ProgramCounter];
+            state.ProgramCounter++;
+            state.CurrentInstructionWasRead = IsInstructionRead(inst);
             MarkInstructionRead(inst);
 
             try
@@ -177,13 +309,16 @@ public class VirtualMachine
             }
             catch (Exception ex)
             {
-                _reporter.Report(new AriaError($"実行時エラー: {ex.Message}", inst.SourceLine, _currentScriptFile, AriaErrorLevel.Error));
+                string scriptFile = !string.IsNullOrEmpty(inst.ScriptFile) ? inst.ScriptFile : _currentScriptFile;
+                _reporter.Report(new AriaError($"実行時エラー: {ex.Message}", inst.SourceLine, scriptFile, AriaErrorLevel.Error));
             }
+            
+            executed++;
         }
 
-        if (State.State == VmState.Running && State.ProgramCounter >= _instructions.Count)
+        if (state.State == VmState.Running && state.ProgramCounter >= _instructions.Count)
         {
-            State.State = VmState.Ended;
+            state.State = VmState.Ended;
         }
     }
 
@@ -213,7 +348,10 @@ public class VirtualMachine
 
             if (State.DisplayedTextLength >= State.CurrentTextBuffer.Length && State.State == VmState.WaitingForAnimation)
             {
-                State.State = VmState.Running; // Resume script
+                if (!Tweens.IsAnimating)
+                {
+                    State.State = VmState.Running; // Resume script
+                }
             }
         }
 
@@ -255,55 +393,50 @@ public class VirtualMachine
         }
     }
 
-    internal bool EvaluateCondition(IReadOnlyList<string>? condTokens)
+    internal bool EvaluateCondition(Condition condition)
     {
-        if (condTokens == null || condTokens.Count == 0) return true;
+        if (condition.IsEmpty) return true;
 
-        bool allTrue = true;
-        for (int i = 0; i < condTokens.Count; i++)
+        foreach (var term in condition.Terms)
         {
-            if (condTokens[i] == "&&") continue;
+            if (term.IsAndConnector) continue;
 
-            string lhsStr = condTokens[i];
-            string op = (i + 1 < condTokens.Count) ? condTokens[i + 1] : "==";
-            // If it's a direct boolean variable (in NScripter typically flags are == 1)
-            if (op == "&&")
+            if (term.Op == "truthy")
             {
-                if (GetVal(lhsStr) == 0) allTrue = false;
+                if (GetVal(term.Lhs) == 0) return false;
                 continue;
             }
 
-            string rhsStr = (i + 2 < condTokens.Count) ? condTokens[i + 2] : "0";
-
-            if (op == "==" || op == "!=" || op == ">" || op == "<" || op == ">=" || op == "<=")
+            int lhs = GetVal(term.Lhs);
+            int rhs = GetVal(term.Rhs);
+            bool result = false;
+            switch (term.Op)
             {
-                int lhs = GetVal(lhsStr);
-                int rhs = GetVal(rhsStr);
-                bool result = false;
-                switch (op)
-                {
-                    case "==": result = lhs == rhs; break;
-                    case "!=": result = lhs != rhs; break;
-                    case ">":  result = lhs > rhs; break;
-                    case "<":  result = lhs < rhs; break;
-                    case ">=": result = lhs >= rhs; break;
-                    case "<=": result = lhs <= rhs; break;
-                }
-                if (!result) allTrue = false;
-                i += 2;
+                case "==": result = lhs == rhs; break;
+                case "!=": result = lhs != rhs; break;
+                case ">":  result = lhs > rhs; break;
+                case "<":  result = lhs < rhs; break;
+                case ">=": result = lhs >= rhs; break;
+                case "<=": result = lhs <= rhs; break;
             }
-            else
-            {
-                // Fallback direct evaluation
-                if (GetVal(lhsStr) == 0) allTrue = false;
-            }
+            if (!result) return false;
         }
-        return allTrue;
+        return true;
+    }
+
+    /// <summary>
+    /// 旧式条件評価（移行期間用）
+    /// </summary>
+    internal bool EvaluateCondition(IReadOnlyList<string>? condTokens)
+    {
+        if (condTokens == null || condTokens.Count == 0) return true;
+        return EvaluateCondition(Condition.FromTokens(condTokens));
     }
 
     private void ExecuteInstruction(Instruction inst)
     {
-        if (_handlerMap.TryGetValue(inst.Op, out var handler))
+        int index = (int)inst.Op;
+        if (index >= 0 && index < _handlerTable.Length && _handlerTable[index] is { } handler)
         {
             handler.Execute(inst);
             return;
@@ -334,7 +467,6 @@ public class VirtualMachine
     internal void MarkPersistentDirty()
     {
         _persistentDirty = true;
-        SavePersistentState();
     }
 
     public void SavePersistentState()
@@ -343,6 +475,7 @@ public class VirtualMachine
         Config.Config.BgmVolume = State.BgmVolume;
         Config.Config.SeVolume = State.SeVolume;
         Config.Config.SkipUnread = State.SkipUnread;
+        Config.Config.AutoModeWaitTimeMs = State.AutoModeWaitTimeMs;
         Config.SavePersistentGameData(new PersistentGameData
         {
             SkipUnread = State.SkipUnread,
@@ -352,7 +485,8 @@ public class VirtualMachine
             Flags = new Dictionary<string, bool>(State.Flags, StringComparer.OrdinalIgnoreCase),
             SaveFlags = new Dictionary<string, bool>(State.SaveFlags, StringComparer.OrdinalIgnoreCase),
             Counters = new Dictionary<string, int>(State.Counters, StringComparer.OrdinalIgnoreCase),
-            ReadKeys = State.ReadKeys.ToList()
+            ReadKeys = State.ReadKeys.ToList(),
+            UnlockedCgs = State.UnlockedCgs.ToList()
         });
         Config.Save();
         _persistentDirty = false;
@@ -397,161 +531,45 @@ public class VirtualMachine
 
     internal int AllocateCompatUiSpriteId()
     {
-        while (State.Sprites.ContainsKey(_nextCompatUiSpriteId))
-        {
-            _nextCompatUiSpriteId++;
-        }
-        return _nextCompatUiSpriteId++;
+        return CompatUiManager.AllocateSpriteId();
     }
 
     internal void TrackCompatUiSprite(int spriteId)
     {
-        _activeCompatUiSpriteIds.Add(spriteId);
+        CompatUiManager.TrackSprite(spriteId);
     }
 
     internal void ClearCompatUiSprites()
     {
-        if (_activeCompatUiSpriteIds.Count == 0) return;
-
-        foreach (int id in _activeCompatUiSpriteIds)
-        {
-            State.Sprites.Remove(id);
-            State.SpriteButtonMap.Remove(id);
-        }
-
-        _activeCompatUiSpriteIds.Clear();
+        CompatUiManager.ClearAllSprites();
     }
 
     internal bool HasAnyVisibleButton()
     {
-        return State.Sprites.Values.Any(s => s.Visible && s.IsButton);
+        return CompatUiManager.HasAnyVisibleButton();
     }
 
-    internal void ApplyUiTheme(string themeNameRaw)
+    internal void ApplyUiTheme(string themeName)
     {
-        string themeName = themeNameRaw.Trim().ToLowerInvariant();
-
-        if (themeName == "classic")
-        {
-            State.DefaultTextboxCornerRadius = 6;
-            State.DefaultTextboxBorderWidth = 2;
-            State.DefaultTextboxBorderColor = "#d1d5db";
-            State.DefaultTextboxBorderOpacity = 120;
-            State.DefaultTextboxShadowOffsetX = 0;
-            State.DefaultTextboxShadowOffsetY = 2;
-            State.DefaultTextboxShadowColor = "#000000";
-            State.DefaultTextboxShadowAlpha = 120;
-            State.DefaultTextboxPaddingX = 22;
-            State.DefaultTextboxPaddingY = 18;
-
-            State.ChoiceWidth = 620;
-            State.ChoiceHeight = 60;
-            State.ChoiceSpacing = 16;
-            State.ChoiceFontSize = 30;
-            State.ChoiceBgColor = "#202020";
-            State.ChoiceBgAlpha = 240;
-            State.ChoiceTextColor = "#ffffff";
-            State.ChoiceCornerRadius = 6;
-            State.ChoiceBorderColor = "#d1d5db";
-            State.ChoiceBorderWidth = 2;
-            State.ChoiceBorderOpacity = 120;
-            State.ChoiceHoverColor = "#303030";
-            State.ChoicePaddingX = 18;
-            return;
-        }
-
-        if (themeName == "soft")
-        {
-            State.DefaultTextboxCornerRadius = 22;
-            State.DefaultTextboxBorderWidth = 1;
-            State.DefaultTextboxBorderColor = "#ffffff";
-            State.DefaultTextboxBorderOpacity = 70;
-            State.DefaultTextboxShadowOffsetX = 0;
-            State.DefaultTextboxShadowOffsetY = 5;
-            State.DefaultTextboxShadowColor = "#000000";
-            State.DefaultTextboxShadowAlpha = 90;
-            State.DefaultTextboxPaddingX = 30;
-            State.DefaultTextboxPaddingY = 24;
-
-            State.ChoiceWidth = 640;
-            State.ChoiceHeight = 62;
-            State.ChoiceSpacing = 18;
-            State.ChoiceFontSize = 28;
-            State.ChoiceBgColor = "#101010";
-            State.ChoiceBgAlpha = 220;
-            State.ChoiceTextColor = "#ffffff";
-            State.ChoiceCornerRadius = 20;
-            State.ChoiceBorderColor = "#ffffff";
-            State.ChoiceBorderWidth = 1;
-            State.ChoiceBorderOpacity = 70;
-            State.ChoiceHoverColor = "#242424";
-            State.ChoicePaddingX = 24;
-            return;
-        }
-
-        if (themeName == "glass")
-        {
-            State.DefaultTextboxCornerRadius = 26;
-            State.DefaultTextboxBorderWidth = 1;
-            State.DefaultTextboxBorderColor = "#ffffff";
-            State.DefaultTextboxBorderOpacity = 110;
-            State.DefaultTextboxShadowOffsetX = 0;
-            State.DefaultTextboxShadowOffsetY = 8;
-            State.DefaultTextboxShadowColor = "#000000";
-            State.DefaultTextboxShadowAlpha = 120;
-            State.DefaultTextboxPaddingX = 34;
-            State.DefaultTextboxPaddingY = 26;
-            State.DefaultTextboxBgColor = "#050505";
-            State.DefaultTextboxBgAlpha = 168;
-
-            State.MenuFillColor = "#050505";
-            State.MenuFillAlpha = 218;
-            State.MenuLineColor = "#ffffff";
-            State.MenuTextColor = "#ffffff";
-            State.MenuCornerRadius = 24;
-            State.ChoiceHoverColor = "#2b2b2b";
-            return;
-        }
-
-        if (themeName == "mono")
-        {
-            State.MenuFillColor = "#000000";
-            State.MenuFillAlpha = 238;
-            State.MenuLineColor = "#ffffff";
-            State.MenuTextColor = "#ffffff";
-            State.MenuCornerRadius = 16;
-        }
-
-        // default: clean
-        State.DefaultTextboxCornerRadius = UIThemeDefaults.TextboxCornerRadius;
-        State.DefaultTextboxBorderWidth = UIThemeDefaults.TextboxBorderWidth;
-        State.DefaultTextboxBorderColor = UIThemeDefaults.TextboxBorderColor;
-        State.DefaultTextboxBorderOpacity = UIThemeDefaults.TextboxBorderOpacity;
-        State.DefaultTextboxShadowOffsetX = UIThemeDefaults.TextboxShadowOffsetX;
-        State.DefaultTextboxShadowOffsetY = UIThemeDefaults.TextboxShadowOffsetY;
-        State.DefaultTextboxShadowColor = UIThemeDefaults.TextboxShadowColor;
-        State.DefaultTextboxShadowAlpha = UIThemeDefaults.TextboxShadowAlpha;
-        State.DefaultTextboxPaddingX = UIThemeDefaults.TextboxPaddingX;
-        State.DefaultTextboxPaddingY = UIThemeDefaults.TextboxPaddingY;
-
-        State.ChoiceWidth = UIThemeDefaults.ChoiceWidth;
-        State.ChoiceHeight = UIThemeDefaults.ChoiceHeight;
-        State.ChoiceSpacing = UIThemeDefaults.ChoiceSpacing;
-        State.ChoiceFontSize = UIThemeDefaults.ChoiceFontSize;
-        State.ChoiceBgColor = UIThemeDefaults.ChoiceBgColor;
-        State.ChoiceBgAlpha = UIThemeDefaults.ChoiceBgAlpha;
-        State.ChoiceTextColor = UIThemeDefaults.ChoiceTextColor;
-        State.ChoiceCornerRadius = UIThemeDefaults.ChoiceCornerRadius;
-        State.ChoiceBorderColor = UIThemeDefaults.ChoiceBorderColor;
-        State.ChoiceBorderWidth = UIThemeDefaults.ChoiceBorderWidth;
-        State.ChoiceBorderOpacity = UIThemeDefaults.ChoiceBorderOpacity;
-        State.ChoiceHoverColor = UIThemeDefaults.ChoiceHoverColor;
-        State.ChoicePaddingX = UIThemeDefaults.ChoicePaddingX;
+        UiThemeManager.ApplyTheme(themeName);
     }
 
     internal void SetReg(string reg, int val)
     {
         string name = RegisterStoragePolicy.Normalize(reg);
+        
+        // ref マッピングを解決
+        if (State.CurrentRefMap.TryGetValue(name, out string? originalReg))
+        {
+            name = RegisterStoragePolicy.Normalize(originalReg);
+        }
+        
+        // 高速パス: %0-%9
+        if (name.Length == 1 && name[0] >= '0' && name[0] <= '9')
+        {
+            _fastRegisters[name[0] - '0'] = val;
+        }
+        
         State.Registers[name] = val;
         if (RegisterStoragePolicy.IsPersistent(name))
         {
@@ -563,18 +581,52 @@ public class VirtualMachine
     {
         return inst.Arguments.Count > 1 ? inst.Arguments[1] : inst.Arguments[0];
     }
-    internal int GetReg(string reg) => State.Registers.TryGetValue(reg.TrimStart('%').ToLowerInvariant(), out int v) ? v : 0;
+    
+    internal int GetReg(string reg)
+    {
+        string normalized = reg.TrimStart('%');
+        
+        // ref マッピングを解決
+        if (State.CurrentRefMap.TryGetValue(normalized, out string? originalReg))
+        {
+            normalized = RegisterStoragePolicy.Normalize(originalReg);
+        }
+        
+        // 高速パス: %0-%9
+        if (normalized.Length == 1 && normalized[0] >= '0' && normalized[0] <= '9')
+        {
+            return _fastRegisters[normalized[0] - '0'];
+        }
+        
+        return State.Registers.TryGetValue(normalized, out int v) ? v : 0;
+    }
+    
     internal int GetVal(string valStr)
     {
-        // If it starts with %, treat as register name
-        if (valStr.StartsWith("%"))
+        if (string.IsNullOrEmpty(valStr)) return 0;
+        
+        char first = valStr[0];
+        
+        // 高速パス: %0-%9
+        if (first == '%' && valStr.Length == 2 && valStr[1] >= '0' && valStr[1] <= '9')
         {
-            string regName = valStr.Substring(1).ToLowerInvariant();
+            return _fastRegisters[valStr[1] - '0'];
+        }
+        
+        // %10以上または名前付きレジスタ
+        if (first == '%')
+        {
+            string regName = valStr.Substring(1);
             return GetReg(regName);
         }
-        // Otherwise, try to parse as integer
-        if (int.TryParse(valStr, out int val)) return val;
-        // If not integer, try as register name
+        
+        // 数値リテラル
+        if ((first >= '0' && first <= '9') || first == '-')
+        {
+            if (int.TryParse(valStr, out int val)) return val;
+        }
+        
+        // フォールバック: レジスタ名として解釈
         return GetReg(valStr);
     }
 
@@ -585,7 +637,7 @@ public class VirtualMachine
             return GetVal(valStr);
         }
 
-        if (float.TryParse(valStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float value))
+        if (float.TryParse(valStr, NumberStyles.Float, InvariantCulture, out float value))
         {
             return value;
         }
@@ -606,15 +658,21 @@ public class VirtualMachine
         return fallback;
     }
     
-    internal void SetStr(string reg, string val) => State.StringRegisters[reg.TrimStart('$').ToLowerInvariant()] = val;
+    internal void SetStr(string reg, string val) => State.StringRegisters[reg.TrimStart('$')] = val;
     internal string GetString(string valStr)
     {
         if (valStr.StartsWith("$"))
         {
-            string key = valStr.TrimStart('$').ToLowerInvariant();
+            string key = valStr.TrimStart('$');
             return State.StringRegisters.TryGetValue(key, out string? v) ? (v ?? "") : "";
         }
-        return valStr;
+        // 文字列リテラルをキャッシュ（intern）
+        if (!_stringCache.TryGetValue(valStr, out string? cached))
+        {
+            cached = valStr;
+            _stringCache[valStr] = cached;
+        }
+        return cached;
     }
 
     internal bool IsOn(string token)
@@ -684,8 +742,9 @@ public class VirtualMachine
         string label = labelName.TrimStart('*');
         if (_labels.TryGetValue(label, out int pc))
         {
-            State.CallStack.Push(State.ProgramCounter + 1);
+            State.CallStack.Push(State.ProgramCounter);
             State.ProgramCounter = pc;
+            State.State = VmState.Running;
         }
         else
         {
@@ -726,72 +785,66 @@ public class VirtualMachine
         State.SkipMode = !State.SkipMode;
     }
 
+    public void ToggleFullscreen()
+    {
+        bool goingFullscreen = !Config.Config.IsFullscreen;
+        if (goingFullscreen)
+        {
+            // ウィンドウモード時のサイズを保存
+            Config.Config.WindowWidth = Raylib_cs.Raylib.GetScreenWidth();
+            Config.Config.WindowHeight = Raylib_cs.Raylib.GetScreenHeight();
+            Raylib_cs.Raylib.ToggleFullscreen();
+            int monitor = Raylib_cs.Raylib.GetCurrentMonitor();
+            int mw = Raylib_cs.Raylib.GetMonitorWidth(monitor);
+            int mh = Raylib_cs.Raylib.GetMonitorHeight(monitor);
+            Raylib_cs.Raylib.SetWindowSize(mw, mh);
+        }
+        else
+        {
+            Raylib_cs.Raylib.ToggleFullscreen();
+            Raylib_cs.Raylib.SetWindowSize(Config.Config.WindowWidth, Config.Config.WindowHeight);
+        }
+        Config.Config.IsFullscreen = goingFullscreen;
+        Config.Save();
+    }
+
     public void StopSkip()
     {
         State.SkipMode = false;
         State.ForceSkipMode = false;
     }
 
-    public int ProcessSkipFrame(int maxWaits = -1)
+    public void FinishAllTweens()
     {
-        if (maxWaits < 0) maxWaits = State.ForceSkipMode ? State.ForceSkipAdvancePerFrame : State.SkipAdvancePerFrame;
-        if ((!State.SkipMode && !State.ForceSkipMode) || maxWaits <= 0) return 0;
+        Tweens.FinishAll(State);
+    }
 
-        int skippedWaits = 0;
-        int guard = maxWaits * 8;
-        while ((State.SkipMode || State.ForceSkipMode) && State.State != VmState.Ended && guard-- > 0)
-        {
-            if (State.State == VmState.WaitingForClick)
-            {
-                if (!CanSkipCurrentWait()) break;
-                CompleteCurrentText();
-                if (State.IsWaitingPageClear)
-                {
-                    State.CurrentTextBuffer = "";
-                    State.DisplayedTextLength = 0;
-                    State.IsWaitingPageClear = false;
-                }
-                ResumeFromClick();
-                skippedWaits++;
-                if (skippedWaits >= maxWaits) break;
-                continue;
-            }
+    public void SetIncludeResolver(Func<string, ParseResult?> resolver)
+    {
+        _includeResolver = resolver;
+    }
 
-            if (State.State == VmState.WaitingForAnimation)
-            {
-                if (State.TextSpeedMs > 0 && State.DisplayedTextLength < State.CurrentTextBuffer.Length)
-                {
-                    CompleteCurrentText();
-                    State.State = VmState.Running;
-                    continue;
-                }
-                break;
-            }
+    public bool IncludeScript(string path)
+    {
+        if (_includedFiles.Contains(path)) return true;
+        if (_includeResolver == null) return false;
 
-            if (State.State == VmState.WaitingForDelay)
-            {
-                State.DelayTimerMs = 0f;
-                State.State = VmState.Running;
-                continue;
-            }
+        var result = _includeResolver(path);
+        if (result == null) return false;
 
-            if (State.State == VmState.Running)
-            {
-                int beforePc = State.ProgramCounter;
-                Step();
-                if (State.State == VmState.Running && State.ProgramCounter == beforePc) break;
-                continue;
-            }
+        _includedFiles.Add(path);
+        AppendScript(result, path);
+        return true;
+    }
 
-            break;
-        }
-
-        return skippedWaits;
+    public int ProcessSkipFrame(float deltaTimeMs)
+    {
+        return SkipModeManager.ProcessSkipFrame(deltaTimeMs);
     }
 
     private bool CanSkipCurrentWait()
     {
-        return State.ForceSkipMode || State.SkipUnread || State.CurrentInstructionWasRead;
+        return SkipModeManager.CanSkipCurrentWait();
     }
 
     private void CompleteCurrentText()
@@ -835,7 +888,9 @@ public class VirtualMachine
         var (data, success) = Saves.Load(slot);
         if (success && data != null)
         {
-            ApplyLoadedState(data);
+            SaveStateNormalizer.NormalizeLoadedState(data);
+            _currentScriptFile = SaveStateNormalizer.CurrentScriptFile;
+            CompatUiManager.ScanAndTrackTransientSprites();
 
             // "load_restore"ラベルが存在すればそちらに飛ぶことで初期化をスクリプトから行う
             if (_labels.ContainsKey("load_restore")) JumpTo("*load_restore");
@@ -843,134 +898,13 @@ public class VirtualMachine
             {
                 // Fallback: If no custom setup is provided, attempt to update the renderer if needed
             }
+
+            NormalizeLoadedUiState();
         }
         else
         {
             _reporter.Report(new AriaError($"Failed to load game from slot {slot}", -1, _currentScriptFile, AriaErrorLevel.Warning, "LOAD_FAILED"));
         }
-    }
-
-    private void ApplyLoadedState(SaveData data)
-    {
-        var loaded = data.State;
-
-        State.ProgramCounter = loaded.ProgramCounter;
-        State.State = loaded.State;
-        State.CurrentScene = loaded.CurrentScene;
-
-        var mergedRegisters = State.Registers
-            .Where(pair => RegisterStoragePolicy.IsPersistent(pair.Key))
-            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
-        foreach (var pair in loaded.Registers)
-        {
-            if (RegisterStoragePolicy.IsSaveStored(pair.Key))
-            {
-                mergedRegisters[RegisterStoragePolicy.Normalize(pair.Key)] = pair.Value;
-            }
-        }
-        State.Registers = mergedRegisters;
-
-        State.StringRegisters = new Dictionary<string, string>(loaded.StringRegisters, StringComparer.OrdinalIgnoreCase);
-        State.SaveFlags = new Dictionary<string, bool>(loaded.SaveFlags, StringComparer.OrdinalIgnoreCase);
-        State.VolatileFlags = new Dictionary<string, bool>(loaded.VolatileFlags, StringComparer.OrdinalIgnoreCase);
-        State.Counters = new Dictionary<string, int>(loaded.Counters, StringComparer.OrdinalIgnoreCase);
-
-        State.Sprites = new Dictionary<int, Sprite>(loaded.Sprites);
-        State.SpriteButtonMap = new Dictionary<int, int>(loaded.SpriteButtonMap);
-        State.CallStack = new Stack<int>(loaded.CallStack.Reverse());
-        State.ParamStack = new Stack<string>(loaded.ParamStack.Reverse());
-        State.LoopStack = loaded.LoopStack != null ? new Stack<LoopState>(loaded.LoopStack.Reverse()) : new Stack<LoopState>();
-
-        State.CurrentBgm = loaded.CurrentBgm;
-        State.BgmVolume = loaded.BgmVolume;
-        State.SeVolume = loaded.SeVolume;
-
-        State.TextboxVisible = loaded.TextboxVisible;
-        State.CurrentTextBuffer = loaded.CurrentTextBuffer;
-        State.DisplayedTextLength = Math.Clamp(loaded.DisplayedTextLength, 0, State.CurrentTextBuffer.Length);
-        State.TextAdvanceMode = loaded.TextAdvanceMode;
-        State.TextAdvanceRatio = loaded.TextAdvanceRatio;
-        State.TextTimerMs = 0f;
-        State.IsWaitingPageClear = loaded.IsWaitingPageClear;
-        State.TextHistory = new List<string>(loaded.TextHistory);
-        State.TextHistoryStartNumber = Math.Max(1, loaded.TextHistoryStartNumber);
-        State.TextTargetSpriteId = loaded.TextTargetSpriteId;
-        State.TextboxBackgroundSpriteId = loaded.TextboxBackgroundSpriteId;
-        State.UseManualTextLayout = loaded.UseManualTextLayout;
-        State.CompatAutoUi = loaded.CompatAutoUi;
-
-        State.DefaultTextboxX = loaded.DefaultTextboxX;
-        State.DefaultTextboxY = loaded.DefaultTextboxY;
-        State.DefaultTextboxW = loaded.DefaultTextboxW;
-        State.DefaultTextboxH = loaded.DefaultTextboxH;
-        State.DefaultFontSize = loaded.DefaultFontSize;
-        State.DefaultTextColor = loaded.DefaultTextColor;
-        State.DefaultTextboxBgColor = loaded.DefaultTextboxBgColor;
-        State.DefaultTextboxBgAlpha = loaded.DefaultTextboxBgAlpha;
-        State.DefaultTextboxPaddingX = loaded.DefaultTextboxPaddingX;
-        State.DefaultTextboxPaddingY = loaded.DefaultTextboxPaddingY;
-        State.DefaultTextboxCornerRadius = loaded.DefaultTextboxCornerRadius;
-        State.DefaultTextboxBorderColor = loaded.DefaultTextboxBorderColor;
-        State.DefaultTextboxBorderWidth = loaded.DefaultTextboxBorderWidth;
-        State.DefaultTextboxBorderOpacity = loaded.DefaultTextboxBorderOpacity;
-        State.DefaultTextboxShadowColor = loaded.DefaultTextboxShadowColor;
-        State.DefaultTextboxShadowOffsetX = loaded.DefaultTextboxShadowOffsetX;
-        State.DefaultTextboxShadowOffsetY = loaded.DefaultTextboxShadowOffsetY;
-        State.DefaultTextboxShadowAlpha = loaded.DefaultTextboxShadowAlpha;
-        State.ChoiceWidth = loaded.ChoiceWidth;
-        State.ChoiceHeight = loaded.ChoiceHeight;
-        State.ChoiceSpacing = loaded.ChoiceSpacing;
-        State.ChoiceFontSize = loaded.ChoiceFontSize;
-        State.ChoiceTextColor = loaded.ChoiceTextColor;
-        State.ChoiceBgColor = loaded.ChoiceBgColor;
-        State.ChoiceBgAlpha = loaded.ChoiceBgAlpha;
-        State.ChoiceHoverColor = loaded.ChoiceHoverColor;
-        State.ChoiceCornerRadius = loaded.ChoiceCornerRadius;
-        State.ChoiceBorderColor = loaded.ChoiceBorderColor;
-        State.ChoiceBorderWidth = loaded.ChoiceBorderWidth;
-        State.ChoiceBorderOpacity = loaded.ChoiceBorderOpacity;
-        State.ChoicePaddingX = loaded.ChoicePaddingX;
-        State.FontFilter = loaded.FontFilter;
-        State.TextSpeedMs = loaded.TextSpeedMs;
-        State.DefaultTextShadowColor = loaded.DefaultTextShadowColor;
-        State.DefaultTextShadowX = loaded.DefaultTextShadowX;
-        State.DefaultTextShadowY = loaded.DefaultTextShadowY;
-        State.DefaultTextOutlineColor = loaded.DefaultTextOutlineColor;
-        State.DefaultTextOutlineSize = loaded.DefaultTextOutlineSize;
-        State.DefaultTextEffect = loaded.DefaultTextEffect;
-        State.DefaultTextEffectStrength = loaded.DefaultTextEffectStrength;
-        State.DefaultTextEffectSpeed = loaded.DefaultTextEffectSpeed;
-        State.SkipAdvancePerFrame = loaded.SkipAdvancePerFrame;
-        State.ForceSkipAdvancePerFrame = loaded.ForceSkipAdvancePerFrame;
-        State.ShowClickCursor = loaded.ShowClickCursor;
-        State.ClickCursorMode = loaded.ClickCursorMode;
-        State.ClickCursorPath = loaded.ClickCursorPath;
-        State.ClickCursorOffsetX = loaded.ClickCursorOffsetX;
-        State.ClickCursorOffsetY = loaded.ClickCursorOffsetY;
-        State.ClickCursorSize = loaded.ClickCursorSize;
-        State.ClickCursorColor = loaded.ClickCursorColor;
-        State.RightMenuWidth = loaded.RightMenuWidth;
-        State.RightMenuAlign = loaded.RightMenuAlign;
-        State.SaveLoadColumns = loaded.SaveLoadColumns;
-        State.SaveLoadWidth = loaded.SaveLoadWidth;
-        State.BacklogWidth = loaded.BacklogWidth;
-        State.SettingsWidth = loaded.SettingsWidth;
-        State.MenuFillColor = loaded.MenuFillColor;
-        State.MenuFillAlpha = loaded.MenuFillAlpha;
-        State.MenuTextColor = loaded.MenuTextColor;
-        State.MenuLineColor = loaded.MenuLineColor;
-        State.MenuCornerRadius = loaded.MenuCornerRadius;
-        State.UiGroups = loaded.UiGroups.ToDictionary(pair => pair.Key, pair => new List<int>(pair.Value));
-        State.UiLayouts = new Dictionary<int, string>(loaded.UiLayouts);
-        State.UiAnchors = new Dictionary<int, string>(loaded.UiAnchors);
-        State.UiEvents = new Dictionary<string, string>(loaded.UiEvents, StringComparer.OrdinalIgnoreCase);
-        State.UiHotkeys = new Dictionary<string, string>(loaded.UiHotkeys, StringComparer.OrdinalIgnoreCase);
-        State.UiHoverActive = new HashSet<int>();
-
-        State.CurrentChapter = loaded.CurrentChapter;
-        _currentScriptFile = data.ScriptFile;
-
-        NormalizeLoadedUiState();
     }
 
     private void NormalizeLoadedUiState()
@@ -996,21 +930,12 @@ public class VirtualMachine
 
         NormalizeRuntimeTextSprites();
 
-        _activeCompatUiSpriteIds.Clear();
-        foreach (var sprite in State.Sprites.Values)
-        {
-            if (IsTransientCompatUiSprite(sprite))
-            {
-                _activeCompatUiSpriteIds.Add(sprite.Id);
-            }
-        }
-
-        _nextCompatUiSpriteId = Math.Max(50000, State.Sprites.Count == 0 ? 50000 : State.Sprites.Keys.Max() + 1);
+        CompatUiManager.ScanAndTrackTransientSprites();
     }
 
     private static bool IsTransientCompatUiSprite(Sprite sprite)
     {
-        return sprite.Id >= 50000 && sprite.Z >= 9500;
+        return CompatUiManager.IsTransientCompatSprite(sprite);
     }
 
     private void NormalizeRuntimeTextSprites()

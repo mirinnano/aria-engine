@@ -10,6 +10,12 @@ public class InputHandler
         if (Raylib.IsKeyPressed(KeyboardKey.F3)) vm.State.DebugMode = !vm.State.DebugMode;
         vm.State.ForceSkipMode = IsForceSkipHeld();
 
+        // スキップ中に読み進めキーが押されたら即停止
+        if ((vm.State.SkipMode || vm.State.ForceSkipMode) && IsAdvancePressed())
+        {
+            vm.StopSkip();
+        }
+
         foreach (var hotkey in vm.State.UiHotkeys)
         {
             if (TryParseKey(hotkey.Key, out var key) && Raylib.IsKeyPressed(key))
@@ -74,8 +80,9 @@ public class InputHandler
             Sprite? clickedButton = null;
             int clickedZ = int.MinValue;
 
-            foreach (var btn in vm.State.Sprites.Values)
+            foreach (var kvp in vm.State.Sprites)
             {
+                var btn = kvp.Value;
                 if (!btn.Visible || !btn.IsButton)
                 {
                     btn.IsHovered = false;
@@ -116,8 +123,50 @@ public class InputHandler
 
             if (clickedButton != null)
             {
+                // スライダークリック処理
+                if (clickedButton.SliderMin < clickedButton.SliderMax)
+                {
+                    float bx = clickedButton.X + clickedButton.ClickAreaX;
+                    float bw = clickedButton.ClickAreaW > 0 ? clickedButton.ClickAreaW : Math.Max(clickedButton.Width, 50);
+                    float ratio = Math.Clamp((mousePoint.X - bx) / (bw * clickedButton.ScaleX), 0f, 1f);
+                    int newValue = clickedButton.SliderMin + (int)Math.Round(ratio * (clickedButton.SliderMax - clickedButton.SliderMin));
+                    clickedButton.SliderValue = newValue;
+                    vm.SetReg($"%{clickedButton.Id}", newValue);
+                    UpdateSliderVisuals(vm.State, clickedButton);
+                }
+                // チェックボックスクリック処理
+                else if (!string.IsNullOrEmpty(clickedButton.CheckboxLabel))
+                {
+                    clickedButton.CheckboxValue = !clickedButton.CheckboxValue;
+                    vm.SetReg($"%{clickedButton.Id}", clickedButton.CheckboxValue ? 1 : 0);
+                    UpdateCheckboxVisuals(vm.State, clickedButton);
+                }
                 vm.ResumeFromButton(clickedButton.Id);
                 return;
+            }
+
+            // スライダードラッグ対応（マウス押下中も連続更新）
+            if (Raylib.IsMouseButtonDown(MouseButton.Left))
+            {
+                foreach (var kvp in vm.State.Sprites)
+                {
+                    var sp = kvp.Value;
+                    if (!sp.Visible || sp.SliderMin >= sp.SliderMax) continue;
+                    float bx = sp.X + sp.ClickAreaX;
+                    float bw = sp.ClickAreaW > 0 ? sp.ClickAreaW : Math.Max(sp.Width, 50);
+                    Rectangle rect = new Rectangle(bx, sp.Y + sp.ClickAreaY, bw * sp.ScaleX, Math.Max(sp.Height, 30) * sp.ScaleY);
+                    if (Raylib.CheckCollisionPointRec(mousePoint, rect))
+                    {
+                        float ratio = Math.Clamp((mousePoint.X - bx) / (bw * sp.ScaleX), 0f, 1f);
+                        int newValue = sp.SliderMin + (int)Math.Round(ratio * (sp.SliderMax - sp.SliderMin));
+                        if (newValue != sp.SliderValue)
+                        {
+                            sp.SliderValue = newValue;
+                            vm.SetReg($"%{sp.Id}", newValue);
+                            UpdateSliderVisuals(vm.State, sp);
+                        }
+                    }
+                }
             }
         }
     }
@@ -161,6 +210,26 @@ public class InputHandler
             "ratio" => ratio >= Math.Clamp(state.TextAdvanceRatio, 0f, 1f),
             _ => state.DisplayedTextLength >= state.CurrentTextBuffer.Length
         };
+    }
+
+    private static void UpdateSliderVisuals(GameState state, Sprite slider)
+    {
+        int fillId = slider.Id + 1;
+        int thumbId = slider.Id + 2;
+        int valueId = slider.Id + 3;
+        float ratio = slider.SliderMax > slider.SliderMin ? (float)(slider.SliderValue - slider.SliderMin) / (slider.SliderMax - slider.SliderMin) : 0f;
+
+        if (state.Sprites.TryGetValue(fillId, out var fill)) fill.Width = (int)(slider.Width * ratio);
+        if (state.Sprites.TryGetValue(thumbId, out var thumb)) thumb.X = slider.X + (int)(slider.Width * ratio) - 8;
+        if (state.Sprites.TryGetValue(valueId, out var valText)) valText.Text = slider.SliderValue.ToString();
+    }
+
+    private static void UpdateCheckboxVisuals(GameState state, Sprite checkbox)
+    {
+        int checkId = checkbox.Id + 1;
+        checkbox.FillColor = checkbox.CheckboxValue ? "#f5f5f5" : "#000000";
+        checkbox.FillAlpha = checkbox.CheckboxValue ? 255 : 0;
+        if (state.Sprites.TryGetValue(checkId, out var checkMark)) checkMark.Text = checkbox.CheckboxValue ? "v" : "";
     }
 
     private static bool TryDispatchHoverEvent(VirtualMachine vm, int spriteId, int resultValue)
