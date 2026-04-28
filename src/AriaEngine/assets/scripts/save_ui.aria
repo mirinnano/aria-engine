@@ -1,0 +1,129 @@
+# aria-version: 2.0
+; セーブ画面（スクリプト主導UI）
+
+*save_ui
+; 全面黒背景（既存スプライトを保護）
+ui_rect 9999, 0, 0, 1280, 720
+ui sprite:9999, fill, "#000000"
+ui sprite:9999, fill_alpha, 255
+ui sprite:9999, z, 1
+
+; タイトル
+ui_text 400, "SAVE", 640, 50
+ui sprite:400, font_size, 36
+ui sprite:400, align, "center"
+ui sprite:400, color, "#ffffff"
+
+; 10スロット (2列x5行)
+for %slot = 0 to 9
+    let %col = %slot % 2
+    let %row = %slot / 2
+    let %sx = 200 + %col * 440
+    let %sy = 120 + %row * 110
+
+    ; 枠
+    let %bgid = 410 + %slot
+    ui_rect %bgid, %sx, %sy, 420, 95
+    ui sprite:%bgid, fill, "#1a1a1a"
+    ui sprite:%bgid, fill_alpha, 180
+    ui sprite:%bgid, border, 1, "#444444"
+    ui sprite:%bgid, radius, 4
+    ui sprite:%bgid, z, 10
+
+    saveinfo %slot, $spreview, $sdate, %sexists
+
+    ; スロット番号
+    let %numid = 430 + %slot
+    let %numstr = "SLOT " + (%slot + 1)
+    ui_text %numid, %numstr, %sx + 14, %sy + 10
+    ui sprite:%numid, font_size, 16
+    ui sprite:%numid, color, "#cccccc"
+    ui sprite:%numid, z, 20
+
+    ; 状態/日時
+    let %infoid = 450 + %slot
+    if %sexists == 1 {
+        ui_text %infoid, $sdate, %sx + 14, %sy + 34
+        ui sprite:%infoid, font_size, 13
+        ui sprite:%infoid, color, "#888888"
+        ui sprite:%infoid, z, 20
+
+        let %previd = 470 + %slot
+        if $spreview != "" {
+            ui_text %previd, $spreview, %sx + 14, %sy + 54
+        } else {
+            ui_text %previd, "----", %sx + 14, %sy + 54
+        }
+        ui sprite:%previd, font_size, 14
+        ui sprite:%previd, color, "#aaaaaa"
+        ui sprite:%previd, z, 20
+    } else {
+        ui_text %infoid, "EMPTY", %sx + 14, %sy + 34
+        ui sprite:%infoid, font_size, 13
+        ui sprite:%infoid, color, "#555555"
+        ui sprite:%infoid, z, 20
+    }
+
+    ; ボタン登録
+    ui_button %bgid, %slot
+next
+
+; BACK
+ui_rect 499, 540, 700, 200, 42
+ui sprite:499, fill, "#000000"
+ui sprite:499, fill_alpha, 0
+ui sprite:499, border, 1, "#ffffff"
+ui sprite:499, hover_fill, "#151515"
+ui sprite:499, z, 10
+ui_text 498, "BACK", 640, 692
+ui sprite:498, font_size, 22
+ui sprite:498, align, "center"
+ui sprite:498, color, "#ffffff"
+ui sprite:498, z, 20
+ui_button 499, 99
+
+for %slot = 0 to 9
+    let %bgid = 410 + %slot
+    ui_button %bgid, %slot
+next
+ui_button 499, 99
+print 1
+
+*save_wait
+btnwait %0
+
+if %0 == 99 {
+    goto *save_back
+}
+if %0 >= 0 && %0 <= 9 {
+    save %0
+    ; セーブ完了フィードバック（簡易）
+    let %fbid = 490
+    ui_text %fbid, "SAVED", 640, 360
+    ui sprite:%fbid, font_size, 28
+    ui sprite:%fbid, align, "center"
+    ui sprite:%fbid, color, "#ffffff"
+    ui sprite:%fbid, z, 100
+    print 1
+    wait 400
+    csp %fbid
+    goto *save_back
+}
+goto *save_wait
+
+*save_back
+csp 400
+for %slot = 0 to 9
+    let %bgid = 410 + %slot
+    csp %bgid
+    let %numid = 430 + %slot
+    csp %numid
+    let %infoid = 450 + %slot
+    csp %infoid
+    let %previd = 470 + %slot
+    csp %previd
+next
+csp 498
+csp 499
+csp 9999
+return

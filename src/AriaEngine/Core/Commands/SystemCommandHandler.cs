@@ -7,14 +7,24 @@ public sealed class SystemCommandHandler : BaseCommandHandler
     public override IReadOnlySet<OpCode> HandledCodes { get; } = new HashSet<OpCode>
     {
         OpCode.Backlog,
+        OpCode.BacklogCount,
+        OpCode.BacklogEntry,
         OpCode.KidokuMode,
         OpCode.SkipMode,
         OpCode.SystemButton,
         OpCode.YesNoBox,
+        OpCode.MesBox,
         OpCode.FadeIn,
         OpCode.FadeOut,
         OpCode.End,
-        OpCode.FontFilter
+        OpCode.FontFilter,
+        OpCode.GalleryEntry,
+        OpCode.CgUnlock,
+        OpCode.GalleryCount,
+        OpCode.GalleryInfo,
+        OpCode.GetConfig,
+        OpCode.SetConfig,
+        OpCode.SaveConfig
     };
 
     public SystemCommandHandler(VirtualMachine vm) : base(vm)
@@ -27,6 +37,24 @@ public sealed class SystemCommandHandler : BaseCommandHandler
         {
             case OpCode.Backlog:
                 if (inst.Arguments.Count > 0) State.BacklogEnabled = IsOn(inst.Arguments[0]);
+                return true;
+
+            case OpCode.BacklogCount:
+                if (!ValidateArgs(inst, 1)) return true;
+                SetReg(GetString(inst.Arguments[0]), State.TextHistory.Count);
+                return true;
+
+            case OpCode.BacklogEntry:
+                if (!ValidateArgs(inst, 2)) return true;
+                {
+                    int bIndex = GetVal(inst.Arguments[0]);
+                    string bText = "";
+                    if (bIndex >= 0 && bIndex < State.TextHistory.Count)
+                    {
+                        bText = State.TextHistory[bIndex].Replace("\r", " ").Replace("\n", " / ");
+                    }
+                    SetStr(GetString(inst.Arguments[1]), bText);
+                }
                 return true;
 
             case OpCode.KidokuMode:
@@ -49,6 +77,10 @@ public sealed class SystemCommandHandler : BaseCommandHandler
 
             case OpCode.YesNoBox:
                 ExecuteYesNoBox(inst);
+                return true;
+
+            case OpCode.MesBox:
+                ExecuteMesBox(inst);
                 return true;
 
             case OpCode.FadeIn:
@@ -77,6 +109,118 @@ public sealed class SystemCommandHandler : BaseCommandHandler
                     "anisotropic" => TextureFilter.Trilinear,
                     _ => TextureFilter.Bilinear
                 };
+                return true;
+
+            case OpCode.GalleryEntry:
+                if (!ValidateArgs(inst, 3)) return true;
+                string flag = GetString(inst.Arguments[0]).Trim();
+                string path = GetString(inst.Arguments[1]).Trim();
+                string title = GetString(inst.Arguments[2]).Trim();
+                State.GalleryEntries[flag] = new GalleryEntry
+                {
+                    FlagName = flag,
+                    ImagePath = path,
+                    Title = title
+                };
+                return true;
+
+            case OpCode.CgUnlock:
+                if (!ValidateArgs(inst, 1)) return true;
+                string cgFlag = GetString(inst.Arguments[0]).Trim();
+                if (State.UnlockedCgs.Add(cgFlag))
+                {
+                    Vm.MarkPersistentDirty();
+                }
+                return true;
+
+            case OpCode.GetConfig:
+                if (!ValidateArgs(inst, 2)) return true;
+                {
+                    string key = GetString(inst.Arguments[1]).Trim().ToLowerInvariant().Replace("_", "");
+                    int value = key switch
+                    {
+                        "bgmvol" or "bgmvolume" => State.BgmVolume,
+                        "sevol" or "sevolume" => State.SeVolume,
+                        "textspeed" or "textspeedms" => State.TextSpeedMs,
+                        "skipunread" or "skipunreadmode" => State.SkipUnread ? 1 : 0,
+                        "backlog" or "backlogenabled" => State.BacklogEnabled ? 1 : 0,
+                        "clickcursor" or "showclickcursor" => State.ShowClickCursor ? 1 : 0,
+                        "autowait" or "automodewait" or "automodewaittimems" => State.AutoModeWaitTimeMs,
+                        "fullscreen" => Config.Config.IsFullscreen ? 1 : 0,
+                        _ => 0
+                    };
+                    SetReg(GetString(inst.Arguments[0]), value);
+                }
+                return true;
+
+            case OpCode.SetConfig:
+                if (!ValidateArgs(inst, 2)) return true;
+                {
+                    string key = GetString(inst.Arguments[0]).Trim().ToLowerInvariant().Replace("_", "");
+                    int value = GetVal(inst.Arguments[1]);
+                    switch (key)
+                    {
+                        case "bgmvol" or "bgmvolume":
+                            State.BgmVolume = Math.Clamp(value, 0, 100);
+                            break;
+                        case "sevol" or "sevolume":
+                            State.SeVolume = Math.Clamp(value, 0, 100);
+                            break;
+                        case "textspeed" or "textspeedms":
+                            State.TextSpeedMs = Math.Max(0, value);
+                            Config.Config.GlobalTextSpeedMs = State.TextSpeedMs;
+                            break;
+                        case "skipunread" or "skipunreadmode":
+                            State.SkipUnread = value != 0;
+                            break;
+                        case "backlog" or "backlogenabled":
+                            State.BacklogEnabled = value != 0;
+                            break;
+                        case "clickcursor" or "showclickcursor":
+                            State.ShowClickCursor = value != 0;
+                            break;
+                        case "autowait" or "automodewait" or "automodewaittimems":
+                            State.AutoModeWaitTimeMs = Math.Clamp(value, 100, 10000);
+                            Config.Config.AutoModeWaitTimeMs = State.AutoModeWaitTimeMs;
+                            break;
+                        case "fullscreen":
+                            bool targetFullscreen = value != 0;
+                            if (Config.Config.IsFullscreen != targetFullscreen)
+                                Vm.ToggleFullscreen();
+                            break;
+                    }
+                    MarkPersistentDirty();
+                }
+                return true;
+
+            case OpCode.GalleryCount:
+                if (!ValidateArgs(inst, 1)) return true;
+                SetReg(GetString(inst.Arguments[0]), State.GalleryEntries.Count);
+                return true;
+
+            case OpCode.GalleryInfo:
+                if (!ValidateArgs(inst, 4)) return true;
+                {
+                    int gIndex = GetVal(inst.Arguments[0]);
+                    var gEntries = State.GalleryEntries.Values.ToList();
+                    string gTitle = "";
+                    string gPath = "";
+                    int gUnlocked = 0;
+                    if (gIndex >= 0 && gIndex < gEntries.Count)
+                    {
+                        var gEntry = gEntries[gIndex];
+                        gTitle = gEntry.Title;
+                        gPath = gEntry.ImagePath;
+                        gUnlocked = State.UnlockedCgs.Contains(gEntry.FlagName) ? 1 : 0;
+                    }
+                    SetStr(GetString(inst.Arguments[1]), gTitle);
+                    SetStr(GetString(inst.Arguments[2]), gPath);
+                    SetReg(GetString(inst.Arguments[3]), gUnlocked);
+                }
+                return true;
+
+            case OpCode.SaveConfig:
+                Vm.SavePersistentState();
                 return true;
 
             default:
@@ -204,5 +348,94 @@ public sealed class SystemCommandHandler : BaseCommandHandler
             TextAlign = "center",
             TextVAlign = "center"
         };
+    }
+
+    private void ExecuteMesBox(Instruction inst)
+    {
+        if (!State.CompatAutoUi)
+        {
+            Reporter.Report(new AriaError("mesbox の自動UI生成は compat_mode off で無効です。", inst.SourceLine, CurrentScriptFile, AriaErrorLevel.Warning));
+            return;
+        }
+
+        if (!ValidateArgs(inst, 2)) return;
+        ClearCompatUiSprites();
+
+        string message = GetString(inst.Arguments[0]);
+        string title = GetString(inst.Arguments[1]);
+
+        int msgW = Math.Min(State.WindowWidth - 120, State.ChoiceWidth + 300);
+        int msgX = (State.WindowWidth - msgW) / 2;
+        int msgH = 140;
+        int msgY = (State.WindowHeight - msgH) / 2 - 30;
+
+        int btnW = Math.Max(100, State.ChoiceWidth / 2);
+        int btnH = State.ChoiceHeight;
+        int btnX = (State.WindowWidth - btnW) / 2;
+        int btnY = msgY + msgH + 20;
+
+        int msgRectId = AllocateCompatUiSpriteId();
+        int msgTextId = AllocateCompatUiSpriteId();
+        int titleTextId = AllocateCompatUiSpriteId();
+        int btnRectId = AllocateCompatUiSpriteId();
+        int btnTextId = AllocateCompatUiSpriteId();
+
+        State.Sprites[msgRectId] = new Sprite
+        {
+            Id = msgRectId,
+            Type = SpriteType.Rect,
+            Z = 9500,
+            X = msgX,
+            Y = msgY,
+            Width = msgW,
+            Height = msgH,
+            FillColor = State.DefaultTextboxBgColor,
+            FillAlpha = State.DefaultTextboxBgAlpha,
+            CornerRadius = State.DefaultTextboxCornerRadius,
+            BorderColor = State.DefaultTextboxBorderColor,
+            BorderWidth = State.DefaultTextboxBorderWidth,
+            BorderOpacity = State.DefaultTextboxBorderOpacity
+        };
+        TrackCompatUiSprite(msgRectId);
+
+        State.Sprites[titleTextId] = new Sprite
+        {
+            Id = titleTextId,
+            Type = SpriteType.Text,
+            Z = 9501,
+            Text = title,
+            X = msgX + State.DefaultTextboxPaddingX,
+            Y = msgY + 16,
+            Width = msgW - State.DefaultTextboxPaddingX * 2,
+            Height = 30,
+            FontSize = State.DefaultFontSize,
+            Color = State.DefaultTextColor
+        };
+        TrackCompatUiSprite(titleTextId);
+
+        State.Sprites[msgTextId] = new Sprite
+        {
+            Id = msgTextId,
+            Type = SpriteType.Text,
+            Z = 9501,
+            Text = message,
+            X = msgX + State.DefaultTextboxPaddingX,
+            Y = msgY + 52,
+            Width = msgW - State.DefaultTextboxPaddingX * 2,
+            Height = msgH - 70,
+            FontSize = State.DefaultFontSize - 2,
+            Color = State.DefaultTextColor
+        };
+        TrackCompatUiSprite(msgTextId);
+
+        State.Sprites[btnRectId] = CreateChoiceRect(btnRectId, btnX, btnY, btnW, btnH, true);
+        State.SpriteButtonMap[btnRectId] = 1;
+        TrackCompatUiSprite(btnRectId);
+
+        State.Sprites[btnTextId] = CreateChoiceText(btnTextId, "OK", btnX, btnY, btnW, btnH);
+        TrackCompatUiSprite(btnTextId);
+
+        State.ButtonResultRegister = "0";
+        State.State = VmState.WaitingForButton;
     }
 }

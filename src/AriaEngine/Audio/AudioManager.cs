@@ -9,8 +9,12 @@ public class AudioManager
 {
     private readonly IAssetProvider _assetProvider;
     private readonly ErrorReporter? _reporter;
-    private Dictionary<string, Music> _bgmCache = new();
-    private Dictionary<string, Sound> _seCache = new();
+    private const int MaxBgmCache = 8;
+    private const int MaxSeCache = 16;
+    private readonly Dictionary<string, Music> _bgmCache = new();
+    private readonly List<string> _bgmOrder = new();
+    private readonly Dictionary<string, Sound> _seCache = new();
+    private readonly List<string> _seOrder = new();
     private readonly HashSet<string> _failedBgm = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _failedSe = new(StringComparer.OrdinalIgnoreCase);
     private string _currentBgmName = "";
@@ -28,7 +32,18 @@ public class AudioManager
         {
             if (_currentBgm.HasValue)
             {
-                Raylib.StopMusicStream(_currentBgm.Value);
+                try
+                {
+                    Raylib.StopMusicStream(_currentBgm.Value);
+                }
+                catch (Exception ex)
+                {
+                    _reporter?.ReportException(
+                        "AUDIO_BGM_STOP",
+                        ex,
+                        $"BGM '{_currentBgmName}' の停止に失敗しました。",
+                        AriaErrorLevel.Warning);
+                }
             }
 
             _currentBgmName = state.CurrentBgm;
@@ -44,7 +59,16 @@ public class AudioManager
                     try
                     {
                         string resolved = _assetProvider.MaterializeToFile(_currentBgmName);
-                        _bgmCache[_currentBgmName] = Raylib.LoadMusicStream(resolved);
+                        var music = Raylib.LoadMusicStream(resolved);
+                        if (_bgmCache.Count >= MaxBgmCache && _bgmOrder.Count > 0)
+                        {
+                            string oldest = _bgmOrder[0];
+                            _bgmOrder.RemoveAt(0);
+                            if (_bgmCache.Remove(oldest, out var oldMusic))
+                                Raylib.UnloadMusicStream(oldMusic);
+                        }
+                        _bgmCache[_currentBgmName] = music;
+                        _bgmOrder.Add(_currentBgmName);
                     }
                     catch (Exception ex)
                     {
@@ -62,7 +86,19 @@ public class AudioManager
                 if (_bgmCache.TryGetValue(_currentBgmName, out var bgm))
                 {
                     _currentBgm = bgm;
-                    Raylib.PlayMusicStream(_currentBgm.Value);
+                    try
+                    {
+                        Raylib.PlayMusicStream(_currentBgm.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        _reporter?.ReportException(
+                            "AUDIO_BGM_PLAY",
+                            ex,
+                            $"BGM '{_currentBgmName}' の再生に失敗しました。",
+                            AriaErrorLevel.Warning);
+                        _currentBgm = null;
+                    }
                 }
             }
             else
@@ -116,7 +152,16 @@ public class AudioManager
                     try
                     {
                         string resolved = _assetProvider.MaterializeToFile(sePath);
-                        _seCache[sePath] = Raylib.LoadSound(resolved);
+                        var seSound = Raylib.LoadSound(resolved);
+                        if (_seCache.Count >= MaxSeCache && _seOrder.Count > 0)
+                        {
+                            string oldest = _seOrder[0];
+                            _seOrder.RemoveAt(0);
+                            if (_seCache.Remove(oldest, out var oldSound))
+                                Raylib.UnloadSound(oldSound);
+                        }
+                        _seCache[sePath] = seSound;
+                        _seOrder.Add(sePath);
                     }
                     catch (Exception ex)
                     {
@@ -130,19 +175,69 @@ public class AudioManager
                         continue;
                     }
                 }
-                Raylib.SetSoundVolume(_seCache[sePath], state.SeVolume / 100f);
-                Raylib.PlaySound(_seCache[sePath]);
+
+                if (_seCache.TryGetValue(sePath, out var sound))
+                {
+                    try
+                    {
+                        Raylib.SetSoundVolume(sound, state.SeVolume / 100f);
+                        Raylib.PlaySound(sound);
+                    }
+                    catch (Exception ex)
+                    {
+                        _reporter?.ReportException(
+                            "AUDIO_SE_PLAY",
+                            ex,
+                            $"効果音 '{sePath}' の再生に失敗しました。",
+                            AriaErrorLevel.Warning);
+                    }
+                }
             }
         }
     }
 
     public void Unload()
     {
-        foreach (var bgm in _bgmCache.Values) Raylib.UnloadMusicStream(bgm);
-        foreach (var se in _seCache.Values) Raylib.UnloadSound(se);
+        foreach (var bgm in _bgmCache.Values)
+        {
+            try
+            {
+                Raylib.StopMusicStream(bgm);
+                Raylib.UnloadMusicStream(bgm);
+            }
+            catch (Exception ex)
+            {
+                _reporter?.ReportException(
+                    "AUDIO_BGM_UNLOAD",
+                    ex,
+                    "BGMのアンロード中にエラーが発生しました。",
+                    AriaErrorLevel.Warning);
+            }
+        }
+
+        foreach (var se in _seCache.Values)
+        {
+            try
+            {
+                Raylib.UnloadSound(se);
+            }
+            catch (Exception ex)
+            {
+                _reporter?.ReportException(
+                    "AUDIO_SE_UNLOAD",
+                    ex,
+                    "効果音のアンロード中にエラーが発生しました。",
+                    AriaErrorLevel.Warning);
+            }
+        }
+
         _bgmCache.Clear();
+        _bgmOrder.Clear();
         _seCache.Clear();
+        _seOrder.Clear();
         _failedBgm.Clear();
         _failedSe.Clear();
+        _currentBgm = null;
+        _currentBgmName = "";
     }
 }

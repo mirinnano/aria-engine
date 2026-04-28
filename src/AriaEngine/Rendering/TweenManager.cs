@@ -38,6 +38,24 @@ public class TweenManager
 
     public bool IsAnimating => _activeTweens.Count > 0;
 
+    public void FinishAll(GameState state)
+    {
+        foreach (var t in _activeTweens)
+        {
+            if (!state.Sprites.TryGetValue(t.SpriteId, out var sp)) continue;
+            switch (t.Property)
+            {
+                case "x": sp.X = t.To; break;
+                case "y": sp.Y = t.To; break;
+                case "scaleX": sp.ScaleX = t.To; break;
+                case "scaleY": sp.ScaleY = t.To; break;
+                case "opacity": sp.Opacity = t.To; break;
+            }
+            t.OnComplete?.Invoke(state, sp);
+        }
+        _activeTweens.Clear();
+    }
+
     public void Update(GameState state, float deltaTimeMs)
     {
         for (int i = _activeTweens.Count - 1; i >= 0; i--)

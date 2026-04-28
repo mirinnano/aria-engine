@@ -1,4 +1,4 @@
-window 1280, 720, "ARIA Engine"
+window 1280, 720, "海風 -The Records of Autumn-"
 compat_mode on
 font "assets/fonts/NotoSansJP-Regular.ttf"
 font_atlas_size 192

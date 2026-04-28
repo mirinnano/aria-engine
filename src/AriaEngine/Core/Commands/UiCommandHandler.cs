@@ -27,7 +27,9 @@ public sealed class UiCommandHandler : BaseCommandHandler
         OpCode.UiTween,
         OpCode.UiFade,
         OpCode.UiMove,
-        OpCode.UiScale
+        OpCode.UiScale,
+        OpCode.UiSlider,
+        OpCode.UiCheckbox
     };
 
     public UiCommandHandler(VirtualMachine vm) : base(vm)
@@ -199,6 +201,16 @@ public sealed class UiCommandHandler : BaseCommandHandler
                 }
                 return true;
 
+            case OpCode.UiSlider:
+                if (!ValidateArgs(inst, 7)) return true;
+                CreateSlider(GetVal(inst.Arguments[0]), GetVal(inst.Arguments[1]), GetVal(inst.Arguments[2]), GetVal(inst.Arguments[3]), GetVal(inst.Arguments[4]), GetVal(inst.Arguments[5]), GetVal(inst.Arguments[6]));
+                return true;
+
+            case OpCode.UiCheckbox:
+                if (!ValidateArgs(inst, 5)) return true;
+                CreateCheckbox(GetVal(inst.Arguments[0]), GetVal(inst.Arguments[1]), GetVal(inst.Arguments[2]), GetString(inst.Arguments[3]), GetVal(inst.Arguments[4]) != 0);
+                return true;
+
             default:
                 return false;
         }
@@ -243,6 +255,12 @@ public sealed class UiCommandHandler : BaseCommandHandler
         if (target == "cursor")
         {
             ApplyCursorProperty(prop, values, inst);
+            return;
+        }
+
+        if (target == "menu_action")
+        {
+            State.MenuActionOverrides[prop] = GetString(values[0]);
             return;
         }
 
@@ -714,6 +732,129 @@ public sealed class UiCommandHandler : BaseCommandHandler
             "out" or "easeout" or "outcubic" => EaseType.EaseOut,
             "inout" or "easeinout" => EaseType.EaseInOut,
             _ => EaseType.Linear
+        };
+    }
+
+    private void CreateSlider(int id, int x, int y, int width, int min, int max, int value)
+    {
+        int trackH = 6;
+        int thumbR = 8;
+        int height = thumbR * 2 + 4;
+
+        State.Sprites[id] = new Sprite
+        {
+            Id = id,
+            Type = SpriteType.Rect,
+            X = x,
+            Y = y + (height - trackH) / 2,
+            Width = width,
+            Height = trackH,
+            FillColor = "#444444",
+            FillAlpha = 220,
+            CornerRadius = trackH / 2,
+            IsButton = true,
+            SliderMin = min,
+            SliderMax = max,
+            SliderValue = Math.Clamp(value, min, max)
+        };
+        State.SpriteButtonMap[id] = id;
+
+        int fillId = id + 1;
+        float ratio = max > min ? (float)(Math.Clamp(value, min, max) - min) / (max - min) : 0f;
+        State.Sprites[fillId] = new Sprite
+        {
+            Id = fillId,
+            Type = SpriteType.Rect,
+            X = x,
+            Y = y + (height - trackH) / 2,
+            Width = (int)(width * ratio),
+            Height = trackH,
+            FillColor = "#f5f5f5",
+            FillAlpha = 200,
+            CornerRadius = trackH / 2
+        };
+
+        int thumbId = id + 2;
+        int thumbX = x + (int)(width * ratio) - thumbR;
+        State.Sprites[thumbId] = new Sprite
+        {
+            Id = thumbId,
+            Type = SpriteType.Rect,
+            X = thumbX,
+            Y = y + height / 2 - thumbR,
+            Width = thumbR * 2,
+            Height = thumbR * 2,
+            FillColor = "#ffffff",
+            FillAlpha = 255,
+            CornerRadius = thumbR
+        };
+
+        int valueId = id + 3;
+        State.Sprites[valueId] = new Sprite
+        {
+            Id = valueId,
+            Type = SpriteType.Text,
+            X = x + width + 12,
+            Y = y + 2,
+            Width = 60,
+            Height = 20,
+            Text = value.ToString(),
+            FontSize = 14,
+            Color = "#cccccc"
+        };
+    }
+
+    private void CreateCheckbox(int id, int x, int y, string label, bool value)
+    {
+        int boxSize = 18;
+        State.Sprites[id] = new Sprite
+        {
+            Id = id,
+            Type = SpriteType.Rect,
+            X = x,
+            Y = y,
+            Width = boxSize,
+            Height = boxSize,
+            FillColor = value ? "#f5f5f5" : "#000000",
+            FillAlpha = value ? 255 : 0,
+            BorderColor = "#f5f5f5",
+            BorderWidth = 1,
+            BorderOpacity = 180,
+            CornerRadius = 3,
+            IsButton = true,
+            CheckboxValue = value,
+            CheckboxLabel = label
+        };
+        State.SpriteButtonMap[id] = id;
+
+        int checkId = id + 1;
+        State.Sprites[checkId] = new Sprite
+        {
+            Id = checkId,
+            Type = SpriteType.Text,
+            X = x + 2,
+            Y = y - 2,
+            Width = boxSize,
+            Height = boxSize,
+            Text = value ? "v" : "",
+            FontSize = 14,
+            Color = "#000000",
+            TextAlign = "center",
+            TextVAlign = "center"
+        };
+
+        int labelId = id + 2;
+        State.Sprites[labelId] = new Sprite
+        {
+            Id = labelId,
+            Type = SpriteType.Text,
+            X = x + boxSize + 10,
+            Y = y,
+            Width = 200,
+            Height = boxSize,
+            Text = label,
+            FontSize = 16,
+            Color = "#f5f5f5"
         };
     }
 }

@@ -9,12 +9,6 @@ public class TransitionManager
 
     public void Update(VirtualMachine vm, float deltaTime)
     {
-        if (vm.State.QuakeTimerMs > 0)
-        {
-            vm.State.QuakeTimerMs -= deltaTime * 1000f;
-            if (vm.State.QuakeTimerMs < 0) vm.State.QuakeTimerMs = 0;
-        }
-
         if (!vm.State.IsFading) return;
         
         _timer += deltaTime * 1000f; // ms

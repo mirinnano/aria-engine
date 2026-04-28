@@ -41,19 +41,19 @@ public sealed class ScriptCompiler
             if (!visited.Add(scriptPath)) continue;
 
             var expanded = ScriptPreprocessor.ExpandIncludes(scriptPath, _provider);
-            var (instructions, labels) = _parser.Parse(expanded.Lines, scriptPath);
+            var parsed = _parser.Parse(expanded.Lines, scriptPath);
 
             var compiled = new CompiledScript
             {
                 Path = scriptPath,
-                Labels = new Dictionary<string, int>(labels, StringComparer.OrdinalIgnoreCase),
+                Labels = new Dictionary<string, int>(parsed.Labels, StringComparer.OrdinalIgnoreCase),
                 SourceLines = expanded.Lines,
-                Instructions = instructions.Select(i => new CompiledInstruction
+                Instructions = parsed.Instructions.Select(i => new CompiledInstruction
                 {
                     Op = (int)i.Op,
                     Arguments = i.Arguments.ToList(),
                     SourceLine = i.SourceLine,
-                    Condition = i.Condition?.ToList()
+                    Condition = i.Condition.IsEmpty ? null : i.Condition.ToTokenList()
                 }).ToList()
             };
 

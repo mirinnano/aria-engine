@@ -1,0 +1,102 @@
+# aria-version: 2.0
+; おまけサブメニュー（EXTRA）
+
+*omake_ui
+; 全面黒背景（既存スプライトを保護）
+ui_rect 9999, 0, 0, 1280, 720
+ui sprite:9999, fill, "#000000"
+ui sprite:9999, fill_alpha, 255
+ui sprite:9999, z, 1
+
+; タイトル
+ui_text 700, "EXTRA", 640, 60
+ui sprite:700, font_size, 36
+ui sprite:700, align, "center"
+ui sprite:700, color, "#ffffff"
+
+; CG GALLERY
+ui_rect 710, 440, 220, 320, 42
+ui sprite:710, fill, "#000000"
+ui sprite:710, fill_alpha, 0
+ui sprite:710, border, 1, "#ffffff"
+ui sprite:710, hover_fill, "#151515"
+ui sprite:710, z, 10
+
+ui_text 711, "CG GALLERY", 640, 228
+ui sprite:711, font_size, 22
+ui sprite:711, align, "center"
+ui sprite:711, color, "#ffffff"
+ui sprite:711, z, 20
+
+; SCENE RECOLLECTION
+ui_rect 712, 440, 290, 320, 38
+ui sprite:712, fill, "#000000"
+ui sprite:712, fill_alpha, 0
+ui sprite:712, border, 1, "#ffffff"
+ui sprite:712, hover_fill, "#151515"
+ui sprite:712, z, 10
+
+ui_text 713, "RECOLLECTION", 640, 298
+ui sprite:713, font_size, 20
+ui sprite:713, align, "center"
+ui sprite:713, color, "#888888"
+ui sprite:713, z, 20
+
+; MUSIC ROOM
+ui_rect 714, 440, 350, 320, 38
+ui sprite:714, fill, "#000000"
+ui sprite:714, fill_alpha, 0
+ui sprite:714, border, 1, "#ffffff"
+ui sprite:714, hover_fill, "#151515"
+ui sprite:714, z, 10
+
+ui_text 715, "MUSIC", 640, 358
+ui sprite:715, font_size, 20
+ui sprite:715, align, "center"
+ui sprite:715, color, "#888888"
+ui sprite:715, z, 20
+
+; BACK
+ui_rect 719, 540, 480, 200, 38
+ui sprite:719, fill, "#000000"
+ui sprite:719, fill_alpha, 0
+ui sprite:719, border, 1, "#ffffff"
+ui sprite:719, hover_fill, "#151515"
+ui sprite:719, z, 10
+
+ui_text 718, "BACK", 640, 472
+ui sprite:718, font_size, 20
+ui sprite:718, align, "center"
+ui sprite:718, color, "#ffffff"
+ui sprite:718, z, 20
+
+ui_button 710, 1
+ui_button 712, 2
+ui_button 714, 3
+ui_button 719, 9
+print 1
+
+*omake_loop
+btnwait %0
+if %0 == 1 { gosub *gallery_ui : goto *omake_refresh }
+if %0 == 2 { goto *omake_loop }
+if %0 == 3 { goto *omake_loop }
+if %0 == 9 { goto *omake_back }
+goto *omake_loop
+
+*omake_refresh
+; スプライト再描画のため戻る
+goto *omake_ui
+
+*omake_back
+csp 700
+csp 710
+csp 711
+csp 712
+csp 713
+csp 714
+csp 715
+csp 718
+csp 719
+csp 9999
+return

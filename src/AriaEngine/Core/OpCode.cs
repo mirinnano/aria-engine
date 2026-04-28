@@ -38,7 +38,29 @@ public enum OpCode
     WindowTitle, SystemButton,
 
     // 新規タイマー・演出・スクリプト機能
-    Delay, Rnd, Inc, Dec, For, Next, ResetTimer, GetTimer, WaitTimer,
+    Rnd, Inc, Dec, For, Next, ResetTimer, GetTimer, WaitTimer,
+
+    // 配列操作・例外処理
+    SetArray, GetArray, Throw,
+
+    // CGギャラリー
+    GalleryEntry, CgUnlock, GalleryCount, GalleryInfo,
+
+    // 動的スクリプト include
+    Include,
+
+    // 設定読み書き
+    GetConfig, SetConfig, SaveConfig,
+
+    // セーブデータ情報
+    SaveInfo,
+
+    // バックログ読み出し
+    BacklogCount, BacklogEntry,
+
+    // UI インタラクティブ要素
+    UiSlider,
+    UiCheckbox,
 
     // オーディオ
     PlayBgm, StopBgm, PlaySe, PlayMp3, FadeIn, FadeOut,

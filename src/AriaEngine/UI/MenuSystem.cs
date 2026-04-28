@@ -1,6 +1,7 @@
 using Raylib_cs;
 using AriaEngine.Core;
 using AriaEngine.Rendering;
+using System.Linq;
 
 namespace AriaEngine.UI;
 
@@ -14,6 +15,7 @@ public class MenuSystem
         Load,
         Backlog,
         Settings,
+        Gallery,
         Confirm
     }
 
@@ -23,8 +25,10 @@ public class MenuSystem
     private MenuState _returnState = MenuState.Main;
     private double _openedAt;
     private int _backlogScroll;
+    private int _galleryScroll;
     private string _pendingConfirmAction = "";
     private int? _pendingLoadSlot;
+    private string? _galleryFullImage;
 
     private static readonly Color White = new(245, 245, 245, 255);
     private static readonly Color Gray = new(150, 150, 150, 255);
@@ -41,6 +45,7 @@ public class MenuSystem
     public void OpenMainMenu() => Open(MenuState.Main);
     public void OpenSaveLoadMenu(bool isSave) => Open(isSave ? MenuState.Save : MenuState.Load);
     public void OpenBacklog() { _backlogScroll = 0; Open(MenuState.Backlog); }
+    public void OpenGallery() { _galleryScroll = 0; _galleryFullImage = null; Open(MenuState.Gallery); }
     public void CloseMenu() => _currentState = MenuState.Closed;
 
     private void Open(MenuState state)
@@ -79,6 +84,27 @@ public class MenuSystem
             }
         }
 
+        if (_currentState == MenuState.Gallery)
+        {
+            if (_galleryFullImage != null)
+            {
+                if (Raylib.IsMouseButtonPressed(MouseButton.Left) || Raylib.IsKeyPressed(KeyboardKey.Escape))
+                {
+                    _galleryFullImage = null;
+                }
+                return;
+            }
+            int wheel = (int)Raylib.GetMouseWheelMove();
+            if (wheel != 0)
+            {
+                int cols = Math.Max(1, (Raylib.GetScreenWidth() - 120) / 220);
+                int rowsVisible = Math.Max(1, (Raylib.GetScreenHeight() - 200) / 180);
+                int perPage = cols * rowsVisible;
+                int max = Math.Max(0, _vm.State.GalleryEntries.Count - perPage);
+                _galleryScroll = Math.Clamp(_galleryScroll - wheel, 0, max);
+            }
+        }
+
         if (!Raylib.IsMouseButtonPressed(MouseButton.Left)) return;
 
         switch (_currentState)
@@ -92,6 +118,9 @@ public class MenuSystem
                 break;
             case MenuState.Settings:
                 UpdateSettingsClick();
+                break;
+            case MenuState.Gallery:
+                UpdateGalleryClick();
                 break;
             case MenuState.Confirm:
                 UpdateConfirmClick();
@@ -120,6 +149,9 @@ public class MenuSystem
                 break;
             case MenuState.Settings:
                 DrawSettings(renderer);
+                break;
+            case MenuState.Gallery:
+                DrawGallery(renderer);
                 break;
             case MenuState.Confirm:
                 DrawConfirm(renderer);
@@ -180,10 +212,32 @@ public class MenuSystem
                 case 3:
                     _vm.State.ShowClickCursor = !_vm.State.ShowClickCursor;
                     break;
+                case 4:
+                    _vm.State.BgmVolume = SliderValueFromMouse(mouse.X, rows[i], 0, 100);
+                    break;
+                case 5:
+                    _vm.State.SeVolume = SliderValueFromMouse(mouse.X, rows[i], 0, 100);
+                    break;
+                case 6:
+                    _vm.State.AutoModeWaitTimeMs = SliderValueFromMouse(mouse.X, rows[i], 500, 5000);
+                    break;
+                case 7:
+                    _vm.ToggleFullscreen();
+                    break;
             }
             _vm.SavePersistentState();
             return;
         }
+    }
+
+    private int SliderValueFromMouse(float mouseX, Rectangle row, int min, int max)
+    {
+        float trackX = row.X + 180;
+        float trackW = row.Width - 320;
+        float ratio = Math.Clamp((mouseX - trackX) / trackW, 0f, 1f);
+        int step = max <= 100 ? 1 : 100;
+        int value = min + (int)Math.Round((max - min) * ratio / step) * step;
+        return Math.Clamp(value, min, max);
     }
 
     private void UpdateSystemButtons()
@@ -203,7 +257,17 @@ public class MenuSystem
 
     private void ExecuteAction(string action)
     {
-        switch (action.TrimStart('*').ToLowerInvariant())
+        string key = action.TrimStart('*').ToLowerInvariant();
+
+        // スクリプトによる上書きを優先（gosub相当で呼び出し、returnで戻れる）
+        if (_vm.State.MenuActionOverrides.TryGetValue(key, out string? overrideLabel) && !string.IsNullOrWhiteSpace(overrideLabel))
+        {
+            CloseMenu();
+            _vm.CallSub(overrideLabel);
+            return;
+        }
+
+        switch (key)
         {
             case "save":
                 OpenSaveLoadMenu(true);
@@ -214,6 +278,9 @@ public class MenuSystem
             case "lookback":
             case "backlog":
                 OpenBacklog();
+                break;
+            case "gallery":
+                OpenGallery();
                 break;
             case "config":
             case "settings":
@@ -294,8 +361,7 @@ public class MenuSystem
 
     private bool CanOpenRightMenu()
     {
-        if (string.IsNullOrWhiteSpace(_vm.State.CurrentTextBuffer)) return false;
-        return _vm.State.State is VmState.WaitingForClick or VmState.WaitingForAnimation or VmState.WaitingForButton;
+        return _vm.State.State is VmState.WaitingForClick or VmState.WaitingForAnimation or VmState.WaitingForButton or VmState.WaitingForDelay;
     }
 
     private void DrawMainMenu(SpriteRenderer renderer)
@@ -360,7 +426,7 @@ public class MenuSystem
 
     private void DrawSettings(SpriteRenderer renderer)
     {
-        var panel = CenterPanel(Math.Min(_vm.State.SettingsWidth, Raylib.GetScreenWidth() - 72), 306);
+        var panel = CenterPanel(Math.Min(_vm.State.SettingsWidth, Raylib.GetScreenWidth() - 72), 432);
         DrawPanel(renderer, panel, "SETTINGS");
 
         var rows = GetSettingsRows();
@@ -369,7 +435,116 @@ public class MenuSystem
         DrawTextRow(renderer, rows[1], "SKIP UNREAD", _vm.State.SkipUnread ? "ON" : "OFF", Raylib.CheckCollisionPointRec(mouse, rows[1]));
         DrawTextRow(renderer, rows[2], "BACKLOG", _vm.State.BacklogEnabled ? "ON" : "OFF", Raylib.CheckCollisionPointRec(mouse, rows[2]));
         DrawTextRow(renderer, rows[3], "CLICK CURSOR", _vm.State.ShowClickCursor ? "ON" : "OFF", Raylib.CheckCollisionPointRec(mouse, rows[3]));
+        DrawSliderRow(renderer, rows[4], "BGM VOLUME", _vm.State.BgmVolume, 0, 100, Raylib.CheckCollisionPointRec(mouse, rows[4]));
+        DrawSliderRow(renderer, rows[5], "SE VOLUME", _vm.State.SeVolume, 0, 100, Raylib.CheckCollisionPointRec(mouse, rows[5]));
+        DrawSliderRow(renderer, rows[6], "AUTO WAIT", _vm.State.AutoModeWaitTimeMs, 500, 5000, Raylib.CheckCollisionPointRec(mouse, rows[6]));
+        DrawTextRow(renderer, rows[7], "FULLSCREEN", _vm.Config.Config.IsFullscreen ? "ON" : "OFF", Raylib.CheckCollisionPointRec(mouse, rows[7]));
         DrawFooter(renderer, panel, "CLICK TO CHANGE / ESC  BACK");
+    }
+
+    private void UpdateGalleryClick()
+    {
+        if (_galleryFullImage != null) return;
+        var mouse = Raylib.GetMousePosition();
+        var entries = _vm.State.GalleryEntries.Values.ToList();
+        var rects = GetGalleryItemRects();
+        for (int i = 0; i < rects.Count; i++)
+        {
+            int idx = _galleryScroll + i;
+            if (idx >= entries.Count) break;
+            if (!Raylib.CheckCollisionPointRec(mouse, rects[i])) continue;
+            var entry = entries[idx];
+            if (_vm.State.UnlockedCgs.Contains(entry.FlagName))
+            {
+                _galleryFullImage = entry.ImagePath;
+            }
+            return;
+        }
+    }
+
+    private void DrawGallery(SpriteRenderer renderer)
+    {
+        if (_galleryFullImage != null)
+        {
+            Raylib.DrawRectangle(0, 0, Raylib.GetScreenWidth(), Raylib.GetScreenHeight(), Color.Black);
+            var tex = renderer.GetOrLoadTexture(_galleryFullImage);
+            if (tex.Width > 0)
+            {
+                float scale = Math.Min((float)Raylib.GetScreenWidth() / tex.Width, (float)Raylib.GetScreenHeight() / tex.Height);
+                int w = (int)(tex.Width * scale);
+                int h = (int)(tex.Height * scale);
+                int x = (Raylib.GetScreenWidth() - w) / 2;
+                int y = (Raylib.GetScreenHeight() - h) / 2;
+                Raylib.DrawTexturePro(tex, new Rectangle(0, 0, tex.Width, tex.Height), new Rectangle(x, y, w, h), new System.Numerics.Vector2(0, 0), 0, Color.White);
+            }
+            DrawCenteredText(renderer, "CLICK / ESC  BACK", 0, Raylib.GetScreenHeight() - 40, Raylib.GetScreenWidth(), 14, Gray);
+            return;
+        }
+
+        Raylib.DrawRectangle(0, 0, Raylib.GetScreenWidth(), Raylib.GetScreenHeight(), new Color(0, 0, 0, 132));
+
+        var entries = _vm.State.GalleryEntries.Values.ToList();
+        var rects = GetGalleryItemRects();
+        var mouse = Raylib.GetMousePosition();
+
+        for (int i = 0; i < rects.Count; i++)
+        {
+            int idx = _galleryScroll + i;
+            if (idx >= entries.Count) break;
+            var entry = entries[idx];
+            bool unlocked = _vm.State.UnlockedCgs.Contains(entry.FlagName);
+            bool hover = Raylib.CheckCollisionPointRec(mouse, rects[i]);
+            DrawGalleryItem(renderer, rects[i], entry, unlocked, hover);
+        }
+
+        if (entries.Count == 0)
+        {
+            DrawCenteredText(renderer, "NO ENTRIES", 0, Raylib.GetScreenHeight() / 2 - 10, Raylib.GetScreenWidth(), 20, Gray);
+        }
+
+        DrawCenteredText(renderer, "MOUSE WHEEL  SCROLL / CLICK  VIEW / ESC  BACK", 0, Raylib.GetScreenHeight() - 40, Raylib.GetScreenWidth(), 14, Gray);
+    }
+
+    private List<Rectangle> GetGalleryItemRects()
+    {
+        var result = new List<Rectangle>();
+        int cols = Math.Max(1, (Raylib.GetScreenWidth() - 120) / 220);
+        int rows = Math.Max(1, (Raylib.GetScreenHeight() - 200) / 180);
+        int startX = (Raylib.GetScreenWidth() - (cols * 220 - 20)) / 2;
+        int startY = 80;
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                result.Add(new Rectangle(startX + c * 220, startY + r * 180, 200, 160));
+            }
+        }
+        return result;
+    }
+
+    private void DrawGalleryItem(SpriteRenderer renderer, Rectangle rect, GalleryEntry entry, bool unlocked, bool hover)
+    {
+        Raylib.DrawRectangleRounded(rect, 0.04f, 12, hover ? new Color(60, 60, 60, 220) : new Color(40, 40, 40, 200));
+        Raylib.DrawRectangleRoundedLinesEx(rect, 0.04f, 12, 1, hover ? White : Line);
+
+        if (unlocked)
+        {
+            var tex = renderer.GetOrLoadTexture(entry.ImagePath);
+            if (tex.Width > 0)
+            {
+                float scale = Math.Min((float)(rect.Width - 20) / tex.Width, (float)(rect.Height - 50) / tex.Height);
+                int w = (int)(tex.Width * scale);
+                int h = (int)(tex.Height * scale);
+                int x = (int)(rect.X + (rect.Width - w) / 2);
+                int y = (int)(rect.Y + 10);
+                Raylib.DrawTexturePro(tex, new Rectangle(0, 0, tex.Width, tex.Height), new Rectangle(x, y, w, h), new System.Numerics.Vector2(0, 0), 0, Color.White);
+            }
+            DrawCenteredText(renderer, entry.Title, (int)rect.X, (int)(rect.Y + rect.Height - 32), (int)rect.Width, 14, White);
+        }
+        else
+        {
+            DrawCenteredText(renderer, "???", (int)rect.X, (int)(rect.Y + rect.Height / 2 - 10), (int)rect.Width, 20, Gray);
+        }
     }
 
     private void DrawConfirm(SpriteRenderer renderer)
@@ -444,9 +619,9 @@ public class MenuSystem
 
     private List<Rectangle> GetSettingsRows()
     {
-        var panel = CenterPanel(Math.Min(_vm.State.SettingsWidth, Raylib.GetScreenWidth() - 72), 306);
+        var panel = CenterPanel(Math.Min(_vm.State.SettingsWidth, Raylib.GetScreenWidth() - 72), 432);
         var rows = new List<Rectangle>();
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 8; i++)
         {
             rows.Add(new Rectangle(panel.X + 28, panel.Y + 62 + i * 42, panel.Width - 56, 34));
         }
@@ -543,6 +718,30 @@ public class MenuSystem
         DrawText(renderer, left, (int)rect.X + 14, (int)rect.Y + 8, 17, hover ? Color.Black : ColorFromHex(_vm.State.MenuTextColor, 255));
         int rw = Raylib.MeasureText(right, 13);
         DrawText(renderer, right, (int)(rect.X + rect.Width - rw - 14), (int)rect.Y + 11, 13, hover ? Color.Black : Gray);
+    }
+
+    private void DrawSliderRow(SpriteRenderer renderer, Rectangle rect, string label, int value, int min, int max, bool hover)
+    {
+        DrawRect(rect, hover);
+        DrawText(renderer, label, (int)rect.X + 14, (int)rect.Y + 8, 17, hover ? Color.Black : ColorFromHex(_vm.State.MenuTextColor, 255));
+
+        float trackX = rect.X + 180;
+        float trackW = rect.Width - 320;
+        float trackY = rect.Y + 14;
+        float trackH = 6;
+        float ratio = (float)(value - min) / (max - min);
+        float thumbX = trackX + ratio * trackW;
+
+        // Track background
+        Raylib.DrawRectangleRounded(new Rectangle(trackX, trackY, trackW, trackH), 0.5f, 8, new Color(80, 80, 80, 255));
+        // Track fill
+        Raylib.DrawRectangleRounded(new Rectangle(trackX, trackY, ratio * trackW, trackH), 0.5f, 8, hover ? Color.DarkGray : Line);
+        // Thumb
+        Raylib.DrawCircle((int)thumbX, (int)(trackY + trackH / 2), 7, hover ? White : Line);
+
+        string valueText = value.ToString();
+        int vw = Raylib.MeasureText(valueText, 13);
+        DrawText(renderer, valueText, (int)(rect.X + rect.Width - vw - 14), (int)rect.Y + 11, 13, hover ? Color.Black : Gray);
     }
 
     private static void DrawRect(Rectangle rect, bool hover)

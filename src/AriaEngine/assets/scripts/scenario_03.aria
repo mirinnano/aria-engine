@@ -1,7 +1,7 @@
 ; converted from NScripter source: 03.txt
 ; generated for ARIA main/init entry flow
 *scenario_03
-gosub *cls
+cls()
 set_vflag in_scene, 1
 set_sflag scenario_03_started, 1
 set_pflag chapter_03, 1
@@ -239,7 +239,7 @@ quake 0.5,300
 俺は黙って手を握って、駅へと歩き出した。\
 @
 
-scenechange "bg/bg_lovehotel_street.bmp", 2
+scenechange("bg/bg_lovehotel_street.bmp", 2)
 adv
 
 先ほどとは打って変わって、どこにも倒れてる人はいないし、酒臭くもない。\
@@ -493,7 +493,7 @@ adv
 @
 
 ; 回想リンク
-fadeout 2
+fadeout(2)
 wait 1000
 
 *memory_sea_start
@@ -526,7 +526,7 @@ quake 0.5,500
 ミオ「その背中が、一瞬震えたのは見間違いだろうか、それとも風のせいか、それとも....？」
 @
 
-fadeout 2
+fadeout(2)
 wait 1000
 adv
 
@@ -543,7 +543,7 @@ adv
 @
 
 ; ここで回想
-fadeout 2
+fadeout(2)
 wait 1000
 
 *memory_thought_start
@@ -556,7 +556,7 @@ nvl
 俺の責務は、きっとそれだ。\
 @
 
-fadeout 2
+fadeout(2)
 wait 1000
 adv
 
@@ -878,14 +878,14 @@ wait 800
 ミオ「モーターの唸り音と共に流れる海沿いの景色が、俺たちがどんどん日常から遠ざかっていることを教えてくれる。」
 @
 
-fadeout 2
+fadeout(2)
 wait 1000
 
 ; ===========================================================
 ; 電車の中：プリンと写真撮影シーン
 ; ===========================================================
 
-scenechange "bg/bg_train_interior.bmp", 2
+scenechange("bg/bg_train_interior.bmp", 2)
 
 ミオはおもむろに膝の上に置かれていた弁当たちから、一つを取り出した。\
 @
@@ -1775,18 +1775,18 @@ quake 0.3,200
 @
 
 ; 9/22 END
-fadeout 2
+fadeout(2)
 wait 1000
 
 goto *end_day2
 
 *end_day2
-scenechange "bg/bg_title.bmp", 2
+scenechange("bg/bg_title.bmp", 2)
 
 9月22日（土曜日）　終了\
 
 set_pflag chapter_03, 1
 set_pflag chapter_04, 1
 clear_vflag in_scene
-gosub *cls
+cls()
 goto *chapter_select

@@ -20,6 +20,7 @@ public abstract class BaseCommandHandler : ICommandHandler
     protected ErrorReporter Reporter => Vm.Reporter;
     protected string CurrentScriptFile => Vm.CurrentScriptFile;
     protected bool ValidateArgs(Instruction inst, int minArgs) => Vm.ValidateArgs(inst, minArgs);
+    protected bool EvaluateCondition(Condition condition) => Vm.EvaluateCondition(condition);
     protected bool EvaluateCondition(IReadOnlyList<string>? condTokens) => Vm.EvaluateCondition(condTokens);
     protected bool IsOn(string token) => Vm.IsOn(token);
     protected int GetVal(string arg) => Vm.GetVal(arg);
