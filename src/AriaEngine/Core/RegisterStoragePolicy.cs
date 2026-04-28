@@ -23,6 +23,7 @@ public static class RegisterStoragePolicy
 
         if (name.StartsWith("v.", StringComparison.OrdinalIgnoreCase) ||
             name.StartsWith("tmp.", StringComparison.OrdinalIgnoreCase) ||
+            name.StartsWith("volatile.", StringComparison.OrdinalIgnoreCase) ||
             name is "0" or "r0")
         {
             return RegisterStorageScope.Volatile;

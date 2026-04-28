@@ -41,7 +41,12 @@ public readonly struct Condition
         Terms = terms;
     }
 
-    public bool IsEmpty => Terms == null || Terms.Count == 0;
+    public bool IsEmpty => (Terms == null || Terms.Count == 0) && Expression == null;
+
+    /// <summary>
+    /// 新しい式評価システム用のAST（移行期間: TermsまたはExpressionのどちらかが有効）
+    /// </summary>
+    public Expression? Expression { get; init; }
 
     /// <summary>
     /// 旧式の文字列トークンリストに逆変換（シリアライズ用）
@@ -79,6 +84,14 @@ public readonly struct Condition
         if (tokens == null || tokens.Count == 0)
             return new Condition(Array.Empty<ConditionTerm>());
 
+        // 新しい式システムを試行: 算術演算子や配列アクセスが含まれるか確認
+        var expr = ExpressionParser.TryParse(tokens);
+        if (expr != null)
+        {
+            return new Condition { Expression = expr };
+        }
+
+        // フォールバック: 従来のフラットな条件式パース
         var terms = new List<ConditionTerm>();
         for (int i = 0; i < tokens.Count; i++)
         {

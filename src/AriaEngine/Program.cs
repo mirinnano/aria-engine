@@ -40,6 +40,12 @@ class Program
         return BytecodeVMTest.RunTests();
 #endif
 
+        if (args.Length > 0 && args[0].Equals("aria-doc", StringComparison.OrdinalIgnoreCase))
+        {
+            Environment.ExitCode = AriaDocCommand.Run(args[1..]);
+            return;
+        }
+
         if (args.Length > 0 && args[0].Equals("aria-compile", StringComparison.OrdinalIgnoreCase))
         {
             Environment.ExitCode = AriaCompileCommand.Run(args[1..]);
@@ -54,9 +60,21 @@ class Program
         }
 #endif
 
-        if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnoreCase))
+if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnoreCase))
         {
             Environment.ExitCode = AriaPackCommand.Run(args[1..]);
+            return;
+        }
+
+        if (args.Length > 0 && args[0].Equals("aria-lint", StringComparison.OrdinalIgnoreCase))
+        {
+            Environment.ExitCode = AriaLintCommand.Run(args[1..]);
+            return;
+        }
+
+        if (args.Length > 0 && args[0].Equals("aria-format", StringComparison.OrdinalIgnoreCase))
+        {
+            Environment.ExitCode = AriaFormatCommand.Run(args[1..]);
             return;
         }
 
@@ -64,6 +82,7 @@ class Program
         SpriteRenderer? renderer = null;
         AudioManager? audio = null;
         VirtualMachine? vmForShutdown = null;
+        LiveReloadManager? liveReload = null;
         bool windowReady = false;
         bool audioReady = false;
 
@@ -122,6 +141,7 @@ class Program
             renderer = new SpriteRenderer(assetProvider, reporter);
             var input = new InputHandler();
             audio = new AudioManager(assetProvider, reporter);
+            vm.Audio = audio;
             var transition = new TransitionManager();
 
             var loaded = TryLoadScript(
@@ -142,6 +162,8 @@ class Program
                 reporter.Report(new AriaError("フォントパスが未設定です。既定フォントで続行します。", -1, initScriptPath, AriaErrorLevel.Warning, "BOOT_FONT_MISSING"));
             }
 
+            renderer.LoadUiFont("assets/fonts/JosefinSans-Thin.ttf");
+
             vm.LoadScript(loaded, vm.State.MainScript);
 
             // 動的 include 用のリゾルバを登録（スクリプト内で include "path" を使えるように）
@@ -151,10 +173,18 @@ class Program
                 return result.Instructions.Count > 0 ? result : null;
             });
 
+            // 開発モードかつディスクロード時のみライブリロードを有効化
+            if (effectiveMode == RunMode.Dev && assetProvider is DiskAssetProvider diskProvider)
+            {
+                liveReload = new LiveReloadManager(vm, scriptLoader, reporter, renderer, diskProvider.MaterializeToFile("."));
+            }
+
             SafeFrame("vm.step.initial", vm.Step, reporter);
 
             while (!Raylib.WindowShouldClose())
             {
+                liveReload?.Update();
+
                 if (vm.State.RequestClose || vm.State.State == VmState.Ended) break;
                 if (!string.Equals(currentWindowTitle, vm.State.Title, StringComparison.Ordinal))
                 {
@@ -225,6 +255,7 @@ class Program
         }
         finally
         {
+            SafeShutdown(() => liveReload?.Dispose());
             SafeShutdown(() => vmForShutdown?.SavePersistentState());
             reporter.WriteLogFile();
 

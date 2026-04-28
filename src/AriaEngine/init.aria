@@ -1,7 +1,7 @@
 window 1280, 720, "海風 -The Records of Autumn-"
 compat_mode on
 font "assets/fonts/NotoSansJP-Regular.ttf"
-font_atlas_size 192
+font_atlas_size 256
 font_filter "bilinear"
 script "assets/scripts/main.aria"
 debug on
@@ -9,6 +9,6 @@ debug on
 textbox 50, 500, 1180, 200
 fontsize 32
 textcolor "#ffffff"
-textbox_color "#000000", 180
-textbox_style 14, 1, "#ffffff", 70, 24, 20, 0, 3, "#000000", 90
-choice_style 640, 56, 14, 30, "#111827", 220, "#f9fafb", 12, "#ffffff", 1, 60, "#1f2937", 20
+textbox_color "#0b0d10", 226
+textbox_style 8, 1, "#9aa18f", 116, 30, 22, 0, 6, "#000000", 150
+choice_style 640, 54, 12, 26, "#11161a", 232, "#e7e2d6", 6, "#9aa18f", 1, 118, "#252a2f", 22

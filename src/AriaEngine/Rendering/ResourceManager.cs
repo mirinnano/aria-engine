@@ -62,7 +62,7 @@ public class ResourceManager
 
             if (texture.Id != 0)
             {
-                Raylib.SetTextureFilter(texture, filter);
+                ApplyTextureFilter(ref texture, filter);
                 _textures[path] = texture;
                 return texture;
             }
@@ -88,6 +88,18 @@ public class ResourceManager
                 hint: "画像ファイル名、Pak収録名、大文字小文字、拡張子を確認してください。");
             return default;
         }
+    }
+
+    private static void ApplyTextureFilter(ref Texture2D texture, Raylib_cs.TextureFilter filter)
+    {
+        if (texture.Id == 0) return;
+
+        if (filter == Raylib_cs.TextureFilter.Trilinear)
+        {
+            Raylib.GenTextureMipmaps(ref texture);
+        }
+
+        Raylib.SetTextureFilter(texture, filter);
     }
 
     /// <summary>
@@ -180,6 +192,33 @@ public class ResourceManager
                 hint: "音声ファイル名、Pak収録名、対応形式を確認してください。");
             return default;
         }
+    }
+
+    /// <summary>
+    /// テクスチャキャッシュをクリアする（live reload用）
+    /// </summary>
+    public void ClearTextureCache()
+    {
+        foreach (var texture in _textures.Values)
+        {
+            try
+            {
+                if (texture.Id != 0)
+                {
+                    Raylib.UnloadTexture(texture);
+                }
+            }
+            catch (Exception ex)
+            {
+                _reporter?.ReportException(
+                    "RESOURCE_TEXTURE_UNLOAD",
+                    ex,
+                    "テクスチャキャッシュクリア中にエラーが発生しました。",
+                    AriaErrorLevel.Warning);
+            }
+        }
+        _textures.Clear();
+        _failedTextures.Clear();
     }
 
     /// <summary>

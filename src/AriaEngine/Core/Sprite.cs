@@ -7,8 +7,10 @@ public class Sprite
     public int Id { get; set; }
     public SpriteType Type { get; set; }
 
-    // ダーティフラグと最終更新時刻
+    // ダーティフラグと最終更新時刻（未使用、互換性維持）
+    [System.Text.Json.Serialization.JsonIgnore]
     public bool IsDirty { get; set; } = true;
+    [System.Text.Json.Serialization.JsonIgnore]
     public DateTime LastModified { get; set; } = DateTime.Now;
 
     public float X { get; set; }
@@ -71,6 +73,7 @@ public class Sprite
     public string HoverFillColor { get; set; } = "";
     public float HoverScale { get; set; } = 1.0f;
     public bool IsHovered { get; set; } = false;
+    public string Cursor { get; set; } = "";
 
     // Slider properties
     public int SliderMin { get; set; } = 0;
@@ -85,9 +88,14 @@ public class Sprite
     public string CheckboxLabel { get; set; } = "";
 
     // Smooth UI presentation state. These are renderer-owned runtime values.
+    [System.Text.Json.Serialization.JsonIgnore]
     public float HoverProgress { get; set; } = 0f;
+    [System.Text.Json.Serialization.JsonIgnore]
     public float RenderScaleX { get; set; } = 1.0f;
+    [System.Text.Json.Serialization.JsonIgnore]
     public float RenderScaleY { get; set; } = 1.0f;
+    [System.Text.Json.Serialization.JsonIgnore]
     public float RenderOpacity { get; set; } = 1.0f;
+    [System.Text.Json.Serialization.JsonIgnore]
     public bool RenderStateInitialized { get; set; } = false;
 }

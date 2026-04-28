@@ -10,27 +10,93 @@ using Raylib_cs;
 
 namespace AriaEngine.Core;
 
-public class VirtualMachine
-{
+    public class VirtualMachine
+    {
     private List<Instruction> _instructions = new();
-    private Dictionary<string, int> _labels = new();
+    private Dictionary<string, int> _labels = new(StringComparer.OrdinalIgnoreCase);
     public GameState State { get; set; }
     private readonly ErrorReporter _reporter;
     private string _currentScriptFile = "";
+    private string _currentReadKeyPrefix = "";
     internal ErrorReporter Reporter => _reporter;
     public string CurrentScriptFile => _currentScriptFile;
+    public IReadOnlyDictionary<string, int> Labels => _labels;
+    public IReadOnlyList<Instruction> Instructions => _instructions;
 
     public TweenManager Tweens { get; private set; }
     public SaveManager Saves { get; private set; }
     public ConfigManager Config { get; private set; }
     public MenuSystem Menu { get; private set; }
     public SpritePool SpritePool { get; private set; }
+    public Audio.AudioManager? Audio { get; set; }
 
     // マネージャー
     public UiThemeManager UiThemeManager { get; private set; }
     public CompatUiManager CompatUiManager { get; private set; }
     public SkipModeManager SkipModeManager { get; private set; }
     public SaveStateNormalizer SaveStateNormalizer { get; private set; }
+
+    // Scope management helpers (for T5)
+    internal void EnterScope()
+    {
+        // Push new local scopes for ints/strings
+        var intScope = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var strScope = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        State.LocalIntStacks.Push(intScope);
+        State.LocalStringStacks.Push(strScope);
+        // Push lifetime tracker for sprites created in this scope
+        State.SpriteLifetimeStacks.Push(new HashSet<int>());
+        // Create scope frame and link to current local dictionaries
+        var frame = new ScopeFrame
+        {
+            LocalInt = intScope,
+            LocalString = strScope,
+            SpriteIds = new HashSet<int>(),
+            Defer = new List<Instruction>()
+        };
+        State.Execution.ScopeStack.Push(frame);
+    }
+
+    internal void ExitScopesUntil(int targetDepth)
+    {
+        while (State.Execution.ScopeStack.Count > targetDepth)
+        {
+            // pop one scope and cleanup
+            var frame = State.Execution.ScopeStack.Pop();
+            // Execute deferred instructions in LIFO order
+            for (int i = frame.Defer.Count - 1; i >= 0; i--)
+            {
+                var defInst = frame.Defer[i];
+                // Execute the deferred instruction. If one throws, continue with the rest.
+                try
+                {
+                    ExecuteInstruction(defInst);
+                }
+                catch (Exception ex)
+                {
+                    // Log error but continue executing remaining defers
+                    Reporter.Report(new AriaError(
+                        $"Deferred instruction threw an exception: {ex.Message}",
+                        defInst.SourceLine, CurrentScriptFile, AriaErrorLevel.Warning, "VM_DEFER_THROW"));
+                }
+            }
+            frame.Defer.Clear();
+
+            // Remove sprites created in this scope
+            if (State.SpriteLifetimeStacks.Count > 0)
+            {
+                var lifetimeSet = State.SpriteLifetimeStacks.Pop();
+                foreach (var sid in lifetimeSet)
+                {
+                    State.Sprites.Remove(sid);
+                }
+            }
+
+            // Pop local scope dictionaries
+            if (State.LocalIntStacks.Count > 0) State.LocalIntStacks.Pop();
+            if (State.LocalStringStacks.Count > 0) State.LocalStringStacks.Pop();
+        }
+    }
 
     // パフォーマンス最適化: 共通オブジェクトのキャッシュ
     private static readonly CultureInfo InvariantCulture = CultureInfo.InvariantCulture;
@@ -40,19 +106,22 @@ public class VirtualMachine
     private float _persistentSaveTimerMs;
     private readonly List<ICommandHandler> _commandHandlers;
     private readonly ICommandHandler?[] _handlerTable;
-    
+
     // レジスタ高速化: %0-%9 を固定配列でキャッシュ
     private readonly int[] _fastRegisters = new int[10];
-    
+
     // 文字列リテラルキャッシュ（intern）
     private readonly Dictionary<string, string> _stringCache = new();
 
     // 動的 include
     private readonly HashSet<string> _includedFiles = new(StringComparer.OrdinalIgnoreCase);
     private Func<string, ParseResult?>? _includeResolver;
-    
+
     // VMステップ制限（SkipMode時は解除）
     private const int MaxInstructionsPerFrame = 500;
+
+    // T20: ラベルアドレスセット（チャプターラベル検出用）
+    private HashSet<int> _labelAddresses = new();
 
     public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager saves, ConfigManager config)
     {
@@ -146,9 +215,12 @@ public class VirtualMachine
     {
         _instructions = result.Instructions;
         _labels = result.Labels;
+        _labelAddresses = new HashSet<int>(_labels.Values);
         _currentScriptFile = file;
+        _currentReadKeyPrefix = file + ":";
         State.ProgramCounter = 0;
         State.State = VmState.Running;
+        State.TotalScriptLines = result.SourceLines.Length;
         
         // Register functions and structs from parse result
         foreach (var func in result.Functions)
@@ -161,7 +233,15 @@ public class VirtualMachine
         {
             StructManager.RegisterDefinition(st);
         }
-        
+
+        foreach (var en in result.Enums)
+        {
+            FunctionTable.RegisterEnum(en);
+        }
+
+        // T13: Load owned sprite declarations into GameState for lifetime tracking
+        State.OwnedSprites = new HashSet<string>(result.OwnedSprites, StringComparer.OrdinalIgnoreCase);
+
         // Run compatibility check
         AriaCheck.CheckScript(result.SourceLines, file);
         AriaCheck.CheckCompatibility();
@@ -186,7 +266,7 @@ public class VirtualMachine
 
         foreach (var pair in result.Labels)
         {
-            string key = pair.Key.ToLowerInvariant();
+            string key = pair.Key;
             if (!_labels.ContainsKey(key))
             {
                 _labels[key] = pair.Value + offset;
@@ -203,6 +283,13 @@ public class VirtualMachine
         {
             StructManager.RegisterDefinition(st);
         }
+
+        foreach (var en in result.Enums)
+        {
+            FunctionTable.RegisterEnum(en);
+        }
+
+        _labelAddresses = new HashSet<int>(_labels.Values);
     }
     
     [Obsolete("Use LoadScript(ParseResult, string) instead")]
@@ -211,6 +298,7 @@ public class VirtualMachine
         _instructions = instructions;
         _labels = labels;
         _currentScriptFile = file;
+        _currentReadKeyPrefix = file + ":";
         State.ProgramCounter = 0;
         State.State = VmState.Running;
     }
@@ -239,6 +327,7 @@ public class VirtualMachine
             ClearCompatUiSprites();
 
             State.State = VmState.Running;
+            AutoSaveGame();
             if (State.UiEvents.TryGetValue($"{buttonId}:click", out string? label) ||
                 State.UiEvents.TryGetValue($"{resultValue}:click", out label))
             {
@@ -247,6 +336,8 @@ public class VirtualMachine
             State.ButtonTimeoutMs = 0;
             State.ButtonTimer = 0f;
             State.ButtonResultRegister = "0";
+            State.FocusedButtonId = -1;
+            State.UiHoverActive.Clear();
         }
     }
 
@@ -263,6 +354,8 @@ public class VirtualMachine
             State.ButtonTimeoutMs = 0;
             State.ButtonTimer = 0f;
             State.ButtonResultRegister = "0";
+            State.FocusedButtonId = -1;
+            State.UiHoverActive.Clear();
         }
     }
 
@@ -295,6 +388,17 @@ public class VirtualMachine
                 break;
             }
             if (state.ProgramCounter >= _instructions.Count) break;
+
+            // T20: Autosave at chapter label start
+            if (_labelAddresses.Contains(state.ProgramCounter))
+            {
+                if (TryGetCurrentLabelAndOffset(out string labelName, out int offset) && offset == 0 &&
+                    labelName.StartsWith("chapter", StringComparison.OrdinalIgnoreCase))
+                {
+                    AutoSaveGame();
+                }
+            }
+
             var inst = _instructions[state.ProgramCounter];
             state.ProgramCounter++;
             state.CurrentInstructionWasRead = IsInstructionRead(inst);
@@ -397,6 +501,13 @@ public class VirtualMachine
     {
         if (condition.IsEmpty) return true;
 
+        // 新しい式システム: Expression ASTを評価
+        if (condition.Expression != null)
+        {
+            return condition.Expression.EvaluateInt(State, this) != 0;
+        }
+
+        // フォールバック: 従来のConditionTerm方式
         foreach (var term in condition.Terms)
         {
             if (term.IsAndConnector) continue;
@@ -453,7 +564,7 @@ public class VirtualMachine
     private void MarkInstructionRead(Instruction inst)
     {
         if (!State.KidokuMode) return;
-        if (State.ReadKeys.Add($"{_currentScriptFile}:{inst.SourceLine}"))
+        if (State.ReadKeys.Add(_currentReadKeyPrefix + inst.SourceLine))
         {
             MarkPersistentDirty();
         }
@@ -461,7 +572,7 @@ public class VirtualMachine
 
     private bool IsInstructionRead(Instruction inst)
     {
-        return State.ReadKeys.Contains($"{_currentScriptFile}:{inst.SourceLine}");
+        return State.ReadKeys.Contains(_currentReadKeyPrefix + inst.SourceLine);
     }
 
     internal void MarkPersistentDirty()
@@ -498,9 +609,19 @@ public class VirtualMachine
         if (!State.BacklogEnabled) return;
         string text = State.CurrentTextBuffer.Trim();
         if (string.IsNullOrWhiteSpace(text)) return;
-        if (State.TextHistory.Count == 0 || State.TextHistory[^1] != text)
+        if (State.TextHistory.Count == 0 || State.TextHistory[^1].Text != text)
         {
-            State.TextHistory.Add(text);
+            var entry = new BacklogEntry
+            {
+                Text = text,
+                VoicePath = string.IsNullOrEmpty(State.LastVoicePath) ? null : State.LastVoicePath,
+                ProgramCounter = State.ProgramCounter,
+                IsRead = false,
+                Timestamp = DateTime.Now,
+                StateSnapshot = CaptureBacklogSnapshot()
+            };
+            State.TextHistory.Add(entry);
+            State.LastVoicePath = "";
             const int maxTextHistory = 300;
             if (State.TextHistory.Count > maxTextHistory)
             {
@@ -509,6 +630,79 @@ public class VirtualMachine
                 State.TextHistoryStartNumber += removeCount;
             }
         }
+    }
+
+    private BacklogStateSnapshot CaptureBacklogSnapshot()
+    {
+        var sprites = new FastSpriteDictionary();
+        foreach (var kvp in State.Sprites)
+        {
+            sprites[kvp.Key] = new Sprite
+            {
+                Id = kvp.Value.Id,
+                Type = kvp.Value.Type,
+                X = kvp.Value.X,
+                Y = kvp.Value.Y,
+                Z = kvp.Value.Z,
+                Visible = kvp.Value.Visible,
+                Opacity = kvp.Value.Opacity,
+                ScaleX = kvp.Value.ScaleX,
+                ScaleY = kvp.Value.ScaleY,
+                Rotation = kvp.Value.Rotation,
+                ImagePath = kvp.Value.ImagePath,
+                Text = kvp.Value.Text,
+                FontSize = kvp.Value.FontSize,
+                Color = kvp.Value.Color,
+                TextAlign = kvp.Value.TextAlign,
+                TextVAlign = kvp.Value.TextVAlign,
+                TextShadowColor = kvp.Value.TextShadowColor,
+                TextShadowX = kvp.Value.TextShadowX,
+                TextShadowY = kvp.Value.TextShadowY,
+                TextOutlineColor = kvp.Value.TextOutlineColor,
+                TextOutlineSize = kvp.Value.TextOutlineSize,
+                TextEffect = kvp.Value.TextEffect,
+                TextEffectStrength = kvp.Value.TextEffectStrength,
+                TextEffectSpeed = kvp.Value.TextEffectSpeed,
+                Width = kvp.Value.Width,
+                Height = kvp.Value.Height,
+                FillColor = kvp.Value.FillColor,
+                FillAlpha = kvp.Value.FillAlpha,
+                CornerRadius = kvp.Value.CornerRadius,
+                BorderColor = kvp.Value.BorderColor,
+                BorderWidth = kvp.Value.BorderWidth,
+                BorderOpacity = kvp.Value.BorderOpacity,
+                GradientTo = kvp.Value.GradientTo,
+                GradientDirection = kvp.Value.GradientDirection,
+                ShadowColor = kvp.Value.ShadowColor,
+                ShadowOffsetX = kvp.Value.ShadowOffsetX,
+                ShadowOffsetY = kvp.Value.ShadowOffsetY,
+                ShadowAlpha = kvp.Value.ShadowAlpha,
+                IsButton = kvp.Value.IsButton,
+                ClickAreaX = kvp.Value.ClickAreaX,
+                ClickAreaY = kvp.Value.ClickAreaY,
+                ClickAreaW = kvp.Value.ClickAreaW,
+                ClickAreaH = kvp.Value.ClickAreaH,
+                HoverFillColor = kvp.Value.HoverFillColor,
+                HoverScale = kvp.Value.HoverScale,
+                IsHovered = false,
+                Cursor = kvp.Value.Cursor,
+                SliderMin = kvp.Value.SliderMin,
+                SliderMax = kvp.Value.SliderMax
+            };
+        }
+
+        return new BacklogStateSnapshot
+        {
+            Registers = new Dictionary<string, int>(State.Registers, StringComparer.OrdinalIgnoreCase),
+            StringRegisters = new Dictionary<string, string>(State.StringRegisters, StringComparer.OrdinalIgnoreCase),
+            Flags = new Dictionary<string, bool>(State.Flags),
+            SaveFlags = new Dictionary<string, bool>(State.SaveFlags),
+            Counters = new Dictionary<string, int>(State.Counters, StringComparer.OrdinalIgnoreCase),
+            Sprites = sprites,
+            CurrentBgm = State.CurrentBgm,
+            BgmVolume = State.BgmVolume,
+            SeVolume = State.SeVolume
+        };
     }
 
     internal bool ValidateArgs(Instruction inst, int min)
@@ -562,6 +756,15 @@ public class VirtualMachine
         if (State.CurrentRefMap.TryGetValue(name, out string? originalReg))
         {
             name = RegisterStoragePolicy.Normalize(originalReg);
+            SetGlobalReg(name, val);
+            return;
+        }
+        
+        // ローカルスコープ優先
+        if (State.LocalIntStacks.Count > 0)
+        {
+            State.LocalIntStacks.Peek()[name] = val;
+            return;
         }
         
         // 高速パス: %0-%9
@@ -570,6 +773,20 @@ public class VirtualMachine
             _fastRegisters[name[0] - '0'] = val;
         }
         
+        State.Registers[name] = val;
+        if (RegisterStoragePolicy.IsPersistent(name))
+        {
+            MarkPersistentDirty();
+        }
+    }
+
+    private void SetGlobalReg(string name, int val)
+    {
+        if (name.Length == 1 && name[0] >= '0' && name[0] <= '9')
+        {
+            _fastRegisters[name[0] - '0'] = val;
+        }
+
         State.Registers[name] = val;
         if (RegisterStoragePolicy.IsPersistent(name))
         {
@@ -590,6 +807,12 @@ public class VirtualMachine
         if (State.CurrentRefMap.TryGetValue(normalized, out string? originalReg))
         {
             normalized = RegisterStoragePolicy.Normalize(originalReg);
+        }
+        
+        // ローカルスコープ優先
+        if (State.LocalIntStacks.Count > 0 && State.LocalIntStacks.Peek().TryGetValue(normalized, out int localVal))
+        {
+            return localVal;
         }
         
         // 高速パス: %0-%9
@@ -630,6 +853,26 @@ public class VirtualMachine
         return GetReg(valStr);
     }
 
+    /// <summary>
+    /// Capture a literal argument value at the time a defer is defined.
+    /// - If the argument starts with '%', evaluate its current integer value and return as string.
+    /// - If the argument starts with '$', capture the current string value.
+    /// - Otherwise, return the argument as-is (literal).
+    /// </summary>
+    internal string CaptureLiteralArgument(string arg)
+    {
+        if (string.IsNullOrEmpty(arg)) return arg;
+        if (arg.StartsWith("%"))
+        {
+            return GetVal(arg).ToString();
+        }
+        if (arg.StartsWith("$"))
+        {
+            return GetString(arg);
+        }
+        return arg;
+    }
+
     internal float GetFloat(string valStr, Instruction? inst = null, float fallback = 0f)
     {
         if (valStr.StartsWith("%"))
@@ -658,14 +901,105 @@ public class VirtualMachine
         return fallback;
     }
     
-    internal void SetStr(string reg, string val) => State.StringRegisters[reg.TrimStart('$')] = val;
+    private static readonly System.Text.RegularExpressions.Regex InterpolationRegex = new(
+        @"\$\{([^}]+)\}", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    internal void SetStr(string reg, string val)
+    {
+        string key = reg.TrimStart('$');
+        if (State.LocalStringStacks.Count > 0)
+        {
+            State.LocalStringStacks.Peek()[key] = val;
+            return;
+        }
+        State.StringRegisters[key] = val;
+    }
+
+    // Public API to set a global (bypass local scopes) integer register
+    public void SetGlobalRegister(string reg, int value)
+    {
+        string name = RegisterStoragePolicy.Normalize(reg);
+        // Respect ref aliasing similar to SetReg
+        if (State.CurrentRefMap.TryGetValue(name, out string? originalReg))
+        {
+            name = RegisterStoragePolicy.Normalize(originalReg);
+        }
+        // Write directly to global registers (bypass LocalIntStacks)
+        State.Registers[name] = value;
+        if (RegisterStoragePolicy.IsPersistent(name))
+        {
+            MarkPersistentDirty();
+        }
+    }
+
+    // Public API to set a global string register
+    public void SetGlobalString(string reg, string value)
+    {
+        string key = reg.TrimStart('$');
+        if (State.LocalStringStacks.Count > 0)
+        {
+            State.LocalStringStacks.Peek()[key] = value;
+            return;
+        }
+        State.StringRegisters[key] = value;
+    }
+
+    /// <summary>
+    /// 文字列を解決。$レジスタ、文字列補間 ${...} に対応
+    /// </summary>
     internal string GetString(string valStr)
     {
         if (valStr.StartsWith("$"))
         {
             string key = valStr.TrimStart('$');
+            if (State.LocalStringStacks.Count > 0 && State.LocalStringStacks.Peek().TryGetValue(key, out string? localVal))
+            {
+                return localVal ?? "";
+            }
             return State.StringRegisters.TryGetValue(key, out string? v) ? (v ?? "") : "";
         }
+
+        // 文字列補間 ${...} の処理
+        if (valStr.Contains("${"))
+        {
+            return InterpolationRegex.Replace(valStr, m =>
+            {
+                string inner = m.Groups[1].Value.Trim();
+
+                // ${$name} → 文字列レジスタ
+                if (inner.StartsWith("$"))
+                {
+                    string key = inner.TrimStart('$');
+                    if (State.LocalStringStacks.Count > 0 && State.LocalStringStacks.Peek().TryGetValue(key, out string? localValue))
+                    {
+                        return localValue ?? "";
+                    }
+                    return State.StringRegisters.TryGetValue(key, out string? sv) ? (sv ?? "") : "";
+                }
+
+                // ${%name} または ${%0} → 整数レジスタを文字列化
+                if (inner.StartsWith("%"))
+                {
+                    // 単純なレジスタ名か確認
+                    string regName = inner.TrimStart('%');
+                    if (!regName.Contains(' ') && !regName.Contains('+') && !regName.Contains('-'))
+                    {
+                        return GetReg(inner).ToString();
+                    }
+                }
+
+                // ${expression} → 式を評価
+                var tokens = TokenizeForExpression(inner);
+                var expr = ExpressionParser.TryParse(tokens);
+                if (expr != null)
+                {
+                    return expr.EvaluateString(State, this);
+                }
+
+                return m.Value; // パース失敗時はそのまま
+            });
+        }
+
         // 文字列リテラルをキャッシュ（intern）
         if (!_stringCache.TryGetValue(valStr, out string? cached))
         {
@@ -673,6 +1007,61 @@ public class VirtualMachine
             _stringCache[valStr] = cached;
         }
         return cached;
+    }
+
+    /// <summary>
+    /// 文字列補間内の式用に簡易トークン化
+    /// </summary>
+    private static List<string> TokenizeForExpression(string text)
+    {
+        var tokens = new List<string>();
+        int i = 0;
+        while (i < text.Length)
+        {
+            if (char.IsWhiteSpace(text[i])) { i++; continue; }
+
+            if (text[i] == '"')
+            {
+                i++;
+                int start = i;
+                while (i < text.Length && text[i] != '"') i++;
+                tokens.Add(text.Substring(start, i - start));
+                if (i < text.Length) i++;
+                continue;
+            }
+
+            // 2文字演算子
+            if (i + 1 < text.Length)
+            {
+                string two = text.Substring(i, 2);
+                if (two is "==" or "!=" or ">=" or "<=" or "&&" or "||")
+                {
+                    tokens.Add(two);
+                    i += 2;
+                    continue;
+                }
+            }
+
+            // 1文字演算子・記号
+            char c = text[i];
+            if (c is '+' or '-' or '*' or '/' or '%' or '(' or ')' or '[' or ']' or '>' or '<' or '=' or '!')
+            {
+                tokens.Add(c.ToString());
+                i++;
+                continue;
+            }
+
+            // オペランド（レジスタ名、数値、識別子）
+            int start2 = i;
+            while (i < text.Length && !char.IsWhiteSpace(text[i]) &&
+                   text[i] is not '+' and not '-' and not '*' and not '/' and not '%' and
+                   not '(' and not ')' and not '[' and not ']' and not '"')
+            {
+                i++;
+            }
+            tokens.Add(text.Substring(start2, i - start2));
+        }
+        return tokens;
     }
 
     internal bool IsOn(string token)
@@ -706,6 +1095,30 @@ public class VirtualMachine
         }
     }
 
+    /// <summary>
+    /// 現在のPC位置から、所属するラベル名とラベル先頭からのオフセットを取得する。
+    /// </summary>
+    public bool TryGetCurrentLabelAndOffset(out string labelName, out int offset)
+    {
+        int pc = State.ProgramCounter;
+        labelName = "";
+        offset = 0;
+        int bestPc = -1;
+
+        foreach (var pair in _labels)
+        {
+            if (pair.Value <= pc && pair.Value > bestPc)
+            {
+                bestPc = pair.Value;
+                labelName = pair.Key;
+            }
+        }
+
+        if (bestPc < 0) return false;
+        offset = pc - bestPc;
+        return true;
+    }
+
     public void JumpTo(string labelNameArg)
     {
         string label = labelNameArg.TrimStart('*');
@@ -722,6 +1135,32 @@ public class VirtualMachine
         }
     }
 
+    /// <summary>
+    /// Jumps back to a specific backlog entry, restoring its captured state.
+    /// </summary>
+    public void JumpToBacklogEntry(BacklogEntry entry)
+    {
+        if (entry.StateSnapshot != null)
+        {
+            State.Registers = new Dictionary<string, int>(entry.StateSnapshot.Registers, StringComparer.OrdinalIgnoreCase);
+            State.StringRegisters = new Dictionary<string, string>(entry.StateSnapshot.StringRegisters, StringComparer.OrdinalIgnoreCase);
+            State.Flags = new Dictionary<string, bool>(entry.StateSnapshot.Flags);
+            State.SaveFlags = new Dictionary<string, bool>(entry.StateSnapshot.SaveFlags);
+            State.Counters = new Dictionary<string, int>(entry.StateSnapshot.Counters, StringComparer.OrdinalIgnoreCase);
+            State.Sprites = entry.StateSnapshot.Sprites;
+            State.CurrentBgm = entry.StateSnapshot.CurrentBgm;
+            State.BgmVolume = entry.StateSnapshot.BgmVolume;
+            State.SeVolume = entry.StateSnapshot.SeVolume;
+        }
+
+        State.ProgramCounter = entry.ProgramCounter;
+        State.CurrentTextBuffer = entry.Text;
+        State.DisplayedTextLength = entry.Text.Length;
+        State.IsWaitingPageClear = false;
+        State.State = VmState.Running;
+        Menu.CloseMenu();
+    }
+
     internal void ReturnFromSubroutine()
     {
         if (State.CallStack.Count > 0)
@@ -732,6 +1171,35 @@ public class VirtualMachine
         {
             State.State = VmState.Ended;
         }
+    }
+
+    /// <summary>
+    /// 関数呼び出し時にローカルスコープとスプライト寿命フレームをプッシュ
+    /// </summary>
+    internal void PushFunctionScope()
+    {
+        State.LocalIntStacks.Push(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+        State.LocalStringStacks.Push(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+        State.SpriteLifetimeStacks.Push(new HashSet<int>());
+    }
+
+    /// <summary>
+    /// 関数からのリターン時にローカルスコープをポップし、スプライトを自動破棄
+    /// </summary>
+    internal void PopFunctionScope()
+    {
+        if (State.SpriteLifetimeStacks.Count > 0)
+        {
+            var spritesToRemove = State.SpriteLifetimeStacks.Pop();
+            foreach (int spriteId in spritesToRemove)
+            {
+                State.Sprites.Remove(spriteId);
+            }
+        }
+        if (State.LocalStringStacks.Count > 0)
+            State.LocalStringStacks.Pop();
+        if (State.LocalIntStacks.Count > 0)
+            State.LocalIntStacks.Pop();
     }
 
     /// <summary>
@@ -771,6 +1239,7 @@ public class VirtualMachine
     {
         State.Sprites.Clear();
         State.SpriteButtonMap.Clear();
+        State.FocusedButtonId = -1;
         State.CurrentTextBuffer = "";
         State.DisplayedTextLength = 0;
         State.State = VmState.Running;
@@ -824,6 +1293,11 @@ public class VirtualMachine
         _includeResolver = resolver;
     }
 
+    public void ClearIncludedFiles()
+    {
+        _includedFiles.Clear();
+    }
+
     public bool IncludeScript(string path)
     {
         if (_includedFiles.Contains(path)) return true;
@@ -864,7 +1338,28 @@ public class VirtualMachine
     public void SaveGame(int slot)
     {
         NormalizeRuntimeTextSprites();
-        Saves.Save(slot, State, _currentScriptFile);
+        byte[]? screenshot = CaptureThumbnail();
+        Saves.Save(slot, State, _currentScriptFile, screenshot);
+    }
+
+    private byte[]? CaptureThumbnail()
+    {
+        try
+        {
+            if (!Raylib.IsWindowReady()) return null;
+            var image = Raylib.LoadImageFromScreen();
+            Raylib.ImageResize(ref image, 320, 180);
+            string tempPath = Path.Combine(Path.GetTempPath(), $"aria_thumb_{Guid.NewGuid():N}.png");
+            Raylib.ExportImage(image, tempPath);
+            Raylib.UnloadImage(image);
+            var bytes = File.ReadAllBytes(tempPath);
+            try { File.Delete(tempPath); } catch { }
+            return bytes;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public void AutoSaveGame()
@@ -890,6 +1385,7 @@ public class VirtualMachine
         {
             SaveStateNormalizer.NormalizeLoadedState(data);
             _currentScriptFile = SaveStateNormalizer.CurrentScriptFile;
+            _currentReadKeyPrefix = _currentScriptFile + ":";
             CompatUiManager.ScanAndTrackTransientSprites();
 
             // "load_restore"ラベルが存在すればそちらに飛ぶことで初期化をスクリプトから行う
@@ -989,8 +1485,5 @@ public class VirtualMachine
         }
     }
 }
-
-
-
 
 

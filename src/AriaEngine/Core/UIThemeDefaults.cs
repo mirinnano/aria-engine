@@ -2,28 +2,36 @@ namespace AriaEngine.Core;
 
 public static class UIThemeDefaults
 {
-    public const int TextboxPaddingX = 24;
-    public const int TextboxPaddingY = 20;
-    public const int TextboxCornerRadius = 14;
-    public const string TextboxBorderColor = "#ffffff";
+    public const int TextboxPaddingX = 30;
+    public const int TextboxPaddingY = 22;
+    public const int TextboxCornerRadius = 8;
+    public const string TextboxBgColor = "#0b0d10";
+    public const int TextboxBgAlpha = 226;
+    public const string TextboxBorderColor = "#9aa18f";
     public const int TextboxBorderWidth = 1;
-    public const int TextboxBorderOpacity = 70;
+    public const int TextboxBorderOpacity = 116;
     public const string TextboxShadowColor = "#000000";
     public const int TextboxShadowOffsetX = 0;
-    public const int TextboxShadowOffsetY = 3;
-    public const int TextboxShadowAlpha = 90;
+    public const int TextboxShadowOffsetY = 6;
+    public const int TextboxShadowAlpha = 150;
 
     public const int ChoiceWidth = 640;
-    public const int ChoiceHeight = 56;
-    public const int ChoiceSpacing = 14;
-    public const int ChoiceFontSize = 30;
-    public const string ChoiceTextColor = "#f9fafb";
-    public const string ChoiceBgColor = "#111827";
-    public const int ChoiceBgAlpha = 220;
-    public const string ChoiceHoverColor = "#1f2937";
-    public const int ChoiceCornerRadius = 12;
-    public const string ChoiceBorderColor = "#ffffff";
+    public const int ChoiceHeight = 54;
+    public const int ChoiceSpacing = 12;
+    public const int ChoiceFontSize = 26;
+    public const string ChoiceTextColor = "#e7e2d6";
+    public const string ChoiceBgColor = "#11161a";
+    public const int ChoiceBgAlpha = 232;
+    public const string ChoiceHoverColor = "#252a2f";
+    public const int ChoiceCornerRadius = 6;
+    public const string ChoiceBorderColor = "#9aa18f";
     public const int ChoiceBorderWidth = 1;
-    public const int ChoiceBorderOpacity = 60;
-    public const int ChoicePaddingX = 20;
+    public const int ChoiceBorderOpacity = 118;
+    public const int ChoicePaddingX = 22;
+
+    public const string MenuFillColor = "#0b0d10";
+    public const int MenuFillAlpha = 242;
+    public const string MenuTextColor = "#e7e2d6";
+    public const string MenuLineColor = "#9aa18f";
+    public const int MenuCornerRadius = 8;
 }

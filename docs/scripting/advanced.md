@@ -199,6 +199,24 @@ get_counter "health", %current_health
 text "現在のHP: ${%current_health}"
 ```
 
+### 文字列補間と比較
+
+`${...}` では整数レジスタ、文字列レジスタ、簡単な式を参照できます。
+
+```aria
+let $name, "ayu"
+let %score, 10
+text "name=${$name}, score=${%score + 5}"
+```
+
+文字列レジスタを比較する場合は、数値変換ではなく文字列として比較されます。
+
+```aria
+if $name == "ayu"
+    text "matched"
+endif
+```
+
 ### カウンターの使用例
 
 ```aria

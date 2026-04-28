@@ -1,5 +1,7 @@
 using AriaEngine.Core;
+using AriaEngine.Input;
 using AriaEngine.Rendering;
+using Raylib_cs;
 
 static void Assert(bool condition, string message)
 {
@@ -59,6 +61,9 @@ try
     Assert(fontSizeVm.State.FontAtlasSize == 64, "font_atlas_size should preserve small UI font sizes");
     Assert(SpriteRenderer.SelectFontAtlasSize(18) == 18, "Renderer should choose a native atlas size for small UI text");
     Assert(SpriteRenderer.SelectFontAtlasSize(72) == 72, "Renderer should choose a native atlas size for title text");
+    Assert(SpriteRenderer.SelectSmoothFontAtlasSize(18, TextureFilter.Bilinear) == 36, "Renderer should oversample small antialiased UI text");
+    Assert(SpriteRenderer.SelectSmoothFontAtlasSize(72, TextureFilter.Bilinear) == 144, "Renderer should oversample title text before downscaling");
+    Assert(SpriteRenderer.SelectSmoothFontAtlasSize(18, TextureFilter.Point) == 18, "Point-filtered UI text should remain pixel-exact");
 
     var waitScript = parser.Parse(new[] { "wait 250" }, "wait.aria");
     var waitVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
@@ -194,6 +199,48 @@ try
     Assert(!uiVm.State.Sprites.ContainsKey(300) && !uiVm.State.Sprites.ContainsKey(301), "ui_group_clear should remove group sprites");
     Assert(!uiVm.State.SpriteButtonMap.ContainsKey(300), "ui_group_clear should remove button bindings");
 
+    var reservedMenuReporter = new ErrorReporter();
+    var reservedMenuParser = new Parser(reservedMenuReporter);
+    var reservedMenuScript = reservedMenuParser.Parse(new[]
+    {
+        "ui menu_action, save, *custom_save",
+        "ui menu_action, load, *custom_load",
+        "ui menu_action, backlog, *custom_backlog",
+        "ui menu_action, lookback, *custom_lookback",
+        "ui menu_action, rmenu, *custom_rmenu",
+        "ui menu_action, settings, *settings_ui",
+        "ui_rect 600, 0, 0, 10, 10",
+        "ui sprite:600, unknown_prop, 1"
+    }, "reserved-menu.aria");
+    var reservedMenuVm = new VirtualMachine(reservedMenuReporter, new TweenManager(), new SaveManager(reservedMenuReporter), new ConfigManager());
+    reservedMenuVm.LoadScript(reservedMenuScript.Instructions, reservedMenuScript.Labels, "reserved-menu.aria");
+    for (int i = 0; i < reservedMenuScript.Instructions.Count; i++) reservedMenuVm.Step();
+    Assert(!reservedMenuVm.State.MenuActionOverrides.ContainsKey("save"), "save menu action should remain engine-owned");
+    Assert(!reservedMenuVm.State.MenuActionOverrides.ContainsKey("load"), "load menu action should remain engine-owned");
+    Assert(!reservedMenuVm.State.MenuActionOverrides.ContainsKey("backlog"), "backlog menu action should remain engine-owned");
+    Assert(!reservedMenuVm.State.MenuActionOverrides.ContainsKey("lookback"), "lookback menu action should remain engine-owned");
+    Assert(!reservedMenuVm.State.MenuActionOverrides.ContainsKey("rmenu"), "rmenu action should remain engine-owned");
+    Assert(reservedMenuVm.State.MenuActionOverrides.TryGetValue("settings", out var settingsAction) && settingsAction == "*settings_ui", "settings menu action should remain script-overridable");
+    Assert(reservedMenuReporter.Errors.Any(e => e.Code == "UI_MENU_ACTION_RESERVED"), "reserved menu_action override should report a warning");
+    Assert(reservedMenuReporter.Errors.Any(e => e.Code == "UI_PROPERTY_UNSUPPORTED"), "unknown UI property should report a warning");
+
+    var focusState = new GameState();
+    focusState.Sprites[30] = new Sprite { Id = 30, Type = SpriteType.Rect, X = 0, Y = 80, Width = 120, Height = 32, IsButton = true };
+    focusState.Sprites[10] = new Sprite { Id = 10, Type = SpriteType.Rect, X = 0, Y = 0, Width = 120, Height = 32, IsButton = true };
+    focusState.Sprites[20] = new Sprite { Id = 20, Type = SpriteType.Rect, X = 0, Y = 40, Width = 120, Height = 32, IsButton = true };
+    focusState.Sprites[40] = new Sprite { Id = 40, Type = SpriteType.Rect, X = 0, Y = 120, Width = 120, Height = 32, IsButton = true, Visible = false };
+    focusState.SpriteButtonMap[10] = 1;
+    focusState.SpriteButtonMap[20] = 2;
+    focusState.SpriteButtonMap[30] = 3;
+    focusState.SpriteButtonMap[40] = 4;
+    Assert(InputHandler.MoveButtonFocus(focusState, 1) == 10, "keyboard focus should start on the first visible button");
+    Assert(InputHandler.MoveButtonFocus(focusState, 1) == 20, "keyboard focus should move by visual order");
+    Assert(InputHandler.MoveButtonFocus(focusState, 1) == 30, "keyboard focus should continue through visible buttons");
+    Assert(InputHandler.MoveButtonFocus(focusState, 1) == 10, "keyboard focus should wrap forward");
+    Assert(InputHandler.MoveButtonFocus(focusState, -1) == 30, "keyboard focus should wrap backward");
+    Assert(focusState.FocusedButtonId == 30 && focusState.Sprites[30].IsHovered, "focused button should use hover presentation");
+    Assert(!focusState.Sprites[10].IsHovered && !focusState.Sprites[20].IsHovered && !focusState.Sprites[40].IsHovered, "keyboard focus should highlight exactly one visible button");
+
     var uiStateStyleScript = parser.Parse(new[]
     {
         "ui_rect 410, 0, 0, 120, 32",
@@ -205,14 +252,39 @@ try
     for (int i = 0; i < uiStateStyleScript.Instructions.Count; i++) uiStateStyleVm.Step();
     Assert(uiStateStyleVm.State.Sprites[410].HoverFillColor == "#333333", "ui_state_style hover fill should affect hover rendering");
 
+    var highQualityScript = parser.Parse(new[] { "ui_quality high" }, "ui-quality-high.aria");
+    var highQualityVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+    highQualityVm.LoadScript(highQualityScript.Instructions, highQualityScript.Labels, "ui-quality-high.aria");
+    highQualityVm.Step();
+    Assert(highQualityVm.State.UiQualityMode == "high", "ui_quality high should keep high quality mode");
+    Assert(!highQualityVm.State.SubpixelUiRendering, "ui_quality high should keep UI edges on pixel boundaries");
+    Assert(highQualityVm.State.RoundedRectSegments >= 64, "ui_quality high should keep rounded rectangles smooth");
+
     var uiQualityScript = parser.Parse(new[] { "ui_quality ultra", "ui_motion on, 20" }, "ui-quality.aria");
     var uiQualityVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
     uiQualityVm.LoadScript(uiQualityScript.Instructions, uiQualityScript.Labels, "ui-quality.aria");
     uiQualityVm.Step();
     Assert(uiQualityVm.State.UiQualityMode == "ultra", "ui_quality should switch quality mode");
     Assert(uiQualityVm.State.RoundedRectSegments == 96, "ui_quality ultra should maximize rounded rectangle quality");
-    Assert(uiQualityVm.State.SubpixelUiRendering, "ui_quality ultra should enable subpixel UI rendering");
+    Assert(!uiQualityVm.State.SubpixelUiRendering, "ui_quality ultra should keep UI edges on pixel boundaries");
     Assert(uiQualityVm.State.UiMotionResponse == 20f, "ui_motion should set response speed");
+
+    var cleanThemeScript = parser.Parse(new[] { "ui_theme clean" }, "clean-theme.aria");
+    var cleanThemeVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+    cleanThemeVm.LoadScript(cleanThemeScript.Instructions, cleanThemeScript.Labels, "clean-theme.aria");
+    cleanThemeVm.Step();
+    Assert(cleanThemeVm.State.DefaultTextboxCornerRadius <= 10, "clean theme should use a hard-edged textbox shape");
+    Assert(cleanThemeVm.State.DefaultTextboxBgAlpha >= 218, "clean theme should make textboxes read as solid metal panels");
+    Assert(cleanThemeVm.State.ChoiceHoverColor != cleanThemeVm.State.ChoiceBgColor, "clean theme should provide visible choice hover color");
+    Assert(cleanThemeVm.State.MenuFillColor != "#000000", "clean theme should provide a styled standard menu fill");
+    Assert(cleanThemeVm.State.MenuLineColor != "#ffffff", "clean theme should provide an accent menu line color");
+
+    var steelThemeScript = parser.Parse(new[] { "ui_theme steel" }, "steel-theme.aria");
+    var steelThemeVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+    steelThemeVm.LoadScript(steelThemeScript.Instructions, steelThemeScript.Labels, "steel-theme.aria");
+    steelThemeVm.Step();
+    Assert(steelThemeVm.State.MenuFillColor == UIThemeDefaults.MenuFillColor, "steel theme should use the rugged default menu fill");
+    Assert(steelThemeVm.State.ChoiceCornerRadius <= 8, "steel theme should keep choice buttons hard-edged");
 
     var modernReporter = new ErrorReporter();
     var modernParser = new Parser(modernReporter);
@@ -266,7 +338,7 @@ try
     var tweenState = new GameState();
     tweenState.Sprites[1] = new Sprite { Id = 1, Type = SpriteType.Rect, X = 0f, Y = 0f };
     var tweenManager = new TweenManager();
-    tweenManager.Add(new Tween { SpriteId = 1, Property = "x", From = 0f, To = 1f, DurationMs = 10f });
+    tweenManager.Add(new Tween { SpriteId = 1, Property = TweenProperty.X, From = 0f, To = 1f, DurationMs = 10f });
     tweenManager.Update(tweenState, 5f);
     Assert(tweenState.Sprites[1].X > 0f && tweenState.Sprites[1].X < 1f, "Tween should preserve fractional x positions");
 

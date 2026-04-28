@@ -1,0 +1,6 @@
+*test
+text "hello"
+if %0 == 1
+    text "yes"
+endif
+

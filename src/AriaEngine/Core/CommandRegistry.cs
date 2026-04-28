@@ -106,9 +106,15 @@ public static class CommandRegistry
         Register(CommandCategory.Text, OpCode.KidokuMode, "kidokumode");
         Register(CommandCategory.Text, OpCode.SkipMode, "skipmode");
         Register(CommandCategory.System, OpCode.WindowTitle, "window_title");
+        // Explicit scope tokens
+        Register(CommandCategory.System, OpCode.ScopeEnter, "scope");
+        Register(CommandCategory.System, OpCode.ScopeExit, "end_scope");
         Register(CommandCategory.System, OpCode.SystemButton, "system_button");
 
         Register(CommandCategory.Core, OpCode.Wait, "delay");
+
+        // Defer: register to allow capturing of a command to be executed on scope exit
+        Register(CommandCategory.Core, OpCode.Defer, "defer");
         Register(CommandCategory.Core, OpCode.Rnd, "rnd");
         Register(CommandCategory.Core, OpCode.Inc, "inc");
         Register(CommandCategory.Core, OpCode.Dec, "dec");
@@ -122,6 +128,8 @@ public static class CommandRegistry
         Register(CommandCategory.Core, OpCode.SetArray, "setarray");
         Register(CommandCategory.Core, OpCode.GetArray, "getarray");
         Register(CommandCategory.Core, OpCode.Throw, "throw");
+        Register(CommandCategory.Core, OpCode.Assert, "assert");
+        Register(CommandCategory.Core, OpCode.Panic, "panic");
         Register(CommandCategory.Script, OpCode.Alias, "numalias", "alias");
         Register(CommandCategory.Core, OpCode.Add, "add");
         Register(CommandCategory.Core, OpCode.Sub, "sub");
@@ -138,8 +146,13 @@ public static class CommandRegistry
         Register(CommandCategory.System, OpCode.End, "end");
         Register(CommandCategory.Script, OpCode.Gosub, "gosub", "call");
         Register(CommandCategory.Script, OpCode.Return, "return", "ret");
+        Register(CommandCategory.Script, OpCode.ReturnValue, "returnvalue");
         Register(CommandCategory.Script, OpCode.Defsub, "defsub", "sub");
         Register(CommandCategory.Script, OpCode.Getparam, "getparam");
+        Register(CommandCategory.Core, OpCode.While, "while");
+        Register(CommandCategory.Core, OpCode.Wend, "wend");
+        Register(CommandCategory.Core, OpCode.Break, "break");
+        Register(CommandCategory.Core, OpCode.Continue, "continue");
         Register(CommandCategory.System, OpCode.SystemCall, "systemcall");
 
         Register(CommandCategory.Render, OpCode.Lsp, "lsp");
@@ -364,6 +377,7 @@ public static class CommandRegistry
             OpCode.CgUnlock => 1,
             OpCode.GalleryCount => 1,
             OpCode.GalleryInfo => 4,
+            OpCode.Defer => 1,
             OpCode.Include => 1,
             OpCode.UiQuality or OpCode.UiMotion => 1,
             OpCode.Ui => 2,
@@ -384,6 +398,16 @@ public static class CommandRegistry
             OpCode.SaveInfo => 4,
             OpCode.BacklogCount => 1,
             OpCode.BacklogEntry => 2,
+            OpCode.Amsp => 4,
+            OpCode.Afade => 3,
+            OpCode.Ascale => 4,
+            OpCode.Acolor => 2,
+            OpCode.PlayMp3 => 1,
+            OpCode.Mp3Vol => 1,
+            OpCode.Mp3FadeOut => 1,
+            OpCode.DwaveLoop => 1,
+            OpCode.DwaveStop => 0,
+            OpCode.SpCursor => 2,
             _ => 0
         };
     }

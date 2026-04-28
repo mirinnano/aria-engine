@@ -1,6 +1,6 @@
 namespace AriaEngine.Core;
 
-public enum AriaErrorLevel { Warning, Error, Fatal }
+public enum AriaErrorLevel { Info, Warning, Error, Fatal }
 
 public class AriaError
 {

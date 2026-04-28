@@ -25,6 +25,9 @@ public class FunctionInfo
     
     /// <summary>ローカル変数数</summary>
     public int LocalCount { get; set; }
+
+    /// <summary>ドキュメントコメント（/// から始まる行を連結）</summary>
+    public string? DocComment { get; set; }
 }
 
 /// <summary>

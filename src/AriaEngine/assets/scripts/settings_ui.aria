@@ -89,87 +89,55 @@ print 1
 btnwait %0
 
 ; BACK
-if %0 == 290 {
+if %0 == 290 
     saveconfig
     goto *settings_back
-}
+endif
 
 ; BGMスライダー変更
-if %0 == 220 {
+if %0 == 220 
     setconfig "bgmvol", %220
     goto *settings_loop
-}
+endif
 
 ; SEスライダー変更
-if %0 == 230 {
+if %0 == 230 
     setconfig "sevol", %230
     goto *settings_loop
-}
+endif
 
 ; TEXT SPEED変更
-if %0 == 240 {
+if %0 == 240 
     setconfig "textspeed", %240
     goto *settings_loop
-}
+endif
 
 ; AUTO WAIT変更
-if %0 == 250 {
+if %0 == 250 
     setconfig "autowait", %250
     goto *settings_loop
-}
+endif
 
 ; SKIP UNREAD チェックボックス
-if %0 == 260 {
+if %0 == 260 
     setconfig "skipunread", %260
     goto *settings_loop
-}
+endif
 
 ; CLICK CURSOR チェックボックス
-if %0 == 270 {
+if %0 == 270 
     setconfig "clickcursor", %270
     goto *settings_loop
-}
+endif
 
 ; FULLSCREEN チェックボックス
-if %0 == 280 {
+if %0 == 280 
     setconfig "fullscreen", %280
     goto *settings_loop
-}
+endif
 
 goto *settings_loop
 
 *settings_back
-csp 200
-csp 210
-csp 211
-csp 212
-csp 213
-csp 220
-csp 221
-csp 222
-csp 223
-csp 230
-csp 231
-csp 232
-csp 233
-csp 240
-csp 241
-csp 242
-csp 243
-csp 250
-csp 251
-csp 252
-csp 253
-csp 260
-csp 261
-csp 262
-csp 270
-csp 271
-csp 272
-csp 280
-csp 281
-csp 282
-csp 298
-csp 299
-csp 9999
+csp -1
 return

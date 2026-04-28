@@ -1,0 +1,3 @@
+- Decision: Proceed with QA using CLI-based static tests (lint/format/doc) for integration v3.0 scripts; save/load not exercised due to lacking CLI support in this build.
+- Decision: Create temp test fixtures under .tmp/tests to avoid touching source; plan to extend tests if/when aria-save becomes available.
+- Decision: Document results and blockers in notepad for traceability in future iterations.

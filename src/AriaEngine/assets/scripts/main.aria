@@ -3,7 +3,7 @@
 ; ARIA v2 完全版タイトル/章選択フロー
 
 compat_mode on
-ui_theme "mono"
+ui_theme "steel"
 ui_quality "high"
 ui_motion "smooth"
 caption "海風 - The Records of Autumn -"
@@ -17,7 +17,7 @@ kidokumode 1
 skipmode read
 clickcursor engine
 system_button close, on
-rmenu "セーブ",save,"ロード",load,"回想",backlog,"スキップ",skip,"設定",settings,"リセット",reset,"終了",end
+rmenu "SAVE",save,"LOAD",load,"BACKLOG",backlog,"SKIP",skip,"CONFIG",settings,"RESET",reset,"QUIT",end
 
 #define CHAPTER_COUNT 6
 
@@ -34,23 +34,12 @@ endfunc
 func adv()
     textclear
     textmode "adv"
-    ; ADV: 半透明、下部寄せ、カクッとした角丸なしデザイン
+    ; ADV: 黒鉄パネルで締める
     textbox 40, 540, 1200, 160
     fontsize 28
-    textcolor "#ffffff"
-    textbox_color "#000000", 110
-    textbox_style 0, 1, "#ffffff", 50, 32, 24, 0, 2, "#000000", 60
-endfunc
-
-func nvl()
-    textclear
-    textmode "nvl"
-    ; NVL: 完全透過（fill_alpha=0, border=0）、画面全体に広く
-    textbox 40, 20, 1200, 680
-    fontsize 34
-    textcolor "#ffffff"
-    textbox_color "#000000", 0
-    textbox_style 0, 0, "#ffffff", 0, 40, 32, 0, 0, "#000000", 0
+    textcolor "#e7e2d6"
+    textbox_color "#0b0d10", 216
+    textbox_style 8, 1, "#9aa18f", 116, 30, 22, 0, 6, "#000000", 150
 endfunc
 
 func nvl()
@@ -58,9 +47,9 @@ func nvl()
     textmode "nvl"
     textbox 72, 28, 1136, 628
     fontsize 34
-    textcolor "#ffffff"
-    textbox_color "#000000", 220
-    textbox_style 0, 1, "#ffffff", 90, 34, 28, 0, 0, "#000000", 0
+    textcolor "#e7e2d6"
+    textbox_color "#0b0d10", 232
+    textbox_style 8, 1, "#9aa18f", 116, 36, 30, 0, 8, "#000000", 150
 endfunc
 
 func scenechange(path: string, dur: int)
@@ -77,7 +66,7 @@ func fadein(path: string, dur: int)
 endfunc
 
 func playse(path: string)
-    dwave 0, path
+    dwave 0, $path
 endfunc
 
 ; ===========================================================
@@ -89,9 +78,6 @@ goto *start
 include "ui_presets.aria"
 include "settings_ui.aria"
 include "gallery_ui.aria"
-include "save_ui.aria"
-include "load_ui.aria"
-include "backlog_ui.aria"
 include "omake_ui.aria"
 include "scenario_01.aria"
 include "scenario_02.aria"
@@ -100,11 +86,10 @@ include "scenario_04.aria"
 include "scenario_05.aria"
 include "scenario_06.aria"
 
-; メニューアクションをスクリプトに委譲
-; (save/load はハードコード MenuSystem に任せる)
+; 標準UI(save/load/backlog/rmenu)はC# MenuSystemに固定し、
+; 作品固有画面だけスクリプトに委譲する。
 ui menu_action, settings, *settings_ui
 ui menu_action, gallery, *gallery_ui
-ui menu_action, backlog, *backlog_ui
 
 ; ===========================================================
 ; タイトル画面
@@ -127,20 +112,22 @@ get_pflag chapter_06 %15
 ui_text 1, "海風", 640, 150
 ui sprite:1, font_size, 72
 ui sprite:1, align, "center"
-ui sprite:1, color, "#ffffff"
+ui sprite:1, color, "#e7e2d6"
+ui sprite:1, text_shadow, 0, 4, "#000000"
 ui sprite:1, opacity, 0
 
 ui_text 2, "THE RECORDS OF AUTUMN", 640, 232
 ui sprite:2, font_size, 18
 ui sprite:2, align, "center"
-ui sprite:2, color, "#bfbfbf"
+ui sprite:2, color, "#9aa18f"
+ui sprite:2, text_shadow, 0, 2, "#000000"
 ui sprite:2, opacity, 0
 
 ; サブタイトル
 ui_text 3, "- The Records of Autumn -", 640, 280
 ui sprite:3, font_size, 14
 ui sprite:3, align, "center"
-ui sprite:3, color, "#999999"
+ui sprite:3, color, "#b8a46f"
 ui sprite:3, opacity, 0
 
 ; フェードイン演出
@@ -152,81 +139,102 @@ wait 600
 
 ; START ボタン
 ui_rect 30, 520, 300, 240, 42
-ui sprite:30, fill, "#000000"
-ui sprite:30, fill_alpha, 0
-ui sprite:30, border, 1, "#ffffff"
-ui sprite:30, hover_fill, "#151515"
+ui sprite:30, fill, "#101417"
+ui sprite:30, fill_alpha, 212
+ui sprite:30, border, 1, "#9aa18f"
+ui sprite:30, border_alpha, 142
+ui sprite:30, shadow, 0, 4, "#000000"
+ui sprite:30, shadow_alpha, 150
+ui sprite:30, hover_fill, "#252a2f"
+ui sprite:30, hover_scale, 1.015
 ui sprite:30, z, 10
 ui sprite:30, opacity, 0
 
 ui_text 10, "START", 640, 320
 ui sprite:10, font_size, 26
 ui sprite:10, align, "center"
-ui sprite:10, color, "#ffffff"
+ui sprite:10, color, "#e7e2d6"
+ui sprite:10, text_shadow, 0, 2, "#000000"
 ui sprite:10, z, 20
 ui sprite:10, opacity, 0
 
 ; LOAD ボタン
 ui_rect 31, 520, 360, 240, 36
-ui sprite:31, fill, "#000000"
-ui sprite:31, fill_alpha, 0
-ui sprite:31, border, 1, "#ffffff"
-ui sprite:31, hover_fill, "#151515"
+ui sprite:31, fill, "#101417"
+ui sprite:31, fill_alpha, 188
+ui sprite:31, border, 1, "#9aa18f"
+ui sprite:31, border_alpha, 112
+ui sprite:31, shadow, 0, 4, "#000000"
+ui sprite:31, shadow_alpha, 130
+ui sprite:31, hover_fill, "#252a2f"
+ui sprite:31, hover_scale, 1.012
 ui sprite:31, z, 10
 ui sprite:31, opacity, 0
 
 ui_text 11, "LOAD", 640, 370
 ui sprite:11, font_size, 20
 ui sprite:11, align, "center"
-ui sprite:11, color, "#ffffff"
+ui sprite:11, color, "#e7e2d6"
 ui sprite:11, z, 20
 ui sprite:11, opacity, 0
 
 ; CONFIG ボタン
 ui_rect 32, 520, 410, 240, 36
-ui sprite:32, fill, "#000000"
-ui sprite:32, fill_alpha, 0
-ui sprite:32, border, 1, "#ffffff"
-ui sprite:32, hover_fill, "#151515"
+ui sprite:32, fill, "#101417"
+ui sprite:32, fill_alpha, 188
+ui sprite:32, border, 1, "#9aa18f"
+ui sprite:32, border_alpha, 112
+ui sprite:32, shadow, 0, 4, "#000000"
+ui sprite:32, shadow_alpha, 130
+ui sprite:32, hover_fill, "#252a2f"
+ui sprite:32, hover_scale, 1.012
 ui sprite:32, z, 10
 ui sprite:32, opacity, 0
 
 ui_text 12, "CONFIG", 640, 420
 ui sprite:12, font_size, 20
 ui sprite:12, align, "center"
-ui sprite:12, color, "#ffffff"
+ui sprite:12, color, "#e7e2d6"
 ui sprite:12, z, 20
 ui sprite:12, opacity, 0
 
 ; おまけ ボタン
 ui_rect 33, 520, 460, 240, 36
-ui sprite:33, fill, "#000000"
-ui sprite:33, fill_alpha, 0
-ui sprite:33, border, 1, "#ffffff"
-ui sprite:33, hover_fill, "#151515"
+ui sprite:33, fill, "#101417"
+ui sprite:33, fill_alpha, 188
+ui sprite:33, border, 1, "#9aa18f"
+ui sprite:33, border_alpha, 112
+ui sprite:33, shadow, 0, 4, "#000000"
+ui sprite:33, shadow_alpha, 130
+ui sprite:33, hover_fill, "#252a2f"
+ui sprite:33, hover_scale, 1.012
 ui sprite:33, z, 10
 ui sprite:33, opacity, 0
 
 ui_text 13, "EXTRA", 640, 470
 ui sprite:13, font_size, 20
 ui sprite:13, align, "center"
-ui sprite:13, color, "#ffffff"
+ui sprite:13, color, "#e7e2d6"
 ui sprite:13, z, 20
 ui sprite:13, opacity, 0
 
 ; 終了 ボタン
 ui_rect 34, 520, 510, 240, 36
-ui sprite:34, fill, "#000000"
-ui sprite:34, fill_alpha, 0
-ui sprite:34, border, 1, "#ffffff"
-ui sprite:34, hover_fill, "#151515"
+ui sprite:34, fill, "#101417"
+ui sprite:34, fill_alpha, 188
+ui sprite:34, border, 1, "#9aa18f"
+ui sprite:34, border_alpha, 112
+ui sprite:34, shadow, 0, 4, "#000000"
+ui sprite:34, shadow_alpha, 130
+ui sprite:34, hover_fill, "#252a2f"
+ui sprite:34, hover_scale, 1.012
 ui sprite:34, z, 10
 ui sprite:34, opacity, 0
 
 ui_text 14, "EXIT", 640, 520
 ui sprite:14, font_size, 20
 ui sprite:14, align, "center"
-ui sprite:14, color, "#ffffff"
+ui sprite:14, color, "#e7e2d6"
 ui sprite:14, z, 20
 ui sprite:14, opacity, 0
 
@@ -256,10 +264,14 @@ print 1
 
 *title_loop
 btnwait %0
+print %0
 if %0 == 1 { goto *chapter_select }
-if %0 == 2 { systemcall load : goto *title_loop }
-if %0 == 3 { gosub *settings_ui : goto *title_loop }
-if %0 == 4 { gosub *omake_ui : goto *title_loop }
+if %0 == 2 { systemcall load }
+if %0 == 2 { goto *title_loop }
+    if %0 == 3 { settings_ui() }
+    if %0 == 3 { goto *title_loop }
+    if %0 == 4 { omake_ui() }
+    if %0 == 4 { goto *title_loop }
 if %0 == 5 { end }
 goto *title_loop
 
@@ -274,7 +286,7 @@ goto *scenario_01
 *chapter_select
 cls()
 erasetextwindow 0
-bg "#000000", 1
+bg "#08090a", 1
 
 get_pflag chapter_01 %10
 get_pflag chapter_02 %11
@@ -287,12 +299,13 @@ get_pflag chapter_06 %15
 ui_text 20, "DATE SELECT", 640, 50
 ui sprite:20, font_size, 36
 ui sprite:20, align, "center"
-ui sprite:20, color, "#ffffff"
+ui sprite:20, color, "#e7e2d6"
+ui sprite:20, text_shadow, 0, 3, "#000000"
 
 ui_text 22, "SELECT A DAY TO BEGIN", 640, 96
 ui sprite:22, font_size, 14
 ui sprite:22, align, "center"
-ui sprite:22, color, "#888888"
+ui sprite:22, color, "#9aa18f"
 
 ; --- 日付カード ---
 ; 各カード: x=240, w=800, h=68
@@ -300,239 +313,273 @@ ui sprite:22, color, "#888888"
 
 ; PROLOGUE
 ui_rect 300, 240, 130, 800, 68
-ui sprite:300, fill, "#0a0a0a"
-ui sprite:300, fill_alpha, 160
-ui sprite:300, border, 1, "#ffffff"
-ui sprite:300, hover_fill, "#1a1a1a"
+ui sprite:300, fill, "#101417"
+ui sprite:300, fill_alpha, 212
+ui sprite:300, border, 1, "#9aa18f"
+ui sprite:300, border_alpha, 136
+ui sprite:300, shadow, 0, 4, "#000000"
+ui sprite:300, shadow_alpha, 130
+ui sprite:300, hover_fill, "#252a2f"
+ui sprite:300, hover_scale, 1.01
 ui sprite:300, z, 10
 
 ui_text 100, "PROLOGUE", 640, 152
 ui sprite:100, font_size, 22
 ui sprite:100, align, "center"
-ui sprite:100, color, "#ffffff"
+ui sprite:100, color, "#e7e2d6"
 ui sprite:100, z, 20
 ui_text 110, "The beginning of autumn records", 640, 180
 ui sprite:110, font_size, 13
 ui sprite:110, align, "center"
-ui sprite:110, color, "#999999"
+ui sprite:110, color, "#b8a46f"
 ui sprite:110, z, 20
 
 ; DAY 1
 ui_rect 301, 240, 210, 800, 68
-if %11 == 1 {
-    ui sprite:301, fill, "#0a0a0a"
-    ui sprite:301, fill_alpha, 160
-    ui sprite:301, border, 1, "#ffffff"
-    ui sprite:301, hover_fill, "#1a1a1a"
-} else {
-    ui sprite:301, fill, "#000000"
-    ui sprite:301, fill_alpha, 80
-    ui sprite:301, border, 1, "#444444"
-}
+if %11 == 1
+    ui sprite:301, fill, "#101417"
+    ui sprite:301, fill_alpha, 196
+    ui sprite:301, border, 1, "#9aa18f"
+    ui sprite:301, border_alpha, 118
+    ui sprite:301, shadow, 0, 4, "#000000"
+    ui sprite:301, shadow_alpha, 126
+    ui sprite:301, hover_fill, "#252a2f"
+    ui sprite:301, hover_scale, 1.01
+else
+    ui sprite:301, fill, "#08090a"
+    ui sprite:301, fill_alpha, 128
+    ui sprite:301, border, 1, "#3a3f3b"
+    ui sprite:301, border_alpha, 86
+endif
 ui sprite:301, z, 10
 
-if %11 == 1 {
+if %11 == 1
     ui_text 101, "DAY 1", 640, 232
     ui sprite:101, font_size, 22
     ui sprite:101, align, "center"
-    ui sprite:101, color, "#ffffff"
+    ui sprite:101, color, "#e7e2d6"
     ui sprite:101, z, 20
     ui_text 111, "September 15th", 640, 260
     ui sprite:111, font_size, 13
     ui sprite:111, align, "center"
-    ui sprite:111, color, "#999999"
+    ui sprite:111, color, "#b8a46f"
     ui sprite:111, z, 20
-} else {
+else
     ui_text 101, "DAY 1", 640, 232
     ui sprite:101, font_size, 22
     ui sprite:101, align, "center"
-    ui sprite:101, color, "#555555"
+    ui sprite:101, color, "#757a72"
     ui sprite:101, z, 20
     ui_text 111, "September 15th  -- LOCKED", 640, 260
     ui sprite:111, font_size, 13
     ui sprite:111, align, "center"
-    ui sprite:111, color, "#444444"
+    ui sprite:111, color, "#676b64"
     ui sprite:111, z, 20
-}
+endif
 
 ; DAY 2
 ui_rect 302, 240, 290, 800, 68
-if %12 == 1 {
-    ui sprite:302, fill, "#0a0a0a"
-    ui sprite:302, fill_alpha, 160
-    ui sprite:302, border, 1, "#ffffff"
-    ui sprite:302, hover_fill, "#1a1a1a"
-} else {
-    ui sprite:302, fill, "#000000"
-    ui sprite:302, fill_alpha, 80
-    ui sprite:302, border, 1, "#444444"
-}
+if %12 == 1
+    ui sprite:302, fill, "#101417"
+    ui sprite:302, fill_alpha, 196
+    ui sprite:302, border, 1, "#9aa18f"
+    ui sprite:302, border_alpha, 118
+    ui sprite:302, shadow, 0, 4, "#000000"
+    ui sprite:302, shadow_alpha, 126
+    ui sprite:302, hover_fill, "#252a2f"
+    ui sprite:302, hover_scale, 1.01
+else
+    ui sprite:302, fill, "#08090a"
+    ui sprite:302, fill_alpha, 128
+    ui sprite:302, border, 1, "#3a3f3b"
+    ui sprite:302, border_alpha, 86
+endif
 ui sprite:302, z, 10
 
-if %12 == 1 {
+if %12 == 1
     ui_text 102, "DAY 2", 640, 312
     ui sprite:102, font_size, 22
     ui sprite:102, align, "center"
-    ui sprite:102, color, "#ffffff"
+    ui sprite:102, color, "#e7e2d6"
     ui sprite:102, z, 20
     ui_text 112, "September 16th", 640, 340
     ui sprite:112, font_size, 13
     ui sprite:112, align, "center"
-    ui sprite:112, color, "#999999"
+    ui sprite:112, color, "#b8a46f"
     ui sprite:112, z, 20
-} else {
+else
     ui_text 102, "DAY 2", 640, 312
     ui sprite:102, font_size, 22
     ui sprite:102, align, "center"
-    ui sprite:102, color, "#555555"
+    ui sprite:102, color, "#757a72"
     ui sprite:102, z, 20
     ui_text 112, "September 16th  -- LOCKED", 640, 340
     ui sprite:112, font_size, 13
     ui sprite:112, align, "center"
-    ui sprite:112, color, "#444444"
+    ui sprite:112, color, "#676b64"
     ui sprite:112, z, 20
-}
+endif
 
 ; DAY 3
 ui_rect 303, 240, 370, 800, 68
-if %13 == 1 {
-    ui sprite:303, fill, "#0a0a0a"
-    ui sprite:303, fill_alpha, 160
-    ui sprite:303, border, 1, "#ffffff"
-    ui sprite:303, hover_fill, "#1a1a1a"
-} else {
-    ui sprite:303, fill, "#000000"
-    ui sprite:303, fill_alpha, 80
-    ui sprite:303, border, 1, "#444444"
-}
+if %13 == 1
+    ui sprite:303, fill, "#101417"
+    ui sprite:303, fill_alpha, 196
+    ui sprite:303, border, 1, "#9aa18f"
+    ui sprite:303, border_alpha, 118
+    ui sprite:303, shadow, 0, 4, "#000000"
+    ui sprite:303, shadow_alpha, 126
+    ui sprite:303, hover_fill, "#252a2f"
+    ui sprite:303, hover_scale, 1.01
+else
+    ui sprite:303, fill, "#08090a"
+    ui sprite:303, fill_alpha, 128
+    ui sprite:303, border, 1, "#3a3f3b"
+    ui sprite:303, border_alpha, 86
+endif
 ui sprite:303, z, 10
 
-if %13 == 1 {
+if %13 == 1
     ui_text 103, "DAY 3", 640, 392
     ui sprite:103, font_size, 22
     ui sprite:103, align, "center"
-    ui sprite:103, color, "#ffffff"
+    ui sprite:103, color, "#e7e2d6"
     ui sprite:103, z, 20
     ui_text 113, "September 17th", 640, 420
     ui sprite:113, font_size, 13
     ui sprite:113, align, "center"
-    ui sprite:113, color, "#999999"
+    ui sprite:113, color, "#b8a46f"
     ui sprite:113, z, 20
-} else {
+else
     ui_text 103, "DAY 3", 640, 392
     ui sprite:103, font_size, 22
     ui sprite:103, align, "center"
-    ui sprite:103, color, "#555555"
+    ui sprite:103, color, "#757a72"
     ui sprite:103, z, 20
     ui_text 113, "September 17th  -- LOCKED", 640, 420
     ui sprite:113, font_size, 13
     ui sprite:113, align, "center"
-    ui sprite:113, color, "#444444"
+    ui sprite:113, color, "#676b64"
     ui sprite:113, z, 20
-}
+endif
 
 ; DAY 4
 ui_rect 304, 240, 450, 800, 68
-if %14 == 1 {
-    ui sprite:304, fill, "#0a0a0a"
-    ui sprite:304, fill_alpha, 160
-    ui sprite:304, border, 1, "#ffffff"
-    ui sprite:304, hover_fill, "#1a1a1a"
-} else {
-    ui sprite:304, fill, "#000000"
-    ui sprite:304, fill_alpha, 80
-    ui sprite:304, border, 1, "#444444"
-}
+if %14 == 1
+    ui sprite:304, fill, "#101417"
+    ui sprite:304, fill_alpha, 196
+    ui sprite:304, border, 1, "#9aa18f"
+    ui sprite:304, border_alpha, 118
+    ui sprite:304, shadow, 0, 4, "#000000"
+    ui sprite:304, shadow_alpha, 126
+    ui sprite:304, hover_fill, "#252a2f"
+    ui sprite:304, hover_scale, 1.01
+else
+    ui sprite:304, fill, "#08090a"
+    ui sprite:304, fill_alpha, 128
+    ui sprite:304, border, 1, "#3a3f3b"
+    ui sprite:304, border_alpha, 86
+endif
 ui sprite:304, z, 10
 
-if %14 == 1 {
+if %14 == 1
     ui_text 104, "DAY 4", 640, 472
     ui sprite:104, font_size, 22
     ui sprite:104, align, "center"
-    ui sprite:104, color, "#ffffff"
+    ui sprite:104, color, "#e7e2d6"
     ui sprite:104, z, 20
     ui_text 114, "September 18th", 640, 500
     ui sprite:114, font_size, 13
     ui sprite:114, align, "center"
-    ui sprite:114, color, "#999999"
+    ui sprite:114, color, "#b8a46f"
     ui sprite:114, z, 20
-} else {
+else
     ui_text 104, "DAY 4", 640, 472
     ui sprite:104, font_size, 22
     ui sprite:104, align, "center"
-    ui sprite:104, color, "#555555"
+    ui sprite:104, color, "#757a72"
     ui sprite:104, z, 20
     ui_text 114, "September 18th  -- LOCKED", 640, 500
     ui sprite:114, font_size, 13
     ui sprite:114, align, "center"
-    ui sprite:114, color, "#444444"
+    ui sprite:114, color, "#676b64"
     ui sprite:114, z, 20
-}
+endif
 
 ; DAY 5 (EPILOGUE)
 ui_rect 305, 240, 530, 800, 68
-if %15 == 1 {
-    ui sprite:305, fill, "#0a0a0a"
-    ui sprite:305, fill_alpha, 160
-    ui sprite:305, border, 1, "#ffffff"
-    ui sprite:305, hover_fill, "#1a1a1a"
-} else {
-    ui sprite:305, fill, "#000000"
-    ui sprite:305, fill_alpha, 80
-    ui sprite:305, border, 1, "#444444"
-}
+if %15 == 1
+    ui sprite:305, fill, "#101417"
+    ui sprite:305, fill_alpha, 196
+    ui sprite:305, border, 1, "#9aa18f"
+    ui sprite:305, border_alpha, 118
+    ui sprite:305, shadow, 0, 4, "#000000"
+    ui sprite:305, shadow_alpha, 126
+    ui sprite:305, hover_fill, "#252a2f"
+    ui sprite:305, hover_scale, 1.01
+else
+    ui sprite:305, fill, "#08090a"
+    ui sprite:305, fill_alpha, 128
+    ui sprite:305, border, 1, "#3a3f3b"
+    ui sprite:305, border_alpha, 86
+endif
 ui sprite:305, z, 10
 
-if %15 == 1 {
+if %15 == 1
     ui_text 105, "DAY 5", 640, 552
     ui sprite:105, font_size, 22
     ui sprite:105, align, "center"
-    ui sprite:105, color, "#ffffff"
+    ui sprite:105, color, "#e7e2d6"
     ui sprite:105, z, 20
     ui_text 115, "September 19th", 640, 580
     ui sprite:115, font_size, 13
     ui sprite:115, align, "center"
-    ui sprite:115, color, "#999999"
+    ui sprite:115, color, "#b8a46f"
     ui sprite:115, z, 20
-} else {
+else
     ui_text 105, "DAY 5", 640, 552
     ui sprite:105, font_size, 22
     ui sprite:105, align, "center"
-    ui sprite:105, color, "#555555"
+    ui sprite:105, color, "#757a72"
     ui sprite:105, z, 20
     ui_text 115, "September 19th  -- LOCKED", 640, 580
     ui sprite:115, font_size, 13
     ui sprite:115, align, "center"
-    ui sprite:115, color, "#444444"
+    ui sprite:115, color, "#676b64"
     ui sprite:115, z, 20
-}
+endif
 
 ; UNLOCK ALL（開発用）
 ui_rect 221, 1080, 660, 160, 30
-ui sprite:221, fill, "#000000"
-ui sprite:221, fill_alpha, 0
-ui sprite:221, border, 1, "#555555"
-ui sprite:221, hover_fill, "#151515"
+ui sprite:221, fill, "#101417"
+ui sprite:221, fill_alpha, 120
+ui sprite:221, border, 1, "#676b64"
+ui sprite:221, border_alpha, 90
+ui sprite:221, hover_fill, "#252a2f"
 ui sprite:221, z, 5
 
 ui_text 21, "UNLOCK ALL", 1160, 672
 ui sprite:21, font_size, 12
 ui sprite:21, align, "center"
-ui sprite:21, color, "#666666"
+ui sprite:21, color, "#9aa18f"
 ui sprite:21, z, 10
 
 ; BACK
 ui_rect 399, 540, 640, 200, 42
-ui sprite:399, fill, "#000000"
-ui sprite:399, fill_alpha, 0
-ui sprite:399, border, 1, "#ffffff"
-ui sprite:399, hover_fill, "#151515"
+ui sprite:399, fill, "#101417"
+ui sprite:399, fill_alpha, 204
+ui sprite:399, border, 1, "#9aa18f"
+ui sprite:399, border_alpha, 136
+ui sprite:399, shadow, 0, 4, "#000000"
+ui sprite:399, shadow_alpha, 132
+ui sprite:399, hover_fill, "#252a2f"
+ui sprite:399, hover_scale, 1.012
 ui sprite:399, z, 10
 
 ui_text 199, "BACK", 640, 652
 ui sprite:199, font_size, 22
 ui sprite:199, align, "center"
-ui sprite:199, color, "#ffffff"
+ui sprite:199, color, "#e7e2d6"
 ui sprite:199, z, 20
 
 ; ボタン登録

@@ -35,31 +35,52 @@ public sealed class FlagCommandHandler : BaseCommandHandler
         switch (inst.Op)
         {
             case OpCode.SetFlag:
-            case OpCode.SetPFlag:
                 if (!ValidateArgs(inst, 2)) return true;
                 State.Flags[inst.Arguments[0]] = GetVal(inst.Arguments[1]) != 0;
                 MarkPersistentDirty();
                 return true;
 
+            case OpCode.SetPFlag:
+                if (!ValidateArgs(inst, 2)) return true;
+                State.SaveFlags[inst.Arguments[0]] = GetVal(inst.Arguments[1]) != 0;
+                MarkPersistentDirty();
+                return true;
+
             case OpCode.GetFlag:
+                if (!ValidateArgs(inst, 1)) return true;
+                State.Flags.TryGetValue(inst.Arguments[0], out bool flag);
+                SetReg(VirtualMachine.GetResultRegister(inst), flag ? 1 : 0);
+                return true;
+
             case OpCode.GetPFlag:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.Flags.TryGetValue(inst.Arguments[0], out bool pflag);
+                State.SaveFlags.TryGetValue(inst.Arguments[0], out bool pflag);
                 SetReg(VirtualMachine.GetResultRegister(inst), pflag ? 1 : 0);
                 return true;
 
             case OpCode.ClearFlag:
-            case OpCode.ClearPFlag:
                 if (!ValidateArgs(inst, 1)) return true;
                 State.Flags[inst.Arguments[0]] = false;
                 MarkPersistentDirty();
                 return true;
 
+            case OpCode.ClearPFlag:
+                if (!ValidateArgs(inst, 1)) return true;
+                State.SaveFlags[inst.Arguments[0]] = false;
+                MarkPersistentDirty();
+                return true;
+
             case OpCode.ToggleFlag:
+                if (!ValidateArgs(inst, 1)) return true;
+                State.Flags.TryGetValue(inst.Arguments[0], out bool currentFlag);
+                State.Flags[inst.Arguments[0]] = !currentFlag;
+                MarkPersistentDirty();
+                return true;
+
             case OpCode.TogglePFlag:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.Flags.TryGetValue(inst.Arguments[0], out bool currentPFlag);
-                State.Flags[inst.Arguments[0]] = !currentPFlag;
+                State.SaveFlags.TryGetValue(inst.Arguments[0], out bool currentPFlag);
+                State.SaveFlags[inst.Arguments[0]] = !currentPFlag;
                 MarkPersistentDirty();
                 return true;
 

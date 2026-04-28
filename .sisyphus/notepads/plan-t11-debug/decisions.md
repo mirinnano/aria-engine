@@ -1,0 +1,2 @@
+- Decision: Add targeted Let parsing in Parser (for lines starting with `let`) to support T11 transpilation of Result/Option constructors.
+- Rationale: The test Parse_ResultOption_Constructors_TranspileToValAndErr relies on emitted OpCode.Let from transpiled lines. Without this, transpilation is a no-op.

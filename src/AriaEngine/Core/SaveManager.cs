@@ -12,9 +12,10 @@ namespace AriaEngine.Core;
 
 public class SaveManager
 {
-    private const int CurrentSaveVersion = 2;
+    private const int CurrentSaveVersion = 3;
     public const int AutoSaveSlot = 98;
-    private static readonly byte[] SaveMagic = Encoding.ASCII.GetBytes("ARIASAVE2");
+    private static readonly byte[] SaveMagic = Encoding.ASCII.GetBytes("ARIASAVE3");
+    private static readonly byte[] SaveMagicV2 = Encoding.ASCII.GetBytes("ARIASAVE2");
     private readonly ErrorReporter _reporter;
     private readonly string _saveDir = "saves";
 
@@ -27,8 +28,9 @@ public class SaveManager
     private string GetSavePath(int slot) => Path.Combine(_saveDir, $"slot_{slot:00}.ariasav");
     private string GetJsonSavePath(int slot) => Path.Combine(_saveDir, $"slot_{slot:00}.json");
     private string GetLegacySavePath(int slot) => $"save_data_{slot}.json";
+    public string GetThumbnailPath(int slot) => Path.Combine(_saveDir, $"slot_{slot:00}.png");
 
-    public void Save(int slot, GameState state, string currentScriptFile)
+    public void Save(int slot, GameState state, string currentScriptFile, byte[]? screenshotData = null)
     {
         try
         {
@@ -37,7 +39,7 @@ public class SaveManager
             var originalRegisters = state.Registers;
             state.Registers = state.Registers
                 .Where(pair => RegisterStoragePolicy.IsSaveStored(pair.Key))
-                .ToDictionary(pair => RegisterStoragePolicy.Normalize(pair.Key), pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
             try
             {
                 var file = new SaveFile
@@ -50,13 +52,19 @@ public class SaveManager
                         ScriptFile = currentScriptFile,
                         SaveTime = DateTime.Now,
                         ChapterTitle = state.CurrentChapter,
-                        PreviewText = state.CurrentTextBuffer.Length > 0 ? state.CurrentTextBuffer[..Math.Min(80, state.CurrentTextBuffer.Length)] : "",
-                        PlayTimeSeconds = (long)playTime.TotalSeconds
+                        PreviewText = state.CurrentTextBuffer.Length > 0 ? state.CurrentTextBuffer[^Math.Min(80, state.CurrentTextBuffer.Length)..] : "",
+                        PlayTimeSeconds = (long)playTime.TotalSeconds,
+                        ThumbnailPath = screenshotData != null ? GetThumbnailPath(slot) : ""
                     },
                     Runtime = state
                 };
 
                 WritePackedSave(GetSavePath(slot), file);
+
+                if (screenshotData != null)
+                {
+                    File.WriteAllBytes(GetThumbnailPath(slot), screenshotData);
+                }
             }
             finally
             {
@@ -116,6 +124,10 @@ public class SaveManager
     public SaveData? GetSaveData(int slot)
     {
         var (data, success) = Load(slot);
+        if (success && data != null && string.IsNullOrEmpty(data.ScreenshotPath) && File.Exists(GetThumbnailPath(slot)))
+        {
+            data.ScreenshotPath = GetThumbnailPath(slot);
+        }
         return success ? data : null;
     }
 
@@ -130,7 +142,7 @@ public class SaveManager
     {
         try
         {
-            foreach (var path in new[] { GetSavePath(slot), GetJsonSavePath(slot), GetLegacySavePath(slot) })
+            foreach (var path in new[] { GetSavePath(slot), GetJsonSavePath(slot), GetLegacySavePath(slot), GetThumbnailPath(slot) })
             {
                 if (File.Exists(path)) File.Delete(path);
             }
@@ -177,20 +189,53 @@ public class SaveManager
         using var stream = File.OpenRead(path);
         using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: false);
         byte[] magic = reader.ReadBytes(SaveMagic.Length);
-        if (!magic.SequenceEqual(SaveMagic)) throw new InvalidDataException("Invalid Aria save header.");
-        _ = reader.ReadInt32();
+        int version;
+        byte[] key;
+
+        if (magic.SequenceEqual(SaveMagic))
+        {
+            version = reader.ReadInt32();
+            key = DeriveSaveKey();
+        }
+        else if (magic.SequenceEqual(SaveMagicV2))
+        {
+            version = reader.ReadInt32();
+            key = DeriveSaveKeyV2();
+        }
+        else
+        {
+            throw new InvalidDataException($"Invalid Aria save header. Expected {Encoding.ASCII.GetString(SaveMagic)} or {Encoding.ASCII.GetString(SaveMagicV2)}.");
+        }
+
         byte[] iv = reader.ReadBytes(reader.ReadInt32());
         byte[] cipher = reader.ReadBytes(reader.ReadInt32());
 
         using var aes = Aes.Create();
-        aes.Key = DeriveSaveKey();
+        aes.Key = key;
         aes.IV = iv;
         aes.Mode = CipherMode.CBC;
         aes.Padding = PaddingMode.PKCS7;
         using var decryptor = aes.CreateDecryptor();
         byte[] compressed = decryptor.TransformFinalBlock(cipher, 0, cipher.Length);
         byte[] json = Decompress(compressed);
-        return JsonSerializer.Deserialize<SaveFile>(json, CreateJsonOptions()) ?? throw new InvalidDataException("Broken Aria save payload.");
+        var file = JsonSerializer.Deserialize<SaveFile>(json, CreateJsonOptions()) ?? throw new InvalidDataException("Broken Aria save payload.");
+
+        if (version <= 2)
+        {
+            MigrateFromV2(file);
+        }
+
+        return file;
+    }
+
+    private static void MigrateFromV2(SaveFile file)
+    {
+        file.Version = CurrentSaveVersion;
+        file.Format = "AriaSave";
+        if (file.Runtime.Declarations == null)
+        {
+            file.Runtime.Declarations = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
     }
 
     private static byte[] Compress(byte[] data)
@@ -214,6 +259,11 @@ public class SaveManager
 
     private static byte[] DeriveSaveKey()
     {
+        return SHA256.HashData(Encoding.UTF8.GetBytes("AriaEngine.LocalSave.Format.v3"));
+    }
+
+    private static byte[] DeriveSaveKeyV2()
+    {
         return SHA256.HashData(Encoding.UTF8.GetBytes("AriaEngine.LocalSave.Format.v2"));
     }
 }
@@ -221,7 +271,7 @@ public class SaveManager
 public class SaveFile
 {
     public string Format { get; set; } = "AriaSave";
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 3;
     public SaveMeta Meta { get; set; } = new();
     public GameState Runtime { get; set; } = new();
 }
@@ -234,6 +284,7 @@ public class SaveMeta
     public string ChapterTitle { get; set; } = "";
     public string PreviewText { get; set; } = "";
     public long PlayTimeSeconds { get; set; }
+    public string ThumbnailPath { get; set; } = "";
 }
 
 public class SaveData
@@ -249,6 +300,7 @@ public class SaveData
     public int ThumbnailWidth { get; set; } = 320;
     public int ThumbnailHeight { get; set; } = 180;
     public byte[] ScreenshotData { get; set; } = Array.Empty<byte>();
+    public Dictionary<string, string> Declarations { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public static SaveData FromSaveFile(SaveFile file)
     {
@@ -260,7 +312,9 @@ public class SaveData
             SaveTime = file.Meta.SaveTime,
             ChapterTitle = file.Meta.ChapterTitle,
             PreviewText = file.Meta.PreviewText,
-            PlayTime = TimeSpan.FromSeconds(file.Meta.PlayTimeSeconds)
+            PlayTime = TimeSpan.FromSeconds(file.Meta.PlayTimeSeconds),
+            ScreenshotPath = file.Meta.ThumbnailPath,
+            Declarations = file.Runtime.Declarations ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         };
     }
 }

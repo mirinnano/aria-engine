@@ -41,13 +41,18 @@ public enum OpCode
     Rnd, Inc, Dec, For, Next, ResetTimer, GetTimer, WaitTimer,
 
     // 配列操作・例外処理
-    SetArray, GetArray, Throw,
+    SetArray, GetArray, Throw, Assert, Panic,
+
+    // 制御構造
+    While, Wend, Break, Continue, ReturnValue,
 
     // CGギャラリー
     GalleryEntry, CgUnlock, GalleryCount, GalleryInfo,
 
     // 動的スクリプト include
     Include,
+    // Defer: register an instruction to execute when exiting a scope
+    Defer,
 
     // 設定読み書き
     GetConfig, SetConfig, SaveConfig,
@@ -89,5 +94,7 @@ public enum OpCode
     DefChapter, ChapterId, ChapterTitle, ChapterDesc, ChapterScript, EndChapter,
 
     // フォント設定
-    FontFilter
+    FontFilter,
+    // Scope control (explicit scope blocks)
+    ScopeEnter, ScopeExit
 }

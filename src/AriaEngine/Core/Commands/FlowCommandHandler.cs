@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Linq;
 using Raylib_cs;
 
 namespace AriaEngine.Core.Commands;
@@ -23,6 +24,9 @@ public sealed class FlowCommandHandler : BaseCommandHandler
         OpCode.Bgt,
         OpCode.Blt,
         OpCode.Jmp,
+        OpCode.ScopeEnter,
+        OpCode.ScopeExit,
+        OpCode.Defer,
         OpCode.JumpIfFalse,
         OpCode.Rnd,
         OpCode.Inc,
@@ -32,7 +36,8 @@ public sealed class FlowCommandHandler : BaseCommandHandler
         OpCode.GetTimer,
         OpCode.ResetTimer,
         OpCode.WaitTimer,
-        OpCode.Include
+        OpCode.Include,
+        OpCode.ReturnValue
     };
 
     public FlowCommandHandler(VirtualMachine vm) : base(vm)
@@ -43,6 +48,46 @@ public sealed class FlowCommandHandler : BaseCommandHandler
     {
         switch (inst.Op)
         {
+            case OpCode.ScopeEnter:
+                Vm.EnterScope();
+                return true;
+
+            case OpCode.ScopeExit:
+                Vm.ExitScopesUntil(0);
+                return true;
+
+            case OpCode.Defer:
+                // defer <op> [args...]
+                if (!ValidateArgs(inst, 1)) return true;
+                string deferOpName = inst.Arguments[0];
+                if (CommandRegistry.TryGet(deferOpName, out OpCode deferOp))
+                {
+                    // Capture argument values at definition time. If an argument is a register,
+                    // evaluate it now and store the literal value. If it's a string reg, capture its string value.
+                    var rawArgs = inst.Arguments.Skip(1).ToList();
+                    var captured = new List<string>(rawArgs.Count);
+                    foreach (var a in rawArgs)
+                    {
+                        if (a.StartsWith("%"))
+                        {
+                            captured.Add(GetVal(a).ToString());
+                        }
+                        else if (a.StartsWith("$"))
+                        {
+                            captured.Add(GetString(a));
+                        }
+                        else
+                        {
+                            captured.Add(a);
+                        }
+                    }
+                    var defInst = new Instruction(deferOp, captured, inst.SourceLine);
+                    if (State.Execution.ScopeStack.Count > 0)
+                    {
+                        State.Execution.ScopeStack.Peek().Defer.Add(defInst);
+                    }
+                }
+                return true;
             case OpCode.Let:
             case OpCode.Mov:
                 if (!ValidateArgs(inst, 2)) return true;
@@ -50,16 +95,39 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                 // let %x = 100 の "=" を除去
                 var args = inst.Arguments.Where(a => a != "=").ToList();
                 if (args.Count < 2) return true;
+
+                // Global scope bypass: explicit scope recorded on the instruction
+                if (inst.Scope == AriaEngine.Core.StorageScope.Global)
+                {
+                    string dest = args[0];
+                    string src = args[1];
+                    // String destination
+                    if (dest.StartsWith("$") || src.StartsWith("\""))
+                    {
+                        string strVal = GetString(src);
+                        Vm.SetGlobalString(dest, strVal);
+                    }
+                    else
+                    {
+                        int intVal = GetVal(src);
+                        Vm.SetGlobalRegister(dest, intVal);
+                    }
+                    return true;
+                }
                 
                 var destArrayMatch = ArrayAccessRegex.Match(args[0]);
                 var srcArrayMatch = ArrayAccessRegex.Match(args[1]);
+                
+                // 第二引数以降を式として評価（算術・比較・配列アクセス対応）
+                var expr = ExpressionParser.TryParse(args.Skip(1).ToList());
                 
                 if (destArrayMatch.Success)
                 {
                     // let %arr[index] = value → setarray
                     string arrayName = destArrayMatch.Groups[1].Value;
                     int index = GetVal(destArrayMatch.Groups[2].Value);
-                    int value = GetVal(args[1]);
+                    if (index < 0) return true;
+                    int value = expr?.EvaluateInt(State, Vm) ?? GetVal(args[1]);
                     if (!State.Arrays.TryGetValue(arrayName, out var array))
                     {
                         array = new int[index + 1];
@@ -85,11 +153,16 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                 }
                 else if (args[0].StartsWith("$") || args[1].StartsWith("\""))
                 {
-                    SetStr(args[0], GetString(args[1]));
+                    // 文字列代入: 式評価で文字列結合も対応
+                    if (expr != null && expr.IsStringExpression)
+                        SetStr(args[0], expr.EvaluateString(State, Vm));
+                    else
+                        SetStr(args[0], GetString(args[1]));
                 }
                 else
                 {
-                    SetReg(args[0], GetVal(args[1]));
+                    // 整数代入: 式評価を試行
+                    SetReg(args[0], expr?.EvaluateInt(State, Vm) ?? GetVal(args[1]));
                 }
                 return true;
 
@@ -112,7 +185,17 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                 if (!ValidateArgs(inst, 2)) return true;
                 {
                     int div = GetVal(inst.Arguments[1]);
-                    SetReg(inst.Arguments[0], div != 0 ? GetReg(inst.Arguments[0]) / div : 0);
+                    if (div == 0)
+                    {
+                        Reporter.Report(new AriaError(
+                            "0による除算が発生しました。結果を0として扱います。",
+                            inst.SourceLine, CurrentScriptFile, AriaErrorLevel.Error, "VM_DIV_ZERO"));
+                        SetReg(inst.Arguments[0], 0);
+                    }
+                    else
+                    {
+                        SetReg(inst.Arguments[0], GetReg(inst.Arguments[0]) / div);
+                    }
                 }
                 return true;
 
@@ -120,7 +203,17 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                 if (!ValidateArgs(inst, 2)) return true;
                 {
                     int mod = GetVal(inst.Arguments[1]);
-                    SetReg(inst.Arguments[0], mod != 0 ? GetReg(inst.Arguments[0]) % mod : 0);
+                    if (mod == 0)
+                    {
+                        Reporter.Report(new AriaError(
+                            "0による剰余演算が発生しました。結果を0として扱います。",
+                            inst.SourceLine, CurrentScriptFile, AriaErrorLevel.Error, "VM_MOD_ZERO"));
+                        SetReg(inst.Arguments[0], 0);
+                    }
+                    else
+                    {
+                        SetReg(inst.Arguments[0], GetReg(inst.Arguments[0]) % mod);
+                    }
                 }
                 return true;
 
@@ -129,6 +222,7 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                 {
                     string arrayName = inst.Arguments[0].TrimStart('%');
                     int index = GetVal(inst.Arguments[1]);
+                    if (index < 0) return true;
                     int value = GetVal(inst.Arguments[2]);
                     if (!State.Arrays.TryGetValue(arrayName, out var array))
                     {
@@ -191,7 +285,21 @@ public sealed class FlowCommandHandler : BaseCommandHandler
 
             case OpCode.Jmp:
                 if (!ValidateArgs(inst, 1)) return true;
+                // Ensure any deferred actions defined in the current scope are executed before jumping out
+                Vm.ExitScopesUntil(0);
                 JumpTo(inst.Arguments[0]);
+                return true;
+
+            case OpCode.Break:
+                if (!ValidateArgs(inst, 0)) return true;
+                // Break should exit the current scope and trigger any on-exit defers
+                Vm.ExitScopesUntil(0);
+                return true;
+
+            case OpCode.Continue:
+                if (!ValidateArgs(inst, 0)) return true;
+                // Continue should behave like a loop control; ensure scope exits so defers run
+                Vm.ExitScopesUntil(0);
                 return true;
 
             case OpCode.JumpIfFalse:
@@ -216,9 +324,12 @@ public sealed class FlowCommandHandler : BaseCommandHandler
 
             case OpCode.For:
                 if (!ValidateArgs(inst, 3)) return true;
-                string forVar = inst.Arguments[0];
-                int startVal = GetVal(inst.Arguments[1]);
-                string targetArg = inst.Arguments[2];
+                // for %i = 0 to 10 の "=" と "to" を除去
+                var forArgs = inst.Arguments.Where(a => a != "=" && !a.Equals("to", StringComparison.OrdinalIgnoreCase)).ToList();
+                if (forArgs.Count < 3) return true;
+                string forVar = forArgs[0];
+                int startVal = GetVal(forArgs[1]);
+                string targetArg = forArgs[2];
                 
                 int targetValue;
                 if (State.Arrays.TryGetValue(targetArg, out var arr))
@@ -273,6 +384,30 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                 {
                     Reporter.Report(new AriaError($"include '{includePath}' の読み込みに失敗しました。", inst.SourceLine, CurrentScriptFile, AriaErrorLevel.Warning));
                 }
+                return true;
+
+            case OpCode.ReturnValue:
+                if (inst.Arguments.Count > 0)
+                {
+                    var retExpr = ExpressionParser.TryParse(inst.Arguments.ToList());
+                    State.LastReturnValue = retExpr?.EvaluateInt(State, Vm) ?? GetVal(inst.Arguments[0]);
+                }
+                else
+                {
+                    State.LastReturnValue = 0;
+                }
+                // ref マップを復元
+                if (State.RefStack.Count > 0)
+                {
+                    State.CurrentRefMap = State.RefStack.Pop();
+                }
+                else
+                {
+                    State.CurrentRefMap.Clear();
+                }
+                // ローカルスコープとスプライト寿命をクリーンアップ
+                Vm.PopFunctionScope();
+                Vm.ReturnFromSubroutine();
                 return true;
 
             default:

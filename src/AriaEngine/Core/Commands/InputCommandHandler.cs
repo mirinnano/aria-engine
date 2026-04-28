@@ -52,6 +52,7 @@ public sealed class InputCommandHandler : BaseCommandHandler
             case OpCode.BtnClearAll:
                 foreach (var sprite in State.Sprites.Values) sprite.IsButton = false;
                 State.SpriteButtonMap.Clear();
+                State.FocusedButtonId = -1;
                 return true;
 
             case OpCode.SpBtn:

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using AriaEngine.Text;
 using Raylib_cs;
@@ -41,6 +42,7 @@ public class RightMenuEntry
 {
     public string Label { get; set; } = "";
     public string Action { get; set; } = "";
+    public string Icon { get; set; } = "";
 }
 
 public sealed class RegisterState
@@ -63,6 +65,29 @@ public sealed class VmExecutionState
     public Stack<int> TryStack { get; set; } = new();
     public float DelayTimerMs { get; set; }
     public float ScriptTimerMs { get; set; }
+    public int LastReturnValue { get; set; }
+
+    // 関数ローカルスコープ
+    public Stack<Dictionary<string, int>> LocalIntStacks { get; set; } = new();
+    public Stack<Dictionary<string, string>> LocalStringStacks { get; set; } = new();
+
+    // スプライト寿命管理（関数スコープ）
+    public Stack<HashSet<int>> SpriteLifetimeStacks { get; set; } = new();
+
+    // Explicit scope tracking for scope blocks (T5)
+    public Stack<ScopeFrame> ScopeStack { get; set; } = new();
+}
+
+// Represents a single explicit scope frame for variables, sprite lifetimes and deferred actions
+public sealed class ScopeFrame
+{
+    // Local variables scoped to this block
+    public Dictionary<string, int> LocalInt { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> LocalString { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    // Sprites created within this scope (lifetime managed by scope)
+    public HashSet<int> SpriteIds { get; set; } = new();
+    // Instructions to defer until scope exit (executed in LIFO order)
+    public List<Instruction> Defer { get; set; } = new();
 }
 
 public sealed class InteractionState
@@ -71,6 +96,7 @@ public sealed class InteractionState
     public float ButtonTimer { get; set; }
     public string ButtonResultRegister { get; set; } = "0";
     public Dictionary<int, int> SpriteButtonMap { get; set; } = new();
+    public int FocusedButtonId { get; set; } = -1;
 }
 
 public sealed class RenderState
@@ -91,6 +117,7 @@ public sealed class AudioState
     public int SeVolume { get; set; } = 100;
     public float BgmFadeOutDurationMs { get; set; }
     public float BgmFadeOutTimerMs { get; set; }
+    public string LastVoicePath { get; set; } = "";
 }
 
 public sealed class TextWindowState
@@ -101,8 +128,8 @@ public sealed class TextWindowState
     public int DefaultTextboxH { get; set; } = 200;
     public int DefaultFontSize { get; set; } = 32;
     public string DefaultTextColor { get; set; } = "#ffffff";
-    public string DefaultTextboxBgColor { get; set; } = "#000000";
-    public int DefaultTextboxBgAlpha { get; set; } = 180;
+    public string DefaultTextboxBgColor { get; set; } = UIThemeDefaults.TextboxBgColor;
+    public int DefaultTextboxBgAlpha { get; set; } = UIThemeDefaults.TextboxBgAlpha;
     public bool TextboxVisible { get; set; } = true;
     public bool UseManualTextLayout { get; set; }
     public int TextTargetSpriteId { get; set; } = -1;
@@ -137,6 +164,71 @@ public sealed class ChoiceStyleState
     public int ChoicePaddingX { get; set; } = UIThemeDefaults.ChoicePaddingX;
 }
 
+/// <summary>
+/// Lightweight state snapshot captured at a backlog entry point for jump-back.
+/// </summary>
+public sealed class BacklogStateSnapshot
+{
+    public Dictionary<string, int> Registers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> StringRegisters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, bool> Flags { get; set; } = new();
+    public Dictionary<string, bool> SaveFlags { get; set; } = new();
+    public Dictionary<string, int> Counters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public FastSpriteDictionary Sprites { get; set; } = new();
+    public string CurrentBgm { get; set; } = "";
+    public int BgmVolume { get; set; } = 100;
+    public int SeVolume { get; set; } = 100;
+}
+
+/// <summary>
+/// A single entry in the text backlog.
+/// </summary>
+public sealed class BacklogEntry
+{
+    public string Text { get; set; } = "";
+    public string? VoicePath { get; set; }
+    public int ProgramCounter { get; set; }
+    public bool IsRead { get; set; }
+    public DateTime Timestamp { get; set; }
+    public BacklogStateSnapshot? StateSnapshot { get; set; }
+}
+
+/// <summary>
+/// JSON converter that reads legacy string arrays as BacklogEntry lists.
+/// </summary>
+public class BacklogEntryListConverter : JsonConverter<List<BacklogEntry>>
+{
+    public override List<BacklogEntry> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        var result = new List<BacklogEntry>();
+        if (reader.TokenType != JsonTokenType.StartArray) return result;
+
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndArray) break;
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                result.Add(new BacklogEntry { Text = reader.GetString() ?? "" });
+            }
+            else if (reader.TokenType == JsonTokenType.StartObject)
+            {
+                var entry = JsonSerializer.Deserialize<BacklogEntry>(ref reader, options);
+                if (entry != null) result.Add(entry);
+            }
+            else
+            {
+                reader.Skip();
+            }
+        }
+        return result;
+    }
+
+    public override void Write(Utf8JsonWriter writer, List<BacklogEntry> value, JsonSerializerOptions options)
+    {
+        JsonSerializer.Serialize(writer, value, options);
+    }
+}
+
 public sealed class TextRuntimeState
 {
     public int TextSpeedMs { get; set; }
@@ -147,7 +239,8 @@ public sealed class TextRuntimeState
     public float TextAdvanceRatio { get; set; } = 1.0f;
     public float TextTimerMs { get; set; }
     public bool IsWaitingPageClear { get; set; }
-    public List<string> TextHistory { get; set; } = new();
+    [JsonConverter(typeof(BacklogEntryListConverter))]
+    public List<BacklogEntry> TextHistory { get; set; } = new();
     public int TextHistoryStartNumber { get; set; } = 1;
     public bool BacklogEnabled { get; set; } = true;
     public bool KidokuMode { get; set; } = true;
@@ -202,11 +295,11 @@ public sealed class MenuRuntimeState
     public int SaveLoadWidth { get; set; } = 760;
     public int BacklogWidth { get; set; } = 860;
     public int SettingsWidth { get; set; } = 520;
-    public string MenuFillColor { get; set; } = "#000000";
-    public int MenuFillAlpha { get; set; } = 238;
-    public string MenuTextColor { get; set; } = "#f5f5f5";
-    public string MenuLineColor { get; set; } = "#f5f5f5";
-    public int MenuCornerRadius { get; set; } = 16;
+    public string MenuFillColor { get; set; } = UIThemeDefaults.MenuFillColor;
+    public int MenuFillAlpha { get; set; } = UIThemeDefaults.MenuFillAlpha;
+    public string MenuTextColor { get; set; } = UIThemeDefaults.MenuTextColor;
+    public string MenuLineColor { get; set; } = UIThemeDefaults.MenuLineColor;
+    public int MenuCornerRadius { get; set; } = UIThemeDefaults.MenuCornerRadius;
 }
 
 public sealed class UiRuntimeState
@@ -250,7 +343,7 @@ public sealed class UiQualityState
 {
     public string Quality { get; set; } = "high";
     public bool SmoothMotion { get; set; } = true;
-    public bool SubpixelRendering { get; set; } = true;
+    public bool SubpixelRendering { get; set; }
     public bool HighQualityTextures { get; set; } = true;
     public int RoundedRectSegments { get; set; } = UiQualityConstants.DefaultRoundedRectSegments;
     public float MotionResponse { get; set; } = UiQualityConstants.DefaultMotionResponse;
@@ -280,6 +373,8 @@ public sealed class FlagRuntimeState
     public ChapterInfo? CurrentChapterDefinition { get; set; }
     public HashSet<string> UnlockedCgs { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, GalleryEntry> GalleryEntries { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    // T22: Total script lines for read rate calculation
+    public int TotalScriptLines { get; set; }
 }
 
 public class GalleryEntry
@@ -314,6 +409,10 @@ public class GameState
     public Dictionary<string, string> StringRegisters { get => RegisterState.StringRegisters; set => RegisterState.StringRegisters = value; }
     public Dictionary<string, int[]> Arrays { get => RegisterState.Arrays; set => RegisterState.Arrays = value; }
     public int CompareFlag { get => Execution.CompareFlag; set => Execution.CompareFlag = value; }
+    public int LastReturnValue { get => Execution.LastReturnValue; set => Execution.LastReturnValue = value; }
+    public Stack<Dictionary<string, int>> LocalIntStacks { get => Execution.LocalIntStacks; set => Execution.LocalIntStacks = value; }
+    public Stack<Dictionary<string, string>> LocalStringStacks { get => Execution.LocalStringStacks; set => Execution.LocalStringStacks = value; }
+    public Stack<HashSet<int>> SpriteLifetimeStacks { get => Execution.SpriteLifetimeStacks; set => Execution.SpriteLifetimeStacks = value; }
     public Stack<int> CallStack { get => Execution.CallStack; set => Execution.CallStack = value; }
     public Stack<string> ParamStack { get => Execution.ParamStack; set => Execution.ParamStack = value; }
     public Stack<Dictionary<string, string>> RefStack { get => Execution.RefStack; set => Execution.RefStack = value; }
@@ -325,6 +424,7 @@ public class GameState
     public string ButtonResultRegister { get => Interaction.ButtonResultRegister; set => Interaction.ButtonResultRegister = value; }
     public FastSpriteDictionary Sprites { get => Render.Sprites; set => Render.Sprites = value; }
     public Dictionary<int, int> SpriteButtonMap { get => Interaction.SpriteButtonMap; set => Interaction.SpriteButtonMap = value; }
+    public int FocusedButtonId { get => Interaction.FocusedButtonId; set => Interaction.FocusedButtonId = value; }
     public VmState State { get => Execution.State; set => Execution.State = value; }
     public string CurrentBgm { get => Audio.CurrentBgm; set => Audio.CurrentBgm = value; }
     public List<string> PendingSe { get => Audio.PendingSe; set => Audio.PendingSe = value; }
@@ -332,6 +432,7 @@ public class GameState
     public int SeVolume { get => Audio.SeVolume; set => Audio.SeVolume = value; }
     public float BgmFadeOutDurationMs { get => Audio.BgmFadeOutDurationMs; set => Audio.BgmFadeOutDurationMs = value; }
     public float BgmFadeOutTimerMs { get => Audio.BgmFadeOutTimerMs; set => Audio.BgmFadeOutTimerMs = value; }
+    public string LastVoicePath { get => Audio.LastVoicePath; set => Audio.LastVoicePath = value; }
     public float FadeProgress { get => Render.FadeProgress; set => Render.FadeProgress = value; }
     public bool IsFading { get => Render.IsFading; set => Render.IsFading = value; }
     public int FadeDurationMs { get => Render.FadeDurationMs; set => Render.FadeDurationMs = value; }
@@ -381,7 +482,7 @@ public class GameState
     public float TextAdvanceRatio { get => TextRuntime.TextAdvanceRatio; set => TextRuntime.TextAdvanceRatio = value; }
     public float TextTimerMs { get => TextRuntime.TextTimerMs; set => TextRuntime.TextTimerMs = value; }
     public bool IsWaitingPageClear { get => TextRuntime.IsWaitingPageClear; set => TextRuntime.IsWaitingPageClear = value; }
-    public List<string> TextHistory { get => TextRuntime.TextHistory; set => TextRuntime.TextHistory = value; }
+    public List<BacklogEntry> TextHistory { get => TextRuntime.TextHistory; set => TextRuntime.TextHistory = value; }
     public int TextHistoryStartNumber { get => TextRuntime.TextHistoryStartNumber; set => TextRuntime.TextHistoryStartNumber = value; }
     public bool AutoMode { get => Playback.AutoMode; set => Playback.AutoMode = value; }
     public int AutoModeWaitTimeMs { get => Playback.AutoModeWaitTimeMs; set => Playback.AutoModeWaitTimeMs = value; }
@@ -472,4 +573,51 @@ public class GameState
     public ChapterInfo? CurrentChapterDefinition { get => FlagRuntime.CurrentChapterDefinition; set => FlagRuntime.CurrentChapterDefinition = value; }
     public HashSet<string> UnlockedCgs { get => FlagRuntime.UnlockedCgs; set => FlagRuntime.UnlockedCgs = value; }
     public Dictionary<string, GalleryEntry> GalleryEntries { get => FlagRuntime.GalleryEntries; set => FlagRuntime.GalleryEntries = value; }
+    public int TotalScriptLines { get => FlagRuntime.TotalScriptLines; set => FlagRuntime.TotalScriptLines = value; }
+
+    // T22: Read rate calculation
+    /// <summary>
+    /// Returns read rate as a percentage (0-100).
+    /// </summary>
+    public int GetReadRate()
+    {
+        if (TotalScriptLines <= 0) return 0;
+        return (int)Math.Round((double)ReadKeys.Count / TotalScriptLines * 100);
+    }
+
+    // T22: CG unlock tracking methods
+    /// <summary>
+    /// Unlocks a CG with the given ID.
+    /// </summary>
+    public void UnlockCg(string cgId)
+    {
+        if (!string.IsNullOrWhiteSpace(cgId))
+        {
+            UnlockedCgs.Add(cgId);
+        }
+    }
+
+    /// <summary>
+    /// Checks if a CG is unlocked.
+    /// </summary>
+    public bool IsCgUnlocked(string cgId)
+    {
+        return UnlockedCgs.Contains(cgId);
+    }
+
+    /// <summary>
+    /// Returns CG unlock rate as a percentage (0-100).
+    /// </summary>
+    public int GetCgUnlockRate(int totalCgs)
+    {
+        if (totalCgs <= 0) return 0;
+        return (int)Math.Round((double)UnlockedCgs.Count / totalCgs * 100);
+    }
+
+    // Variable declarations from ParseResult (T9: save format versioning)
+    public Dictionary<string, string> Declarations { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    // T13: Owned sprite/resource declarations
+    // Variables declared with `owned sprite %id` are auto-cleaned up when their scope exits
+    public HashSet<string> OwnedSprites { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
