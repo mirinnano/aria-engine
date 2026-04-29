@@ -70,9 +70,15 @@ public class InputHandler
                 if (IsAdvancePressed())
                 {
                     if (vm.State.SkipMode && !vm.State.ForceSkipMode) vm.StopSkip();
-                    // タイプライター中のクリックは常にテキストを即座に完了させるだけ
-                    // スクリプトの進行は Update() でテキスト完了後に自然に行われる
-                    vm.State.DisplayedTextLength = vm.State.CurrentTextBuffer.Length;
+                    if (CanAdvanceTextAnimation(vm.State))
+                    {
+                        vm.State.DisplayedTextLength = vm.State.CurrentTextBuffer.Length;
+                        vm.State.State = VmState.Running;
+                    }
+                    else
+                    {
+                        vm.State.DisplayedTextLength = vm.State.CurrentTextBuffer.Length;
+                    }
                 }
             }
         }
@@ -126,7 +132,7 @@ public class InputHandler
                 }
 
                 btn.IsHovered = mouseHovered || btn.Id == vm.State.FocusedButtonId;
-                if (btn.IsHovered)
+                if (mouseHovered)
                 {
                     int resultValue = vm.State.SpriteButtonMap.TryGetValue(btn.Id, out int mappedValue) ? mappedValue : btn.Id;
                     if (TryDispatchHoverEvent(vm, btn.Id, resultValue)) return;
@@ -136,7 +142,7 @@ public class InputHandler
                     vm.State.UiHoverActive.Remove(btn.Id);
                 }
 
-                if (clicked && btn.IsHovered)
+                if (clicked && mouseHovered)
                 {
                     if (btn.Z >= clickedZ)
                     {
