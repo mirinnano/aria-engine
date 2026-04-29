@@ -1353,11 +1353,12 @@ namespace AriaEngine.Core;
             Raylib.ExportImage(image, tempPath);
             Raylib.UnloadImage(image);
             var bytes = File.ReadAllBytes(tempPath);
-            try { File.Delete(tempPath); } catch { }
+            try { File.Delete(tempPath); } catch (Exception ex) { _reporter.Report(new AriaError($"Failed to delete temp thumbnail: {ex.Message}", -1, "VirtualMachine.CaptureThumbnail", AriaErrorLevel.Warning, "THUMB_CLEANUP")); }
             return bytes;
         }
-        catch
+        catch (Exception ex)
         {
+            _reporter.Report(new AriaError($"Thumbnail capture failed: {ex.Message}", -1, "VirtualMachine.CaptureThumbnail", AriaErrorLevel.Warning, "THUMB_CAPTURE"));
             return null;
         }
     }
