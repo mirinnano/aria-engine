@@ -7,6 +7,8 @@ public sealed class DiskAssetProvider : IAssetProvider
 {
     private readonly string _root;
 
+    public string Root => _root;
+
     public DiskAssetProvider(string root)
     {
         _root = Path.GetFullPath(root);
