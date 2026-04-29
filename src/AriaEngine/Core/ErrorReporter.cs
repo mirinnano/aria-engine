@@ -32,8 +32,7 @@ public class ErrorReporter
                 _droppedCount++;
             }
 
-            Console.WriteLine(error.ToString());
-            if (!string.IsNullOrWhiteSpace(error.Hint)) Console.WriteLine($"  hint: {error.Hint}");
+
         }
     }
 

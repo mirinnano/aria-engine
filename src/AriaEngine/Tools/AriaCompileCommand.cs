@@ -53,15 +53,15 @@ public static class AriaCompileCommand
         if (hasErrors)
         {
             reporter.WriteLogFile();
-            Console.WriteLine("Compile failed due to script errors. See aria_error.log.");
+            Console.Error.WriteLine("Compile failed due to script errors. See aria_error.log.");
             return 2;
         }
 
         CompiledBundleCodec.Save(outputPath, bundle, key);
 
-        Console.WriteLine($"Compiled scripts: {bundle.Scripts.Count}");
-        Console.WriteLine($"Output: {outputPath}");
-        Console.WriteLine(string.IsNullOrWhiteSpace(key)
+        Console.Error.WriteLine($"Compiled scripts: {bundle.Scripts.Count}");
+        Console.Error.WriteLine($"Output: {outputPath}");
+        Console.Error.WriteLine(string.IsNullOrWhiteSpace(key)
             ? "Warning: output is not encrypted (no --key provided)."
             : "Output encrypted.");
         return 0;

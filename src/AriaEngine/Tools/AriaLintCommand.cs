@@ -105,15 +105,15 @@ public static class AriaLintCommand
 
             if (verbose && !result.IsClean)
             {
-                Console.WriteLine($"  Errors: {result.ErrorCount}, Warnings: {result.WarningCount}, Info: {result.InfoCount}");
+                Console.Error.WriteLine($"  Errors: {result.ErrorCount}, Warnings: {result.WarningCount}, Info: {result.InfoCount}");
             }
         }
 
         int totalErrors = allResults.Sum(r => r.ErrorCount);
         int totalWarnings = allResults.Sum(r => r.WarningCount);
 
-        Console.WriteLine();
-        Console.WriteLine($"Linted {files.Count} file(s): {totalErrors} error(s), {totalWarnings} warning(s)");
+        Console.Error.WriteLine();
+        Console.Error.WriteLine($"Linted {files.Count} file(s): {totalErrors} error(s), {totalWarnings} warning(s)");
 
         if (totalErrors > 0)
             return 2;

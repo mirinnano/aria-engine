@@ -37,7 +37,7 @@ public static class AriaDocCommand
 
         if (string.IsNullOrEmpty(outputDir))
         {
-            Console.WriteLine("Error: --out <output_dir/> is required");
+            Console.Error.WriteLine("Error: --out <output_dir/> is required");
             return 1;
         }
 
@@ -55,7 +55,7 @@ public static class AriaDocCommand
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error: Could not read script file: {ex.Message}");
+            Console.Error.WriteLine($"Error: Could not read script file: {ex.Message}");
             return 1;
         }
 
@@ -99,13 +99,13 @@ public static class AriaDocCommand
         };
         string json = JsonSerializer.Serialize(docOutput, jsonOptions);
         File.WriteAllText(jsonPath, json);
-        Console.WriteLine($"JSON: {jsonPath}");
+        Console.Error.WriteLine($"JSON: {jsonPath}");
 
         // Output Markdown
         string mdPath = Path.Combine(outputDir, "doc.md");
         string md = GenerateMarkdown(docOutput);
         File.WriteAllText(mdPath, md);
-        Console.WriteLine($"Markdown: {mdPath}");
+        Console.Error.WriteLine($"Markdown: {mdPath}");
 
         return 0;
     }

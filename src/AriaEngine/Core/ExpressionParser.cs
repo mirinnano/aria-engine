@@ -27,9 +27,8 @@ public static class ExpressionParser
             }
             return parser.Pos == tokens.Count ? expr : null;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            System.Diagnostics.Debug.WriteLine($"Expression parsing failed: {ex.Message}");
             return null;
         }
     }
