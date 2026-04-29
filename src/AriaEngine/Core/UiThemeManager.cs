@@ -185,10 +185,37 @@ public class UiThemeManager
 
     private void ApplyMonoTheme()
     {
+        _state.DefaultTextboxCornerRadius = 0;
+        _state.DefaultTextboxBorderWidth = 1;
+        _state.DefaultTextboxBorderColor = "#ffffff";
+        _state.DefaultTextboxBorderOpacity = 255;
+        _state.DefaultTextboxShadowOffsetX = 2;
+        _state.DefaultTextboxShadowOffsetY = 2;
+        _state.DefaultTextboxShadowColor = "#ffffff";
+        _state.DefaultTextboxShadowAlpha = 120;
+        _state.DefaultTextboxPaddingX = 20;
+        _state.DefaultTextboxPaddingY = 20;
+        _state.DefaultTextboxBgColor = "#000000";
+        _state.DefaultTextboxBgAlpha = 240;
+
+        _state.ChoiceWidth = 600;
+        _state.ChoiceHeight = 50;
+        _state.ChoiceSpacing = 12;
+        _state.ChoiceFontSize = 28;
+        _state.ChoiceBgColor = "#000000";
+        _state.ChoiceBgAlpha = 255;
+        _state.ChoiceTextColor = "#ffffff";
+        _state.ChoiceCornerRadius = 0;
+        _state.ChoiceBorderColor = "#ffffff";
+        _state.ChoiceBorderWidth = 1;
+        _state.ChoiceBorderOpacity = 255;
+        _state.ChoiceHoverColor = "#333333";
+        _state.ChoicePaddingX = 20;
+
         _state.MenuFillColor = "#000000";
         _state.MenuFillAlpha = 238;
         _state.MenuLineColor = "#ffffff";
         _state.MenuTextColor = "#ffffff";
-        _state.MenuCornerRadius = 16;
+        _state.MenuCornerRadius = 0;
     }
 }

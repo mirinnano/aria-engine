@@ -13,6 +13,7 @@ namespace AriaEngine.Core;
 public class SaveManager
 {
     private const int CurrentSaveVersion = 3;
+    private const int MaxSaveSlots = 99;
     public const int AutoSaveSlot = 98;
     private static readonly byte[] SaveMagic = Encoding.ASCII.GetBytes("ARIASAVE3");
     private static readonly byte[] SaveMagicV2 = Encoding.ASCII.GetBytes("ARIASAVE2");
@@ -132,6 +133,43 @@ public class SaveManager
     }
 
     public string GetSaveFilePath(int slot) => GetSavePath(slot);
+
+    public int MigrateAll(bool backup = true)
+    {
+        Directory.CreateDirectory(_saveDir);
+        int migrated = 0;
+        string backupDir = Path.Combine(_saveDir, "migration-backup", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+
+        for (int slot = 0; slot < MaxSaveSlots; slot++)
+        {
+            string path = File.Exists(GetSavePath(slot)) ? GetSavePath(slot) :
+                File.Exists(GetJsonSavePath(slot)) ? GetJsonSavePath(slot) :
+                GetLegacySavePath(slot);
+            if (!File.Exists(path)) continue;
+
+            try
+            {
+                var (data, success) = Load(slot);
+                if (!success || data == null) continue;
+                if (backup)
+                {
+                    Directory.CreateDirectory(backupDir);
+                    File.Copy(path, Path.Combine(backupDir, Path.GetFileName(path)), overwrite: true);
+                    string thumb = GetThumbnailPath(slot);
+                    if (File.Exists(thumb)) File.Copy(thumb, Path.Combine(backupDir, Path.GetFileName(thumb)), overwrite: true);
+                }
+
+                Save(slot, data.State, data.ScriptFile, null);
+                migrated++;
+            }
+            catch (Exception ex)
+            {
+                _reporter.ReportException("SAVE_MIGRATE", ex, $"セーブスロット{slot}のmigrationに失敗しました。", AriaErrorLevel.Error, path);
+            }
+        }
+
+        return migrated;
+    }
 
     public bool HasSaveData(int slot)
     {

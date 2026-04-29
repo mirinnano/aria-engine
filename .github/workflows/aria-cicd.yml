@@ -80,6 +80,13 @@ jobs:
           Compress-Archive -Path artifacts/publish/* -DestinationPath $zip -Force
           "zip_path=$zip" >> $env:GITHUB_OUTPUT
 
+      - name: Create installer zip
+        shell: pwsh
+        run: |
+          $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "run-${{ github.run_number }}" }
+          ./scripts/installer.ps1 -PackageDir artifacts/publish -OutputDir artifacts/installer -Version $version -Sign
+          Move-Item -Path "artifacts/installer/AriaEngine-$version-installer.zip" -Destination "artifacts/dist/" -Force
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

@@ -87,7 +87,7 @@ public class AutoSaveManager
             if (i != _currentAutoSaveSlot && _saveManager.HasSaveData(i))
             {
                 // 最新のオートセーブ以外は削除
-                // _saveManager.DeleteSave(i);
+                _saveManager.DeleteSave(i);
             }
         }
     }

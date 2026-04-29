@@ -9,13 +9,19 @@
     <AriaCompiledOutput>build\scripts.ariac</AriaCompiledOutput>
     <AriaPakOutput>data.pak</AriaPakOutput>
     <AriaPackKey Condition="'$(AriaPackKey)'=='' and '$(ARIA_PACK_KEY)'!=''">$(ARIA_PACK_KEY)</AriaPackKey>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
-  <!-- テストモードの設定 -->
-  <PropertyGroup Condition="'$(ARIA_TEST)'!=''">
-    <DefineConstants>ARIA_TEST</DefineConstants>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-    <StartupObject>AriaEngine.Tests.TestProgram</StartupObject>
+  <!-- アセンブリメタデータ -->
+  <PropertyGroup>
+    <AssemblyTitle>AriaEngine</AssemblyTitle>
+    <Product>AriaEngine</Product>
+    <Company>Ponkotusoft</Company>
+    <Copyright>Copyright (c) Ponkotusoft</Copyright>
+    <Description>Visual Novel Engine</Description>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,20 +32,7 @@
     <InternalsVisibleTo Include="AriaEngine.Tests" />
   </ItemGroup>
 
-  <!-- 通常モード: テストファイルとバイトコード関連を除外 -->
-  <ItemGroup Condition="'$(ARIA_TEST)'==''">
-    <Compile Remove="Tests\**\*.cs" />
-    <Compile Remove="VM\**\*.cs" />
-    <Compile Remove="Compiler\**\*.cs" />
-  </ItemGroup>
 
-  <!-- テストモード: メインファイルを除外し、テストファイルを含める -->
-  <ItemGroup Condition="'$(ARIA_TEST)'!=''">
-    <Compile Remove="Program.cs" />
-    <Compile Include="Tests\**\*.cs" />
-    <Compile Include="VM\**\*.cs" />
-    <Compile Include="Compiler\**\*.cs" />
-  </ItemGroup>
 
   <!-- パッケージングターゲット -->
   <Target Name="AriaPackageAfterPublish" AfterTargets="Publish" Condition="'$(AriaCompileOnPublish)'=='true'">

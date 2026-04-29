@@ -1,6 +1,6 @@
 # aria-version: 2.0
 ; 海風 -The Records of Autumn -
-; ARIA v2 完全版タイトル/章選択フロー
+; ARIA v2 production title/chapter flow
 
 compat_mode on
 ui_theme "steel"
@@ -48,25 +48,73 @@ func nvl()
     textbox 72, 28, 1136, 628
     fontsize 34
     textcolor "#e7e2d6"
-    textbox_color "#0b0d10", 232
+    textbox_color "#0b0d10", 178
     textbox_style 8, 1, "#9aa18f", 116, 36, 30, 0, 8, "#000000", 150
 endfunc
 
 func scenechange(path: string, dur: int)
-    bg "#000000", dur
-    bg path, dur
+    bg "#000000", %dur
+    bg $path, %dur
 endfunc
 
 func fadeout(dur: int)
-    bg "#000000", dur
+    bg "#000000", %dur
 endfunc
 
 func fadein(path: string, dur: int)
-    bg path, dur
+    bg $path, %dur
 endfunc
 
 func playse(path: string)
     dwave 0, $path
+endfunc
+
+func card_mio()
+    cls
+    ui_rect 900, 0, 0, 1280, 720
+    ui sprite:900, fill, "#050607"
+    ui sprite:900, fill_alpha, 238
+    ui sprite:900, z, 80
+    ui_text 901, "MIO SIDE", 640, 292
+    ui sprite:901, font_size, 22
+    ui sprite:901, align, "center"
+    ui sprite:901, color, "#9aa18f"
+    ui sprite:901, z, 90
+    ui_text 902, "―― ミオ 視点 ――", 640, 336
+    ui sprite:902, font_size, 28
+    ui sprite:902, align, "center"
+    ui sprite:902, color, "#e7e2d6"
+    ui sprite:902, text_shadow, 0, 3, "#000000"
+    ui sprite:902, z, 90
+    wait 1200
+    csp 900
+    csp 901
+    csp 902
+    wait 250
+endfunc
+
+func card_ore()
+    cls
+    ui_rect 910, 0, 0, 1280, 720
+    ui sprite:910, fill, "#050607"
+    ui sprite:910, fill_alpha, 238
+    ui sprite:910, z, 80
+    ui_text 911, "HIS SIDE", 640, 292
+    ui sprite:911, font_size, 22
+    ui sprite:911, align, "center"
+    ui sprite:911, color, "#b8a46f"
+    ui sprite:911, z, 90
+    ui_text 912, "―― 俺 視点 ――", 640, 336
+    ui sprite:912, font_size, 28
+    ui sprite:912, align, "center"
+    ui sprite:912, color, "#e7e2d6"
+    ui sprite:912, text_shadow, 0, 3, "#000000"
+    ui sprite:912, z, 90
+    wait 1200
+    csp 910
+    csp 911
+    csp 912
+    wait 250
 endfunc
 
 ; ===========================================================
@@ -264,8 +312,7 @@ print 1
 
 *title_loop
 btnwait %0
-print %0
-if %0 == 1 { goto *chapter_select }
+if %0 == 1 { goto *start_continue }
 if %0 == 2 { systemcall load }
 if %0 == 2 { goto *title_loop }
     if %0 == 3 { settings_ui() }
@@ -549,7 +596,7 @@ else
     ui sprite:115, z, 20
 endif
 
-; UNLOCK ALL（開発用）
+; UNLOCK ALL
 ui_rect 221, 1080, 660, 160, 30
 ui sprite:221, fill, "#101417"
 ui sprite:221, fill_alpha, 120
@@ -605,10 +652,6 @@ if %0 == 103 { goto *scenario_04 }
 if %0 == 104 { goto *scenario_05 }
 if %0 == 105 { goto *scenario_06 }
 goto *chapter_loop
-
-; ===========================================================
-; デバッグ：全解放
-; ===========================================================
 
 *unlock_all
 set_pflag chapter_01, 1

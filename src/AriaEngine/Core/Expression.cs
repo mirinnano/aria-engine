@@ -199,8 +199,8 @@ public sealed class UnaryExpr : Expression
 
 /// <summary>
 /// 配列リテラル（例: [1, 2, 3]）
-/// 現状は最初の要素を整数として評価する簡易実装とする。
-/// </summary>
+/// 制限事項: 現状のVM実装では配列の数学的演算がサポートされていないため、
+/// 最初の要素を整数として評価する簡易的な実装としています。
 public sealed class ArrayLiteralExpr : Expression
 {
     public List<Expression> Elements { get; }

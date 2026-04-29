@@ -1224,7 +1224,11 @@ namespace AriaEngine.Core;
                                 Index = paramIndex,
                                 IsRef = isRef
                             });
-                            output.Add(new PreprocessedLine($"getparam %{paramName}", sourceLine));
+                            string paramRegister = paramType.Equals("string", StringComparison.OrdinalIgnoreCase) ||
+                                                   paramType.Equals("str", StringComparison.OrdinalIgnoreCase)
+                                ? $"${paramName}"
+                                : $"%{paramName}";
+                            output.Add(new PreprocessedLine($"getparam {paramRegister}", sourceLine));
                             paramIndex++;
                         }
                     }
