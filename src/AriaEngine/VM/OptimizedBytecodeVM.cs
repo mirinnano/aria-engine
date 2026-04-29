@@ -73,6 +73,14 @@ public sealed class OptimizedBytecodeVM : IDisposable
     public event Action? OnBGMStop;
     public event Action<string, int, int>? OnSEPlay;
 
+    // テキスト制御イベント
+    public event Action? OnTextClear;
+    public event Action? OnWaitClick;
+
+    // システムイベント
+    public event Action? OnSave;
+    public event Action? OnLoad;
+
     // ========================================
     // プロパティ
     // ========================================
@@ -365,13 +373,17 @@ public sealed class OptimizedBytecodeVM : IDisposable
                     break;
 
                 case BytecodeOpCode.TextClear:
-                    break; // TODO: 実装
+                    OnTextClear?.Invoke();
+                    break;
 
                 case BytecodeOpCode.WaitClick:
-                    break; // TODO: 実装
+                    OnWaitClick?.Invoke();
+                    break;
 
                 case BytecodeOpCode.WaitClickClear:
-                    break; // TODO: 実装
+                    OnTextClear?.Invoke();
+                    OnWaitClick?.Invoke();
+                    break;
 
                 // スプライト命令
                 case BytecodeOpCode.SpriteLoad:
@@ -402,10 +414,12 @@ public sealed class OptimizedBytecodeVM : IDisposable
 
                 // システム命令
                 case BytecodeOpCode.Save:
-                    break; // TODO: 実装
+                    OnSave?.Invoke();
+                    break;
 
                 case BytecodeOpCode.Load:
-                    break; // TODO: 実装
+                    OnLoad?.Invoke();
+                    break;
 
                 case BytecodeOpCode.Nop:
                     break;
