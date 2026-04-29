@@ -316,3 +316,13 @@ Plan update: Implemented T10 match/case transpilation in AriaEngine Parser
   - `"completed_at": "2026-04-29T00:00:00.000Z"`
 - All work is DONE. No remaining tasks. Plan fully executed and verified.
 
+## Post-Completion Bug Fix: Live Reload Crash
+- **Issue**: Engine crashed on startup in dev mode with `FileNotFoundException: Asset not found: .`
+- **Root cause**: `Program.cs:179` called `diskProvider.MaterializeToFile(".")` which tries to resolve `.` as a file path, but `.` is the current directory.
+- **Fix**: Added `Root` property to `DiskAssetProvider` and changed `Program.cs` to use `diskProvider.Root` directly for `LiveReloadManager`'s `FileSystemWatcher` base path.
+- **Verification**: 
+  - `dotnet build src/AriaEngine` → 0 warnings, 0 errors
+  - `dotnet test src/AriaEngine.Tests` → 180/180 pass
+  - `dotnet run -- --run-mode dev --init init.aria` → Engine starts successfully, enters game loop (no crash)
+- **Commit**: `2d9ee77`
+
