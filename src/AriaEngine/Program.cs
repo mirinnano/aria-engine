@@ -176,7 +176,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             // 開発モードかつディスクロード時のみライブリロードを有効化
             if (effectiveMode == RunMode.Dev && assetProvider is DiskAssetProvider diskProvider)
             {
-                liveReload = new LiveReloadManager(vm, scriptLoader, reporter, renderer, diskProvider.MaterializeToFile("."));
+                liveReload = new LiveReloadManager(vm, scriptLoader, reporter, renderer, diskProvider.Root);
             }
 
             SafeFrame("vm.step.initial", vm.Step, reporter);
