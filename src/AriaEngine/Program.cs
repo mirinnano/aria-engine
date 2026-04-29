@@ -78,6 +78,12 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             return;
         }
 
+        if (args.Length > 0 && args[0].Equals("aria-save", StringComparison.OrdinalIgnoreCase))
+        {
+            Environment.ExitCode = AriaSaveCommand.Run(args[1..]);
+            return;
+        }
+
         var reporter = new ErrorReporter();
         SpriteRenderer? renderer = null;
         AudioManager? audio = null;
