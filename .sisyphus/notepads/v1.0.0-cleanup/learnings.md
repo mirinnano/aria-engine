@@ -55,3 +55,31 @@
 ### Verification
 - dotnet build src/AriaEngine: 0 warnings, 0 errors
 - dotnet test src/AriaEngine.Tests: 180/180 passed
+
+## aria-save CLI Tool Implementation (2026-04-29)
+
+### Files Created
+- `Tools/AriaSaveCommand.cs` — New CLI tool for save file inspection/validation
+
+### Files Modified
+- `Program.cs` — Registered `aria-save` command alongside other CLI tools
+
+### Implementation Details
+- Follows same static Run(args) pattern as AriaLintCommand, AriaFormatCommand, etc.
+- Uses SaveManager to read save files (GetAllSaveSlots, Load, GetSaveData)
+- Save files in `saves/` directory, format ARIASAVE3 with AES encryption
+- SaveManager constructor requires ErrorReporter — create dummy instance for CLI
+
+### Commands Implemented
+- `aria-save list` — Lists all 10 slots with chapter, timestamp, playtime, preview
+- `aria-save info <slot>` — Shows detailed info for specific slot
+- `aria-save validate` — Validates all save files by attempting load
+- `aria-save help` — Shows usage
+
+### Exit Codes
+- 0: Success (or all saves valid for validate)
+- 1: Validation errors found
+- 2: Invalid arguments
+
+### Verification
+- dotnet build: 0 warnings, 0 errors
