@@ -180,10 +180,6 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                 return true;
 
             case OpCode.Print:
-                if (inst.Arguments.Count > 0)
-                {
-                    Console.WriteLine($"[PRINT] {GetVal(inst.Arguments[0])}");
-                }
                 return true;
             case OpCode.Effect:
                 return true;

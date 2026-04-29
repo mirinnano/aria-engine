@@ -114,20 +114,20 @@ public static class AriaPackCommand
             string logical = $"{PakArchive.NormalizePath(inputDir)}/{rel}";
             byte[] data = File.ReadAllBytes(file);
             entries.Add((logical, GuessType(file), data));
-            if (verbose) Console.WriteLine($"  + {logical} ({data.Length} bytes)");
+            if (verbose) Console.Error.WriteLine($"  + {logical} ({data.Length} bytes)");
         }
 
         if (!string.IsNullOrWhiteSpace(compiledPath))
         {
             byte[] compiled = File.ReadAllBytes(compiledPath);
             entries.Add(("scripts/scripts.ariac", "script", compiled));
-            if (verbose) Console.WriteLine($"  + scripts/scripts.ariac ({compiled.Length} bytes)");
+            if (verbose) Console.Error.WriteLine($"  + scripts/scripts.ariac ({compiled.Length} bytes)");
         }
 
         byte[]? key = string.IsNullOrWhiteSpace(keyMaterial) ? null : CryptoHelper.DeriveKey(keyMaterial);
         PakArchive.Write(outputPath, entries, key);
-        Console.WriteLine($"Pak written: {outputPath}");
-        Console.WriteLine($"Entries: {entries.Count}");
+        Console.Error.WriteLine($"Pak written: {outputPath}");
+        Console.Error.WriteLine($"Entries: {entries.Count}");
         return 0;
     }
 
@@ -175,7 +175,7 @@ public static class AriaPackCommand
 
         byte[]? key = string.IsNullOrWhiteSpace(keyMaterial) ? null : CryptoHelper.DeriveKey(keyMaterial);
         PakPatch.Create(basePath, newPath, outputPath, key);
-        Console.WriteLine($"Patch written: {outputPath}");
+        Console.Error.WriteLine($"Patch written: {outputPath}");
         return 0;
     }
 
@@ -223,7 +223,7 @@ public static class AriaPackCommand
 
         byte[]? key = string.IsNullOrWhiteSpace(keyMaterial) ? null : CryptoHelper.DeriveKey(keyMaterial);
         PakPatch.Apply(basePath, patchPath, outputPath, key);
-        Console.WriteLine($"Updated pak written: {outputPath}");
+        Console.Error.WriteLine($"Updated pak written: {outputPath}");
         return 0;
     }
 

@@ -38,7 +38,7 @@ public static class AriaFormatCommand
 
         if (!File.Exists(inputPath))
         {
-            Console.WriteLine($"File not found: {inputPath}");
+            Console.Error.WriteLine($"File not found: {inputPath}");
             return 1;
         }
 
@@ -49,7 +49,7 @@ public static class AriaFormatCommand
         if (write)
         {
             File.WriteAllText(inputPath, output);
-            Console.WriteLine($"Formatted: {inputPath}");
+            Console.Error.WriteLine($"Formatted: {inputPath}");
         }
         else
         {

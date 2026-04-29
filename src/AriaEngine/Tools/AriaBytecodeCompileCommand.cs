@@ -46,7 +46,7 @@ public static class AriaBytecodeCompileCommand
         var parser = new Parser(reporter);
         var provider = new DiskAssetProvider(Directory.GetCurrentDirectory());
 
-        Console.WriteLine($"Compiling: {inputPath}");
+        Console.Error.WriteLine($"Compiling: {inputPath}");
 
         try
         {
@@ -70,18 +70,18 @@ public static class AriaBytecodeCompileCommand
             File.WriteAllBytes(outputPath, bytecodeBytes);
 
             // 統計情報を表示
-            Console.WriteLine($"Output: {outputPath}");
-            Console.WriteLine($"Size: {bytecodeBytes.Length} bytes");
-            Console.WriteLine($"Functions: {bytecodeFile.Functions.Count}");
-            Console.WriteLine($"Strings: {bytecodeFile.Strings.Count}");
-            Console.WriteLine($"Constants: {bytecodeFile.Constants.Count}");
-            Console.WriteLine($"Instructions: {parseResult.Instructions.Count}");
+            Console.Error.WriteLine($"Output: {outputPath}");
+            Console.Error.WriteLine($"Size: {bytecodeBytes.Length} bytes");
+            Console.Error.WriteLine($"Functions: {bytecodeFile.Functions.Count}");
+            Console.Error.WriteLine($"Strings: {bytecodeFile.Strings.Count}");
+            Console.Error.WriteLine($"Constants: {bytecodeFile.Constants.Count}");
+            Console.Error.WriteLine($"Instructions: {parseResult.Instructions.Count}");
 
             // エラーがあればログを保存
             if (reporter.Errors.Count > 0)
             {
                 reporter.WriteLogFile();
-                Console.WriteLine("Warning: Compilation completed with errors. See aria_error.log.");
+                Console.Error.WriteLine("Warning: Compilation completed with errors. See aria_error.log.");
                 return 2;
             }
 
