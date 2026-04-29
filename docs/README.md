@@ -1,101 +1,113 @@
-# AriaEngine ドキュメント
+# AriaEngine Documentation | AriaEngine ドキュメント
 
-AriaEngineのドキュメントへようこそ！このドキュメントでは、エンジンの使用方法からアーキテクチャまで、開発に必要な情報を網羅しています。
+<!-- Japanese primary, English secondary -->
 
-## ドキュメント構成
+AriaEngineビジュアルノベルエンジンのドキュメントへようこそ！
+Welcome to the AriaEngine documentation hub!
 
-### 📚 入門ガイド
-- [README.md](../README.md) - プロジェクトの概要とクイックスタート
+---
 
-### 💻 スクリプト言語リファレンス ([scripting/](scripting/))
-- [コア仕様（ドラフト）](scripting/core-spec.md) - 命令責務、文法方針、副作用ルール
-- [基本構文](scripting/basics.md) - テキスト表示、変数、ラベル、サブルーチン
-- [制御構造](scripting/control-flow.md) - 条件分岐、ループ、ジャンプ
-- [スプライト操作](scripting/sprites.md) - スプライト作成、操作、プロパティ設定
-- [アニメーション](scripting/animations.md) - Tweenアニメーション、イージング、待機
-- [UI要素](scripting/ui-elements.md) - ボタン、メニュー、テキストボックス
-- [高度な機能](scripting/advanced.md) - チャプター管理、フラグシステム、キャラクター管理
+## 何をお探しですか？ | What are you looking for?
 
-### 🔧 APIドキュメント ([api/](api/))
-- [オペコードリファレンス](api/opcodes.md) - 全63種類のオペコードの詳細説明
+### 🎓 初めての方へ | First time?
 
-### 🎓 チュートリアル ([tutorials/](tutorials/))
-- [最初のプロジェクト作成](tutorials/getting-started.md) - 環境セットアップから最初のスクリプトまで
-- [UI作成](tutorials/creating-ui.md) - タイトル画面、ボタン、ホバーエフェクト
-- [チャプターシステム](tutorials/chapter-system.md) - チャプター定義、選択画面、アンロック機能
-- [セーブ/ロード実装](tutorials/save-load.md) - セーブデータ構造、セーブポイント、ロード画面
+>AriaEngine使ったことがなく、、まずは概要を知りたい
+>You want to learn what AriaEngine is and how to get started
 
-### 🏗️ アーキテクチャ ([architecture/](architecture/))
-- [言語理念](architecture/language-philosophy.md) - Ariaの設計原則と非目標
-- [概要](architecture/overview.md) - エンジンの全体構成と主要コンポーネント
-- [仮想マシン](architecture/vm.md) - VMの仕組み、プログラムカウンタ、コールスタック
-- [パーサー](architecture/parser.md) - トークン化、命令生成、エラー処理
-- [レンダリング](architecture/rendering.md) - スプライト描画、Zオーダー、トランジション
+→ [README.md](../README.md) または [tutorials/getting-started.md](tutorials/getting-started.md)
 
-### 🛠️ 開発運用 ([development/](development/))
-- [Git/GitHub Workflow](development/git-github.md) - 差分確認、検証、PR作成の定型手順
+---
 
-## クイックリファレンス
+### 📖 4つのドキュメント类型 | Four Documentation Types (Diátaxis)
 
-### よく使うコマンド
+| Quadrant | 日本語 | English | ドキュメント | Doc |
+|---------|--------|---------|------------|-----|
+| **Tutorials** | 📚 チュートリアル | 📚 Tutorials | 学習向き | Learning-oriented |
+| **How-To Guides** | 🔧 使い方ガイド | 🔧 How-To Guides | 問題解決向き | Problem-oriented |
+| **Reference** | 📋 リファレンス | 📋 Reference | 情報参照向き | Information-oriented |
+| **Explanation** | 💡 解説 | 💡 Explanation | 理解促進向き | Understanding-oriented |
 
-| コマンド | 説明 | 使用例 |
-|---------|------|--------|
-| `text` | テキスト表示 | `text "こんにちは"` |
-| `wait` | 待機 | `wait 1000` |
-| `lsp` | スプライトロード | `lsp 10, "bg.png", 0, 0` |
-| `msp` | スプライト移動 | `msp 10, 100, 200, 500` |
-| `if` | 条件分岐 | `if %0 == 1 goto *label` |
-| `for` | ループ | `for %i = 0 to 10` |
+---
 
-### プロジェクトの開始方法
+### 🚀 迷ったら | Not sure where to start?
 
-```bash
-# ビルド
-dotnet build
-
-# 実行
-cd src/AriaEngine
-dotnet run
+```
+初めてですか？     → tutorials/getting-started.md へ
+スクリプトの書き方 → how-to-guides/ へ
+コマンドの詳細     → reference/ へ
+仕組みを理解したい → explanation/ へ
+AI agentで拡張     → ai-agent/ へ
 ```
 
-### スクリプトの基本構造
+---
 
-```aria
-*label_name
-    text "テキスト"
-    wait 1000
-    goto *another_label
-```
+## 📚 ドキュメント構成 | Documentation Structure
 
-## トラブルシューティング
+### 🎓 チュートリアル | Tutorials
+学習为导向 | Learning-oriented
 
-### ビルドエラー
-- `.NET 8.0 SDK`がインストールされているか確認
-- `dotnet --version` でバージョンを確認
+- [最初プロジェクト作成](tutorials/getting-started.md) — はじめての方へ
+- [UI作成](tutorials/creating-ui.md) — タイトル画面・ボタン
+- [チャプターシステム](tutorials/chapter-system.md) — 場面管理
+- [セーブ/ロード](tutorials/save-load.md) — データ保存
 
-### 実行時エラー
-- `init.aria` ファイルが存在するか確認
-- フォントファイルパスが正しいか確認
-- スクリプトファイルの構文エラーがないか確認
+📍 パス: `docs/tutorials/`
 
-### スプライトが表示されない
-- `vsp` コマンドで表示状態を確認
-- `sp_alpha` コマンドで透明度を確認
-- Zオーダーを確認（重なっている可能性）
+### 🔧 使い方ガイド | How-To Guides
+問題解決为导向 | Problem-oriented
 
-## 貢献
+- [ゲームを作る](how-to-guides/creating-a-game.md)
+- [スプライト操作](how-to-guides/sprite-operations.md)
+- [アニメーション](how-to-guides/animations.md)
+- [音频Playback](how-to-guides/audio.md)
 
-ドキュメントの改善や修正を歓迎します！以下の手順で貢献できます：
+📍 パス: `docs/how-to-guides/`
 
-1. ドキュメントを修正・追加
-2. 差分を確認 (`.\scripts\git-report.ps1 -IncludeDiffStat`)
-3. 変更をコミット (`git commit -m 'docs: Improve documentation'`)
-4. ブランチをプッシュ (`git push origin feature/docs-improvement`)
-5. プルリクエストを作成
+### 📋 リファレンス | Reference
+情報参照为导向 | Information-oriented
 
-## リンク
+- [オペコード一覧](reference/opcodes/) — 全コマンド
+- [スクリプト構文](reference/syntax.md) — 文法規則
 
-- [GitHubリポジトリ](https://github.com/mirinnano/aria-engine)
-- [問題報告](https://github.com/mirinnano/aria-engine/issues)
-- [ディスカッション](https://github.com/mirinnano/aria-engine/discussions)
+📍 パス: `docs/reference/`
+
+### 💡 解説 | Explanation
+理解促进为导向 | Understanding-oriented
+
+- [言語理念](explanation/language-philosophy.md) — 設計思想
+- [VM概要](explanation/vm.md) — 仮想マシン
+- [パーサー](explanation/parser.md) — 解析机理
+
+📍 パス: `docs/explanation/`
+
+### 🤖 AI Agent向け | AI Agent Guide
+AI agent扩展为导向 | AI agent extension-oriented
+
+- [プロンプト生成](ai-agent/prompt-generation.md)
+- [コード生成](ai-agent/code-generation.md)
+
+📍 パス: `docs/ai-agent/`
+
+---
+
+## ⚡ クイックリファレンス | Quick Reference
+
+最も使うコマンド5つ | Top 5 most common commands:
+
+| コマンド | Command | 説明 | Description |
+|---------|---------|------|-------------|
+| `text` | text | テキスト表示 | Display text |
+| `wait` | wait | 待機 | Wait/delay |
+| `lsp` | lsp | スプライト読込 | Load sprite |
+| `msp` | msp | スプライト移動 | Move sprite |
+| `if` | if | 条件分岐 | Conditional |
+
+更多コマンドは [reference/opcodes/](reference/opcodes/) を参照。
+
+---
+
+## 🔗 リンク | Links
+
+- [プロジェクトREADME](../README.md)
+- [GitHub](https://github.com/mirinnano/aria-engine)
+- [イシュー報告](https://github.com/mirinnano/aria-engine/issues)
