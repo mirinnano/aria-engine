@@ -11,6 +11,7 @@ namespace AriaEngine.Core;
 
 public class AppConfig
 {
+    public int SchemaVersion { get; set; } = 1;
     public int GlobalTextSpeedMs { get; set; } = 30;
     public int DefaultTextSpeedMs { get; set; } = 30; // engine default
     public int BgmVolume { get; set; } = 100;
@@ -25,6 +26,7 @@ public class AppConfig
 
 public class PersistentGameData
 {
+    public int SchemaVersion { get; set; } = 2;
     public Dictionary<string, int> Registers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, bool> Flags { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, bool> SaveFlags { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -99,12 +101,27 @@ public class ConfigManager
             using var decryptor = aes.CreateDecryptor();
             byte[] compressed = decryptor.TransformFinalBlock(cipher, 0, cipher.Length);
             byte[] json = Decompress(compressed);
-            return JsonSerializer.Deserialize<PersistentGameData>(json) ?? new PersistentGameData();
+            var data = JsonSerializer.Deserialize<PersistentGameData>(json) ?? new PersistentGameData();
+            MigratePersistentGameData(data);
+            return data;
         }
         catch (Exception ex)
         {
             ReportConfigException("PERSISTENT_LOAD", ex, "永続データの読み込みに失敗しました。新規データで続行します。");
             return new PersistentGameData();
+        }
+    }
+
+    private static void MigratePersistentGameData(PersistentGameData data)
+    {
+        if (data.SchemaVersion <= 0) data.SchemaVersion = 1;
+        if (data.SchemaVersion < 2)
+        {
+            data.SaveFlags ??= new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            data.Counters ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            data.ReadKeys ??= new List<string>();
+            data.UnlockedCgs ??= new List<string>();
+            data.SchemaVersion = 2;
         }
     }
 

@@ -11,10 +11,7 @@ using AriaEngine.Assets;
 using AriaEngine.Scripting;
 using AriaEngine.Tools;
 
-// 条件付きでテスト名前空間をインポート
-#if ARIA_TEST
-using AriaEngine.Tests;
-#endif
+
 
 namespace AriaEngine;
 
@@ -29,16 +26,12 @@ class Program
         public string? PakPath { get; set; }
         public string? Key { get; set; } = Environment.GetEnvironmentVariable("ARIA_PACK_KEY");
         public string CompiledPath { get; set; } = "scripts/scripts.ariac";
-        public string? BytecodePath { get; set; }  // .aribファイルパス
     }
 
     [STAThread]
     static void Main(string[] args)
     {
-#if ARIA_TEST
-        // テストモード
-        return BytecodeVMTest.RunTests();
-#endif
+
 
         if (args.Length > 0 && args[0].Equals("aria-doc", StringComparison.OrdinalIgnoreCase))
         {
@@ -52,13 +45,7 @@ class Program
             return;
         }
 
-#if ARIA_BYTECODE
-        if (args.Length > 0 && args[0].Equals("aria-bytecode-compile", StringComparison.OrdinalIgnoreCase))
-        {
-            Environment.ExitCode = AriaBytecodeCompileCommand.Run(args[1..]);
-            return;
-        }
-#endif
+
 
 if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnoreCase))
         {
@@ -297,10 +284,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                     i++;
                     if (i < args.Length) options.CompiledPath = args[i];
                     break;
-                case "--bytecode":
-                    i++;
-                    if (i < args.Length) options.BytecodePath = args[i];
-                    break;
+
                 case "--init":
                     i++;
                     if (i < args.Length) options.InitPath = args[i];

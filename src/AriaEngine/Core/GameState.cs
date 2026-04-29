@@ -336,6 +336,7 @@ public sealed class EngineSettingsState
     public int FontAtlasSize { get; set; } = FontConstants.DefaultAtlasSize;
     public string MainScript { get; set; } = "assets/scripts/main.aria";
     public bool DebugMode { get; set; }
+    public bool ProductionMode { get; set; }
     public TextureFilter FontFilter { get; set; } = TextureFilter.Bilinear;
 }
 
@@ -558,6 +559,7 @@ public class GameState
     public int FontAtlasSize { get => EngineSettings.FontAtlasSize; set => EngineSettings.FontAtlasSize = value; }
     public string MainScript { get => EngineSettings.MainScript; set => EngineSettings.MainScript = value; }
     public bool DebugMode { get => EngineSettings.DebugMode; set => EngineSettings.DebugMode = value; }
+    public bool ProductionMode { get => EngineSettings.ProductionMode; set => EngineSettings.ProductionMode = value; }
     public GameScene CurrentScene { get => SceneRuntime.CurrentScene; set => SceneRuntime.CurrentScene = value; }
     public Dictionary<string, object> SceneData { get => SceneRuntime.SceneData; set => SceneRuntime.SceneData = value; }
     public bool IsTransitioning { get => SceneRuntime.IsTransitioning; set => SceneRuntime.IsTransitioning = value; }

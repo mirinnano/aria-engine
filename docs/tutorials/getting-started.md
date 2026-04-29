@@ -1,82 +1,89 @@
-# 最初のプロジェクト作成
+# はじめてのプロジェクト
 
-このチュートリアルでは、AriaEngineを使用して最初のビジュアルノベルプロジェクトを作成する方法を説明します。
+このチュートリアルでは、AriaEngineで最初のビジュアルノベルを動かすまでの手順を順番に説明します。前提知識は不要です。各ステップをそのまま実行していけば、最後にはゲームが動きます。
 
-## ステップ1: 環境セットアップ
+---
 
-### .NET 8.0 SDKのインストール
+## ステップ1: .NET 8.0 SDKをインストールする
 
-AriaEngineは.NET 8.0を使用しています。まだインストールされていない場合は、[公式サイト](https://dotnet.microsoft.com/download/dotnet/8.0)からインストールしてください。
+AriaEngineは.NET 8.0で動作します。まだインストールされていない場合は、[.NETの公式サイト](https://dotnet.microsoft.com/download/dotnet/8.0)からSDKをダウンロードしてください。
 
-インストール後、以下のコマンドでバージョンを確認できます：
+インストール後、ターミナルでバージョンを確認します。
 
 ```bash
 dotnet --version
 ```
 
-`8.0.x`と表示されればOKです。
+`8.0.x` と表示されればOKです。
 
-### プロジェクトのクローン
+---
 
-既存のプロジェクトがある場合は、GitHubからクローンします：
+## ステップ2: プロジェクトをクローンしてビルドする
+
+GitHubからプロジェクトを取得し、ビルドします。
 
 ```bash
-git clone https://github.com/your-username/aria-engine.git
+git clone https://github.com/mirinnano/aria-engine.git
 cd aria-engine
-```
-
-### プロジェクトのビルド
-
-プロジェクトをビルドします：
-
-```bash
 dotnet build
 ```
 
-ビルドが成功すると、エラーメッセージが表示されず、ビルド成功のメッセージが表示されます。
+ビルドが成功すると、`ビルド succeeded` のようなメッセージが表示されます。
 
-## ステップ2: init.ariaの作成
+---
 
-`init.aria`ファイルは、エンジンの初期化設定を記述するファイルです。プロジェクトのルートディレクトリ（`src/AriaEngine/`）に作成します。
+## ステップ3: init.ariaを作成する
 
-### 基本的なinit.aria
+`init.aria` はエンジン起動時に最初に読み込まれる設定ファイルです。ウィンドウサイズやフォント、メインスクリプトの場所を指定します。
+
+`src/AriaEngine/` ディレクトリに `init.aria` を新規作成してください。
 
 ```aria
-; ウィンドウ設定
-window 1280, 720, "My Visual Novel"
+; ウィンドウ設定（幅, 高さ, タイトル）
+window 1280, 720, "はじめてのビジュアルノベル"
 
 ; フォント設定
 font "assets/fonts/NotoSansJP-Regular.ttf"
-font_atlas_size 192
-font_filter "bilinear"
+font_atlas_size 256
 
-; メインスクリプト設定
+; メインスクリプトのパス
 script "assets/scripts/main.aria"
 
-; デバッグモード
+; NScripter互換モード（テキストボックスを自動生成する）
+compat_mode on
+
+; デバッグモード（F3キーで表示切替）
 debug on
+
+; テキストボックスの位置とサイズ（x, y, 幅, 高さ）
+textbox 50, 500, 1180, 200
+
+; 文字の大きさと色
+fontsize 32
+textcolor "#ffffff"
 ```
 
-### 各設定の説明
+各設定の意味は以下の通りです。
 
-- `window 1280, 720, "My Visual Novel"`: ウィンドウサイズを1280x720に設定し、タイトルを「My Visual Novel」にします
-- `font "assets/fonts/NotoSansJP-Regular.ttf"`: 日本語フォントを指定します
-- `font_atlas_size 192`: フォントアトラスサイズを192pxに設定します（大きいほど高品質）
-- `font_filter "bilinear"`: フォントフィルターをバイリニアに設定します（滑らかな表示）
-- `script "assets/scripts/main.aria"`: メインスクリプトファイルを指定します
-- `debug on`: デバッグモードを有効にします（F3キーでデバッグ情報表示）
+| 設定 | 意味 |
+|------|------|
+| `window` | ゲームウィンドウのサイズとタイトル |
+| `font` | 使用するフォントファイルのパス |
+| `font_atlas_size` | フォントの品質（大きいほどきれい） |
+| `script` | ゲームの本体スクリプトファイルのパス |
+| `compat_mode` | `on` にするとテキストボックスが自動で作られる |
+| `debug` | `on` にするとデバッグ情報が表示される |
+| `textbox` | テキスト表示領域の位置とサイズ |
+| `fontsize` | デフォルトの文字サイズ |
+| `textcolor` | デフォルトの文字色（16進カラー） |
 
-## ステップ3: フォントファイルの準備
+詳細は [init.ariaリファレンス](../reference/init-aria.md) を参照してください。
 
-日本語を表示するには、日本語フォントが必要です。以下の手順でフォントを準備します：
+### フォントファイルの準備
 
-### フォントのダウンロード
+日本語を表示するには、日本語対応のTTFフォントが必要です。ここでは [Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP) を例にします。
 
-[Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP)などの日本語フォントをダウンロードします。
-
-### フォントの配置
-
-ダウンロードしたフォントファイルを`src/AriaEngine/assets/fonts/`ディレクトリに配置します：
+ダウンロードしたフォントファイルを `src/AriaEngine/assets/fonts/` に配置してください。
 
 ```
 src/AriaEngine/
@@ -85,323 +92,79 @@ src/AriaEngine/
         └── NotoSansJP-Regular.ttf
 ```
 
-## ステップ4: メインスクリプトの作成
+---
 
-`assets/scripts/main.aria`ファイルを作成し、最初のスクリプトを記述します。
+## ステップ4: main.ariaを作成する
 
-### 最小限のスクリプト
+メインスクリプトにゲームの内容を書きます。
+
+`src/AriaEngine/assets/scripts/` ディレクトリを作成し、その中に `main.aria` を新規作成してください。
 
 ```aria
 *start
-    ; 背景を設定
-    bg "#1a1a2e", 2
+    ; 背景を黒に設定
+    bg "#0f0f1a"
 
     ; テキストをクリア
     textclear
 
     ; テキストを表示
-    text "こんにちは、AriaEngineへようこそ！"
-    wait 1000
+    text "ようこそ、AriaEngineへ！"
+    wait
 
-    text "これはあなたの最初のビジュアルノベルです"
-    wait 1000
+    text "これはあなたの最初のスクリプトです。"
+    wait
 
-    ; 終了
+    ; キャラクター名付きのセリフ（自動的にクリック待機＋クリアが入る）
+    ミオ「こんにちは！私はミオです。"
+
+    ミオ「一緒にゲームを作っていきましょう。"
+
+    ; ゲーム終了
     end
 ```
 
-### 実行とテスト
+ここで使っているコマンドの概要です。
 
-プロジェクトを実行します：
+| コマンド | 動作 |
+|---------|------|
+| `*start` | ラベル（ここから実行が始まる） |
+| `bg` | 背景画像または背景色を設定 |
+| `textclear` | テキスト表示領域をクリア |
+| `text` | テキストを表示 |
+| `wait` | クリック待機（引数なし） |
+| `名前「セリフ」` | キャラクター名付きテキスト（自動でクリック待機） |
+| `end` | ゲームを終了する |
+
+`wait` は引数なしで使うと「クリックされるまで待つ」になります。テキストを読んだらマウスクリックまたはEnterキーで次に進みます。
+
+構文の詳細は [スクリプト構文リファレンス](../reference/syntax.md) を参照してください。
+
+---
+
+## ステップ5: 実行してみる
+
+エンジンを起動します。
 
 ```bash
 cd src/AriaEngine
 dotnet run
 ```
 
-ウィンドウが開き、テキストが表示されれば成功です！何かキーを押すと進みます。
+ウィンドウが開き、テキストが表示されたら成功です。クリックまたはEnterキーで次のテキストへ進みます。最後まで読むとウィンドウが閉じます。
 
-## ステップ5: インタラクティブなスクリプト
+うまく動かない場合は、以下を確認してください。
 
-次に、よりインタラクティブなスクリプトを作成します。
+- `init.aria` が `src/AriaEngine/` にあるか
+- フォントファイルのパスが正しいか
+- `main.aria` が `src/AriaEngine/assets/scripts/` にあるか
 
-### 選択肢の追加
+---
 
-```aria
-*start
-    ; 背景設定
-    bg "#1a1a2e", 2
-    textclear
+## ステップ6: 次のステップ
 
-    ; イントロダクション
-    ミオ「こんにちは、私はミオです」
-    wait 1000
+基本が動いたら、次のチュートリアルでUIの作り方を学びましょう。
 
-    ミオ「あなたの名前は何ですか？」
-    wait 1000
+- [UI作成](creating-ui.md) — タイトル画面とボタンの作り方
 
-    ; 名前入力（簡易版）
-    let $player_name, "主人公"
-
-    ; 選択肢
-    text "どうしますか？"
-    text "1: 自己紹介する"
-    text "2: 黙っている"
-
-    btnwait %choice
-
-    if %choice == 1
-        goto *introduce
-    elseif %choice == 2
-        goto *silent
-    endif
-
-*introduce
-    主人公「はじめまして、${$player_name}です」
-    ミオ「よろしくお願いします、${$player_name}さん」
-    goto *continue
-
-*silent
-    ミオ「...静かなんですね」
-    主人武「...」
-    goto *continue
-
-*continue
-    ミオ「これから一緒に冒険しましょう」
-    wait 1000
-
-    text "（エンディング）"
-    end
-```
-
-## ステップ6: 画像の追加
-
-背景画像やキャラクター画像を追加して、ビジュアルを向上させます。
-
-### 画像の準備
-
-背景画像やキャラクター画像を用意し、以下のディレクトリに配置します：
-
-```
-src/AriaEngine/assets/
-├── bg/
-│   └── forest.png
-└── ch/
-    └── mio.png
-```
-
-### 画像を使用したスクリプト
-
-```aria
-*start
-    ; 背景画像を表示
-    lsp 10, "assets/bg/forest.png", 0, 0
-    vsp 10, on
-
-    ; フェードイン
-    sp_alpha 10, 0
-    afade 10, 255, 1000
-    await
-
-    ; キャラクターを表示
-    lsp 20, "assets/ch/mio.png", 800, 0
-    vsp 20, on
-
-    ; 会話
-    ミオ「ここは美しい森ですね」
-    wait 1000
-
-    ミオ「一緒に散歩しましょう」
-    wait 1000
-
-    ; 終了
-    csp -1
-    end
-```
-
-## ステップ7: ボタンの追加
-
-ボタンを追加して、ユーザーインターフェースを作成します。
-
-### ボタン付きスクリプト
-
-```aria
-*title_screen
-    ; 背景
-    bg "#1a1a2e", 2
-
-    ; タイトルテキスト
-    lsp_text 100, "私のゲーム", 640, 200
-    sp_fontsize 100, 64
-    sp_text_align 100, "center"
-    sp_color 100, "#ffffff"
-
-    ; スタートボタン
-    lsp_rect 101, 440, 300, 400, 60
-    sp_fill 101, "#2a2a3e", 255
-    sp_round 101, 10
-    sp_border 101, "#4a4a6e", 2
-    sp_hover_color 101, "#3a3a5e"
-    sp_isbutton 101, true
-    spbtn 101, 1
-
-    lsp_text 102, "スタート", 640, 315
-    sp_text_align 102, "center"
-    sp_color 102, "#ffffff"
-
-    ; 終了ボタン
-    lsp_rect 103, 440, 380, 400, 60
-    sp_fill 103, "#2a2a3e", 255
-    sp_round 103, 10
-    sp_border 103, "#4a4a6e", 2
-    sp_hover_color 103, "#3a3a5e"
-    sp_isbutton 103, true
-    spbtn 103, 2
-
-    lsp_text 104, "終了", 640, 395
-    sp_text_align 104, "center"
-    sp_color 104, "#ffffff"
-
-    ; ボタン待機
-    btnwait %result
-
-    if %result == 1
-        goto *game_start
-    elseif %result == 2
-        end
-    endif
-
-*game_start
-    csp -1
-    text "ゲーム開始！"
-    end
-```
-
-## ステップ8: アニメーションの追加
-
-アニメーションを追加して、より動的な演出を行います。
-
-### アニメーション付きスクリプト
-
-```aria
-*start
-    ; 背景
-    bg "#1a1a2e", 2
-
-    ; キャラクター登場アニメーション
-    lsp 10, "assets/ch/mio.png", 1400, 0  ; 画面外に配置
-    vsp 10, on
-
-    ; スライドイン
-    amsp 10, 800, 0, 1000
-    ease 10, "easeout"
-    await
-
-    ; 会話
-    ミオ「こんにちは！」
-
-    ; 退場アニメーション
-    amsp 10, 1400, 0, 1000
-    ease 10, "easein"
-    await
-
-    csp 10
-    text "さようなら"
-    end
-```
-
-## ステップ9: セーブ/ロード機能
-
-セーブ/ロード機能を追加します。
-
-### セーブ/ロード付きスクリプト
-
-```aria
-*start
-    ; ゲーム開始フラグ
-    set_flag "game_started", 1
-
-    ; スコア初期化
-    set_counter "score", 0
-
-    ; イベント1
-    text "イベント1"
-    inc_counter "score", 10
-
-    ; セーブポイント
-    save 1
-
-    ; イベント2
-    text "イベント2"
-    inc_counter "score", 20
-
-    ; スコア表示
-    get_counter "score", %current_score
-    text "現在のスコア: ${%current_score}点"
-
-    ; 終了
-    end
-```
-
-## トラブルシューティング
-
-### エラー: フォントファイルが見つからない
-
-**問題**: `Font file not found` エラーが発生する
-
-**解決策**:
-1. フォントファイルが正しいパスにあるか確認
-2. `init.aria`のフォントパスを確認
-3. ファイル名の大文字小文字を確認
-
-### エラー: スクリプトファイルが見つからない
-
-**問題**: `Script file not found` エラーが発生する
-
-**解決策**:
-1. `assets/scripts/`ディレクトリにスクリプトファイルがあるか確認
-2. `init.aria`のスクリプトパスを確認
-3. ファイル名の拡張子を確認（`.aria`）
-
-### ウィンドウが表示されない
-
-**問題**: 実行してもウィンドウが表示されない
-
-**解決策**:
-1. `init.aria`ファイルが存在するか確認
-2. フォントファイルが存在するか確認
-3. コマンドラインでエラーメッセージを確認
-
-### テキストが表示されない
-
-**問題**: ウィンドウは表示されるがテキストが表示されない
-
-**解決策**:
-1. フォントサイズを確認（大きすぎると表示されない可能性）
-2. テキスト色を確認（背景色と同じでないか）
-3. `textclear`が適切に呼ばれているか確認
-
-## 次のステップ
-
-最初のプロジェクトが完成したら、次のチュートリアルに進みましょう：
-
-- [UI作成](creating-ui.md) - スタイリッシュなUIの作成方法
-- [チャプターシステム](chapter-system.md) - チャプター管理の実装
-- [セーブ/ロード実装](save-load.md) - 完全なセーブ/ロードシステム
-
-## まとめ
-
-このチュートリアルでは、以下のことを学びました：
-
-1. .NET 8.0 SDKのインストール
-2. プロジェクトのビルドと実行
-3. `init.aria`の作成と設定
-4. フォントの準備
-5. 基本的なスクリプトの作成
-6. インタラクティブなスクリプトの作成
-7. 画像の追加
-8. ボタンの追加
-9. アニメーションの追加
-10. セーブ/ロード機能の追加
-
-これでAriaEngineの基本をマスターしました！次はより高度な機能に挑戦しましょう。
+より詳しいコマンドの一覧は [オペコードリファレンス](../reference/opcodes/) を参照してください。

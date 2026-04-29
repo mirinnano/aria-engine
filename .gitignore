@@ -1,6 +1,6 @@
 # Build results
-[Dd]ebug/
-[Rr]elease/
+/[Dd]ebug/
+/[Rr]elease/
 x64/
 x86/
 [Aa]rm/
@@ -155,3 +155,12 @@ src/AriaEngine/aria_error_ai.*
 *.png
 *.jpg
 *.jpeg
+
+# Keys and certificates
+*.pfx
+*.snk
+*.cer
+
+# Temp script files
+temp_test*.aria
+

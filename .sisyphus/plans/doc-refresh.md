@@ -1264,7 +1264,7 @@ Max Concurrent: 15 (Wave 2)
   **Commit**: YES (Wave 2)
   - Message: `docs: add init opcode reference`
 
-- [ ] 22. **Write tutorials/getting-started.md**
+- [x] 22. **Write tutorials/getting-started.md**
 
   **What to do**:
   - Complete rewrite of the getting-started tutorial
@@ -1324,7 +1324,7 @@ Max Concurrent: 15 (Wave 2)
   **Commit**: YES (Wave 3)
   - Message: `docs: rewrite getting-started tutorial`
 
-- [ ] 23. **Write tutorials/creating-ui.md**
+- [x] 23. **Write tutorials/creating-ui.md**
 
   **What to do**:
   - Tutorial for creating a title screen with buttons
@@ -1369,7 +1369,7 @@ Max Concurrent: 15 (Wave 2)
   **Commit**: YES (Wave 3)
   - Message: `docs: rewrite creating-ui tutorial`
 
-- [ ] 24. **Write tutorials/chapter-system.md**
+- [x] 24. **Write tutorials/chapter-system.md**
 
   **What to do**:
   - Tutorial for implementing a chapter selection system
@@ -1419,7 +1419,7 @@ Max Concurrent: 15 (Wave 2)
   **Commit**: YES (Wave 3)
   - Message: `docs: rewrite chapter-system tutorial`
 
-- [ ] 25. **Write tutorials/save-load.md**
+- [x] 25. **Write tutorials/save-load.md**
 
   **What to do**:
   - Tutorial for implementing save/load functionality

@@ -7,13 +7,13 @@ public class InputHandler
 {
     public void Update(VirtualMachine vm)
     {
-        if (Raylib.IsKeyPressed(KeyboardKey.F3)) vm.State.DebugMode = !vm.State.DebugMode;
-        if (Raylib.IsKeyPressed(KeyboardKey.F5))
+        if (!vm.State.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F3)) vm.State.DebugMode = !vm.State.DebugMode;
+        if (!vm.State.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F5))
         {
             vm.SaveGame(0);
             return;
         }
-        if (Raylib.IsKeyPressed(KeyboardKey.F9))
+        if (!vm.State.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F9))
         {
             vm.Menu.CloseMenu();
             vm.LoadGame(0);

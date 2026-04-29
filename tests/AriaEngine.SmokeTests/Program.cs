@@ -47,7 +47,7 @@ try
     vm.ResumeFromButton(1);
     vm.Step();
 
-    Assert(vm.State.Flags.TryGetValue("chapter_day1", out var unlocked) && unlocked, "UNLOCK ALL style branch did not set pflag");
+    Assert(vm.State.SaveFlags.TryGetValue("chapter_day1", out var unlocked) && unlocked, "UNLOCK ALL style branch did not set pflag");
     Assert(vm.State.Sprites.Count == 0, "csp -1 did not clear sprites");
     Assert(vm.State.SpriteButtonMap.Count == 0, "csp -1 did not clear button map");
 

@@ -1,246 +1,233 @@
-# UI作成
+# UI作成 - タイトル画面とボタン
 
-このチュートリアルでは、AriaEngineを使用してスタイリッシュなUIを作成する方法を説明します。
+このチュートリアルでは、AriaEngineでタイトル画面を作成し、ボタンを配置してゲームを開始するまでの流れを学びます。
 
-## 前提: コアモードで開始する
+---
 
-新規プロジェクトは次を推奨します。
+## 目次
+
+1. [背景を作成する](#ステップ1-背景を作成する)
+2. [ボタンを追加する](#ステップ2-ボタンを追加する)
+3. [ホバーエフェクトを追加する](#ステップ3-ホバーエフェクトを追加する)
+4. [クリックを処理する](#ステップ4-クリックを処理する)
+5. [ゲームへ遷移する](#ステップ5-ゲームへ遷移する)
+
+---
+
+## ステップ1: 背景を作成する
+
+タイトル画面の背景を設定します。画像か、色を塗りつぶした画面を使えます。
+
+### 色で背景を作る
 
 ```aria
-compat_mode off
-ui_theme "clean"
-textmode manual
-text_target 3001
+*title
+    bg "#1a1a2e"
 ```
 
-`compat_mode off` では `choice` / `yesnobox` の自動UI生成は行われません。  
-描画命令（`lsp_rect` / `lsp_text` / `spbtn` / `btnwait`）でUIを構築します。
-
-## ステップ1: タイトル画面の基本
-
-### 基本的なタイトル画面
-
-まずはシンプルなタイトル画面を作成します。
+### 画像で背景を作る
 
 ```aria
-*title_screen
-    ; 背景を設定
-    bg "#1a1a2e", 2
+*title
+    bg "bg/title.png"
+```
+
+背景はスプライトID `0` に設定されます。次にタイトルロゴやテキストを重ねていきます。
+
+### タイトルテキストを表示する
+
+```aria
+*title
+    bg "#1a1a2e"
 
     ; タイトルテキスト
-    lsp_text 100, "ゲームタイトル", 640, 200
+    lsp_text 100, "私のゲーム", 640, 200
+    sp_fontsize 100, 64
+    sp_text_align 100, "center"
+    sp_color 100, "#ffffff"
+    sp_text_shadow 100, 3, 3, "#000000"
+```
+
+| コマンド | 役割 |
+|---------|------|
+| `lsp_text` | テキストスプライトを作成 |
+| `sp_fontsize` | フォントサイズを64pxに |
+| `sp_text_align` | 水平方向を中央揃え |
+| `sp_color` | 文字色を白に |
+| `sp_text_shadow` | テキストに影を追加 |
+
+---
+
+## ステップ2: ボタンを追加する
+
+ボタンは「矩形スプライト + テキストスプライト」の組み合わせで作ります。矩形がクリック領域になり、テキストが見た目のラベルになります。
+
+### 1つのボタンを作る
+
+```aria
+*title
+    bg "#1a1a2e"
+
+    lsp_text 100, "私のゲーム", 640, 200
     sp_fontsize 100, 64
     sp_text_align 100, "center"
     sp_color 100, "#ffffff"
 
-    ; スタートボタン
-    lsp_rect 101, 440, 300, 400, 60
-    sp_fill 101, "#2a2a3e", 255
-    sp_isbutton 101, true
-    spbtn 101, 1
-
-    lsp_text 102, "スタート", 640, 315
-    sp_text_align 102, "center"
-
-    ; ボタン待機
-    btnwait %result
-    if %result == 1
-        goto *game_start
-    endif
-```
-
-## ステップ2: スタイリッシュなボタンの作成
-
-### 角丸と枠線の追加
-
-ボタンをよりスタイリッシュにするために、角丸と枠線を追加します。
-
-```aria
-*stylish_button
-    ; ボタン背景
-    lsp_rect 101, 440, 300, 400, 60
-
-    ; 塗りつぶし色
-    sp_fill 101, "#4a6fa5", 255
-
-    ; 角丸（12px）
-    sp_round 101, 12
-
-    ; 枠線（白色、2px）
-    sp_border 101, "#5a7fb5", 2
-
-    ; ボタンとして設定
-    sp_isbutton 101, true
-    spbtn 101, 1
-
-    ; ボタンテキスト
-    lsp_text 102, "スタート", 640, 315
-    sp_fontsize 102, 24
-    sp_text_align 102, "center"
-    sp_color 102, "#ffffff"
-```
-
-### シャドウの追加
-
-ボタンにシャドウを追加して、奥行きを出します。
-
-```aria
-*button_with_shadow
-    ; ボタン背景
+    ; --- スタートボタン ---
+    ; ボタンの背景（矩形）
     lsp_rect 101, 440, 300, 400, 60
     sp_fill 101, "#4a6fa5", 255
     sp_round 101, 12
     sp_border 101, "#5a7fb5", 2
 
-    ; シャドウ（X=5, Y=5, 黒色, 透明度150）
-    sp_shadow 101, 5, 5, "#000000", 150
-
-    sp_isbutton 101, true
-    spbtn 101, 1
-
-    lsp_text 102, "スタート", 640, 315
+    ; ボタンのテキスト
+    lsp_text 102, "スタート", 640, 330
     sp_fontsize 102, 24
     sp_text_align 102, "center"
     sp_color 102, "#ffffff"
+
+    ; ボタンとして登録
+    spbtn 101, 1
+    spbtn 102, 1
 ```
 
-## ステップ3: ホバーエフェクトの追加
+| コマンド | 役割 |
+|---------|------|
+| `lsp_rect` | 矩形スプライトを作成（ID, X, Y, 幅, 高さ） |
+| `sp_fill` | 塗りつぶし色と透明度を設定 |
+| `sp_round` | 角丸の半径を設定（12px） |
+| `sp_border` | 枠線の色と太さを設定 |
+| `spbtn` | スプライトをボタン化し、結果値を割り当て |
+
+**ポイント:** `spbtn` を矩形とテキストの両方に同じ結果値 `1` を割り当てると、ボタンの背景部分と文字部分のどちらをクリックしても同じ動作になります。
+
+### シャドウを追加する
+
+ボタンに奥行きを出すには、`sp_shadow` を使います。
+
+```aria
+    lsp_rect 101, 440, 300, 400, 60
+    sp_fill 101, "#4a6fa5", 255
+    sp_round 101, 12
+    sp_border 101, "#5a7fb5", 2
+    sp_shadow 101, 4, 4, "#000000", 150
+```
+
+| 引数 | 値 | 意味 |
+|------|-----|------|
+| offsetX | 4 | 影を右へ4pxずらす |
+| offsetY | 4 | 影を下へ4pxずらす |
+| color | `#000000` | 影の色は黒 |
+| alpha | 150 | 影の透明度（0〜255） |
+
+---
+
+## ステップ3: ホバーエフェクトを追加する
+
+マウスカーソルがボタンの上に来た時の見た目を変えることで、ユーザーに「これは押せる」と示せます。
 
 ### ホバー時の色変更
 
-ボタンがホバーされた時に色を変更します。
-
 ```aria
-*hover_color
     lsp_rect 101, 440, 300, 400, 60
     sp_fill 101, "#4a6fa5", 255
     sp_round 101, 12
     sp_border 101, "#5a7fb5", 2
+    sp_shadow 101, 4, 4, "#000000", 150
 
-    ; ホバー時の色変更
-    sp_hover_color 101, "#5a7fb5"
-
-    sp_isbutton 101, true
-    spbtn 101, 1
-
-    lsp_text 102, "スタート", 640, 315
-    sp_text_align 102, "center"
+    ; ホバー時の色
+    sp_hover_color 101, "#5a8fc5"
 ```
 
-### ホバー時のスケール変更
-
-ボタンがホバーされた時にスケールを変更します。
+### ホバー時の拡大
 
 ```aria
-*hover_scale
-    lsp_rect 101, 440, 300, 400, 60
-    sp_fill 101, "#4a6fa5", 255
-    sp_round 101, 12
-
-    ; ホバー時に105%に拡大
+    ; ホバー時に5%拡大
     sp_hover_scale 101, 1.05
-
-    sp_isbutton 101, true
-    spbtn 101, 1
-
-    lsp_text 102, "スタート", 640, 315
-    sp_text_align 102, "center"
 ```
 
-### 完全なホバーエフェクト
-
-色とスケールの両方を変更します。
+### ホバー時のカーソル変更
 
 ```aria
-*full_hover_effect
+    ; マウスカーソルを手の形に
+    sp_cursor 101, "hand"
+```
+
+### 完全なホバーエフェクト例
+
+```aria
     lsp_rect 101, 440, 300, 400, 60
     sp_fill 101, "#4a6fa5", 255
     sp_round 101, 12
     sp_border 101, "#5a7fb5", 2
-    sp_shadow 101, 4, 4, "#000000", 200
+    sp_shadow 101, 4, 4, "#000000", 150
 
-    ; ホバーエフェクト
-    sp_hover_color 101, "#5a7fb5"
+    sp_hover_color 101, "#5a8fc5"
     sp_hover_scale 101, 1.05
+    sp_cursor 101, "hand"
 
-    sp_isbutton 101, true
+    spbtn 101, 1
+```
+
+---
+
+## ステップ4: クリックを処理する
+
+ボタンがクリックされたら、`btnwait` で結果を受け取り、`if` で分岐します。
+
+### 基本的なクリック処理
+
+```aria
+*title
+    bg "#1a1a2e"
+
+    lsp_text 100, "私のゲーム", 640, 200
+    sp_fontsize 100, 64
+    sp_text_align 100, "center"
+    sp_color 100, "#ffffff"
+
+    lsp_rect 101, 440, 300, 400, 60
+    sp_fill 101, "#4a6fa5", 255
+    sp_round 101, 12
+    sp_hover_color 101, "#5a8fc5"
     spbtn 101, 1
 
-    lsp_text 102, "スタート", 640, 315
+    lsp_text 102, "スタート", 640, 330
     sp_fontsize 102, 24
     sp_text_align 102, "center"
     sp_color 102, "#ffffff"
+    spbtn 102, 1
+
+    ; ボタンのクリックを待つ
+    btnwait %result
+
+    if %result == 1
+        text "スタートが押されました"
+    endif
 ```
 
-## ステップ4: テキストボックスの作成
+### 複数のボタンを処理する
 
-### 基本的なテキストボックス
-
-```aria
-*basic_textbox
-    ; テキストボックス背景
-    lsp_rect 200, 0, 540, 1280, 180
-    sp_fill 200, "#1a1a2e", 200
-    sp_round 200, 10
-    sp_border 200, "#3a3a5e", 2
-
-    ; text の出力先を明示
-    lsp_text 3001, "", 32, 570
-    sp_fontsize 3001, 28
-    sp_color 3001, "#ffffff"
-    text_target 3001
-
-    ; テキスト表示
-    text "これはテキストボックスです"
-```
-
-### スタイリッシュなテキストボックス
+タイトル画面によくある「スタート」「ロード」「設定」「終了」の4ボタン例です。
 
 ```aria
-*stylish_textbox
-    ; テキストボックス背景
-    lsp_rect 200, 0, 540, 1280, 180
-    sp_fill 200, "#1a1a2e", 220
-    sp_round 200, 15
-    sp_border 200, "#4a4a6e", 3
-    sp_shadow 200, 0, 5, "#000000", 150
+*title
+    bg "#1a1a2e"
 
-    ; テキスト表示設定
-    fontsize 24
-    textcolor "#ffffff"
-
-    ; テキスト表示
-    text "これはスタイリッシュなテキストボックスです"
-```
-
-## ステップ5: 完全なタイトル画面
-
-### 複数のボタンを持つタイトル画面
-
-```aria
-*complete_title_screen
-    ; 背景
-    bg "#1a1a2e", 2
-
-    ; タイトルロゴ（背景画像がある場合）
-    ; lsp 10, "assets/bg/title.png", 0, 0
-    ; vsp 10, on
-
-    ; タイトルテキスト
+    ; タイトル
     lsp_text 100, "私のゲーム", 640, 150
     sp_fontsize 100, 64
     sp_text_align 100, "center"
     sp_color 100, "#ffffff"
     sp_text_shadow 100, 3, 3, "#000000"
 
-    ; ボタン作成関数
+    ; ボタンを作成
     gosub *create_buttons
 
-    ; ボタン待機
+    ; クリック待ち
     btnwait %result
 
     if %result == 1
-        csp -1
         goto *new_game
     elseif %result == 2
         goto *load_game
@@ -251,80 +238,83 @@ text_target 3001
     endif
 
 *create_buttons
-    ; ボタン共通設定
-    let %button_width, 400
-    let %button_height, 60
-    let %button_x, 440
-    let %button_start_y, 250
-    let %button_spacing, 80
+    let %bw, 400
+    let %bh, 60
+    let %bx, 440
+    let %by, 280
+    let %gap, 80
 
-    ; スタートボタン
-    let %y, %button_start_y
-    lsp_rect 101, %button_x, %y, %button_width, %button_height
+    ; --- スタート ---
+    let %y, %by
+    lsp_rect 101, %bx, %y, %bw, %bh
     sp_fill 101, "#4a6fa5", 255
     sp_round 101, 12
     sp_border 101, "#5a7fb5", 2
-    sp_shadow 101, 4, 4, "#000000", 200
-    sp_hover_color 101, "#5a7fb5"
+    sp_shadow 101, 4, 4, "#000000", 150
+    sp_hover_color 101, "#5a8fc5"
     sp_hover_scale 101, 1.05
-    sp_isbutton 101, true
+    sp_cursor 101, "hand"
     spbtn 101, 1
 
     lsp_text 102, "スタート", 640, %y + 30
     sp_fontsize 102, 24
     sp_text_align 102, "center"
     sp_color 102, "#ffffff"
+    spbtn 102, 1
 
-    ; ロードボタン
-    let %y, %button_start_y + %button_spacing
-    lsp_rect 103, %button_x, %y, %button_width, %button_height
-    sp_fill 103, "#4a6fa5", 255
+    ; --- ロード ---
+    let %y, %by + %gap
+    lsp_rect 103, %bx, %y, %bw, %bh
+    sp_fill 103, "#5a5a6e", 255
     sp_round 103, 12
-    sp_border 103, "#5a7fb5", 2
-    sp_shadow 103, 4, 4, "#000000", 200
-    sp_hover_color 103, "#5a7fb5"
+    sp_border 103, "#6a6a7e", 2
+    sp_shadow 103, 4, 4, "#000000", 150
+    sp_hover_color 103, "#6a6a8e"
     sp_hover_scale 103, 1.05
-    sp_isbutton 103, true
+    sp_cursor 103, "hand"
     spbtn 103, 2
 
     lsp_text 104, "ロード", 640, %y + 30
     sp_fontsize 104, 24
     sp_text_align 104, "center"
     sp_color 104, "#ffffff"
+    spbtn 104, 2
 
-    ; 設定ボタン
-    let %y, %button_start_y + %button_spacing * 2
-    lsp_rect 105, %button_x, %y, %button_width, %button_height
-    sp_fill 105, "#4a6fa5", 255
+    ; --- 設定 ---
+    let %y, %by + %gap * 2
+    lsp_rect 105, %bx, %y, %bw, %bh
+    sp_fill 105, "#5a5a6e", 255
     sp_round 105, 12
-    sp_border 105, "#5a7fb5", 2
-    sp_shadow 105, 4, 4, "#000000", 200
-    sp_hover_color 105, "#5a7fb5"
+    sp_border 105, "#6a6a7e", 2
+    sp_shadow 105, 4, 4, "#000000", 150
+    sp_hover_color 105, "#6a6a8e"
     sp_hover_scale 105, 1.05
-    sp_isbutton 105, true
+    sp_cursor 105, "hand"
     spbtn 105, 3
 
     lsp_text 106, "設定", 640, %y + 30
     sp_fontsize 106, 24
     sp_text_align 106, "center"
     sp_color 106, "#ffffff"
+    spbtn 106, 3
 
-    ; 終了ボタン
-    let %y, %button_start_y + %button_spacing * 3
-    lsp_rect 107, %button_x, %y, %button_width, %button_height
-    sp_fill 107, "#4a6fa5", 255
+    ; --- 終了 ---
+    let %y, %by + %gap * 3
+    lsp_rect 107, %bx, %y, %bw, %bh
+    sp_fill 107, "#8a4a5a", 255
     sp_round 107, 12
-    sp_border 107, "#5a7fb5", 2
-    sp_shadow 107, 4, 4, "#000000", 200
-    sp_hover_color 107, "#5a7fb5"
+    sp_border 107, "#9a5a6a", 2
+    sp_shadow 107, 4, 4, "#000000", 150
+    sp_hover_color 107, "#9a5a6a"
     sp_hover_scale 107, 1.05
-    sp_isbutton 107, true
+    sp_cursor 107, "hand"
     spbtn 107, 4
 
     lsp_text 108, "終了", 640, %y + 30
     sp_fontsize 108, 24
     sp_text_align 108, "center"
     sp_color 108, "#ffffff"
+    spbtn 108, 4
 
     return
 
@@ -333,285 +323,123 @@ text_target 3001
     end
 
 *load_game
-    text "ロード画面へ..."
+    text "ロード画面へ遷移します"
     end
 
 *settings
-    text "設定画面へ..."
+    text "設定画面へ遷移します"
     end
 ```
 
-## ステップ6: レスポンシブなUI
+---
 
-### 画面サイズに合わせたUI配置
+## ステップ5: ゲームへ遷移する
 
-```aria
-*responsive_ui
-    ; 画面サイズを取得（仮定）
-    let %screen_width, 1280
-    let %screen_height, 720
+タイトル画面からゲーム画面へ移る時は、フェードアウトで画面を暗くし、スプライトを削除してから新しい背景を表示します。
 
-    ; 中央配置計算
-    let %center_x, %screen_width / 2
-    let %center_y, %screen_height / 2
-
-    ; タイトルテキスト
-    lsp_text 100, "ゲームタイトル", %center_x, %center_y - 100
-    sp_fontsize 100, 64
-    sp_text_align 100, "center"
-    sp_color 100, "#ffffff"
-
-    ; ボタン配置
-    let %button_width, 400
-    let %button_height, 60
-    let %button_x, (%screen_width - %button_width) / 2
-    let %button_y, %center_y
-
-    lsp_rect 101, %button_x, %button_y, %button_width, %button_height
-    sp_fill 101, "#4a6fa5", 255
-    sp_round 101, 12
-    sp_isbutton 101, true
-    spbtn 101, 1
-
-    lsp_text 102, "スタート", %center_x, %button_y + 30
-    sp_text_align 102, "center"
-```
-
-## ステップ7: アニメーション付きUI
-
-### フェードインするタイトル画面
+### フェードで遷移する
 
 ```aria
-*animated_title
-    ; 背景
-    bg "#1a1a2e", 2
+*title
+    bg "#1a1a2e"
 
-    ; タイトルテキスト（初期状態は透明）
-    lsp_text 100, "ゲームタイトル", 640, 200
-    sp_fontsize 100, 64
-    sp_text_align 100, "center"
-    sp_color 100, "#ffffff"
-    sp_alpha 100, 0
-
-    ; タイトルフェードイン
-    afade 100, 255, 1000
-    await
-
-    ; ボタン作成
+    ; （タイトルとボタンの作成は省略）
     gosub *create_buttons
 
-    ; ボタンフェードイン
-    sp_alpha 101, 0
-    afade 101, 255, 500
-    await
-
-    sp_alpha 103, 0
-    afade 103, 255, 500
-    await
-
-    ; ボタン待機
     btnwait %result
 
     if %result == 1
-        goto *game_start
+        goto *start_game
     endif
-```
 
-### スライドインするボタン
-
-```aria
-*slide_in_buttons
-    ; 背景
-    bg "#1a1a2e", 2
-
-    ; タイトル
-    lsp_text 100, "ゲームタイトル", 640, 200
-    sp_fontsize 100, 64
-    sp_text_align 100, "center"
-    sp_color 100, "#ffffff"
-
-    ; ボタン（画面外からスライドイン）
-    lsp_rect 101, 1400, 300, 400, 60  ; 画面右外
-    sp_fill 101, "#4a6fa5", 255
-    sp_round 101, 12
-    sp_isbutton 101, true
-    spbtn 101, 1
-
-    lsp_text 102, "スタート", 640, 315
-    sp_text_align 102, "center"
-
-    ; スライドイン
-    amsp 101, 440, 300, 800
-    ease 101, "easeout"
+*start_game
+    ; 画面をフェードアウト
+    fade_out 500
     await
 
-    ; ボタン待機
-    btnwait %result
+    ; すべてのスプライトを削除
+    csp -1
 
-    if %result == 1
-        goto *game_start
-    endif
+    ; ゲーム画面の背景を表示
+    bg "bg/stage1.png"
+
+    ; フェードイン
+    fade_in 500
+    await
+
+    ; ゲーム開始
+    text "第一章"
+    end
 ```
 
-## ステップ8: メニューシステム
+| コマンド | 役割 |
+|---------|------|
+| `fade_out` | 画面を暗くする（引数はミリ秒） |
+| `await` | アニメーション完了を待つ |
+| `csp -1` | すべてのスプライトを削除 |
+| `fade_in` | 画面を明るくする |
 
-### ポーズメニュー
+### ボタン状態をリセットする
+
+新しい画面に移る前に、前の画面のボタン登録を解除すると安全です。
 
 ```aria
-*gameplay
-    ; ゲームプレイ中...
+*start_game
+    ; 前のボタン登録をすべて解除
+    btn_clear_all
 
-    ; 右クリックメニューを設定
-    rmenu *pause_menu
+    fade_out 500
+    await
+    csp -1
 
-*pause_menu
-    ; メニュー背景
-    lsp_rect 200, 340, 110, 600, 500
-    sp_fill 200, "#2a2a3e", 255
-    sp_round 200, 15
-    sp_border 200, "#4a4a6e", 3
-    sp_shadow 200, 0, 10, "#000000", 200
-
-    ; メニュータイトル
-    lsp_text 201, "ポーズメニュー", 640, 150
-    sp_fontsize 201, 32
-    sp_text_align 201, "center"
-    sp_color 201, "#ffffff"
-
-    ; ボタン作成
-    gosub *create_menu_buttons
-
-    ; ボタン待機
-    btnwait %result
-
-    if %result == 1
-        ; 再開
-        csp -1
-        return
-    elseif %result == 2
-        ; セーブ
-        goto *save_menu
-    elseif %result == 3
-        ; 設定
-        goto *settings_menu
-    elseif %result == 4
-        ; タイトルへ
-        csp -1
-        goto *title_screen
-    endif
-
-*create_menu_buttons
-    ; 再開
-    lsp_rect 210, 440, 200, 400, 60
-    sp_fill 210, "#4a6fa5", 255
-    sp_round 210, 10
-    sp_hover_color 210, "#5a7fb5"
-    sp_isbutton 210, true
-    spbtn 210, 1
-
-    lsp_text 211, "再開", 640, 215
-    sp_text_align 211, "center"
-
-    ; セーブ
-    lsp_rect 220, 440, 280, 400, 60
-    sp_fill 220, "#4a6fa5", 255
-    sp_round 220, 10
-    sp_hover_color 220, "#5a7fb5"
-    sp_isbutton 220, true
-    spbtn 220, 2
-
-    lsp_text 221, "セーブ", 640, 295
-    sp_text_align 221, "center"
-
-    ; 設定
-    lsp_rect 230, 440, 360, 400, 60
-    sp_fill 230, "#4a6fa5", 255
-    sp_round 230, 10
-    sp_hover_color 230, "#5a7fb5"
-    sp_isbutton 230, true
-    spbtn 230, 3
-
-    lsp_text 231, "設定", 640, 375
-    sp_text_align 231, "center"
-
-    ; タイトルへ
-    lsp_rect 240, 440, 440, 400, 60
-    sp_fill 240, "#4a6fa5", 255
-    sp_round 240, 10
-    sp_hover_color 240, "#5a7fb5"
-    sp_isbutton 240, true
-    spbtn 240, 4
-
-    lsp_text 241, "タイトルへ", 640, 455
-    sp_text_align 241, "center"
-
-    return
+    bg "bg/stage1.png"
+    fade_in 500
+    await
 ```
 
-## ベストプラクティス
+`btn_clear_all` はスプライト自体は削除しません。ボタンとしての機能だけを解除します。スプライトを消すには `csp` を使います。
 
-1. **一貫性を保つ**: ボタンのスタイル、色、サイズを統一する
-2. **ホバーエフェクト**: ユーザーにインタラクティブ性を示す
-3. **適切なサイズ**: クリックしやすい十分なサイズを確保（最低44x44px）
-4. **コントラスト**: テキストと背景のコントラストを高める
-5. **アニメーション**: 適度なアニメーションでUXを向上させる
-6. **レスポンシブ**: 画面サイズに合わせてUIを配置する
-
-## トラブルシューティング
-
-### ボタンが反応しない
-
-**問題**: ボタンをクリックしても反応しない
-
-**解決策**:
-1. `sp_isbutton` が `true` に設定されているか確認
-2. `spbtn` でボタンIDが設定されているか確認
-3. Zオーダーが他のスプライトに隠れていないか確認
-
-### ホバーエフェクトが動かない
-
-**問題**: ホバー時に色やスケールが変わらない
-
-**解決策**:
-1. `sp_hover_color` や `sp_hover_scale` が設定されているか確認
-2. スプライトがボタンとして設定されているか確認
-
-### テキストが表示されない
-
-**問題**: テキストが表示されない
-
-**解決策**:
-1. フォントサイズが適切か確認
-2. テキスト色が背景色と同じでないか確認
-3. `sp_text_align` で正しく配置されているか確認
-
-## 付録: Yes/Noダイアログ
-
-`src/AriaEngine/assets/scripts/ui_kit.aria` には、描画命令ベースの `*ui_yesno` を同梱しています。
-
-```aria
-gosub *ui_yesno, "ゲームを終了しますか？"
-if %0 == 1 end
-```
-
-## 次のステップ
-
-UI作成をマスターしたら、次のチュートリアルに進みましょう：
-
-- [チャプターシステム](chapter-system.md) - チャプター管理の実装
-- [セーブ/ロード実装](save-load.md) - 完全なセーブ/ロードシステム
+---
 
 ## まとめ
 
-このチュートリアルでは、以下のことを学びました：
+このチュートリアルで学んだこと:
 
-1. 基本的なタイトル画面の作成
-2. スタイリッシュなボタンの作成（角丸、枠線、シャドウ）
-3. ホバーエフェクトの追加（色変更、スケール変更）
-4. テキストボックスの作成
-5. 完全なタイトル画面の作成
-6. レスポンシブなUI配置
-7. アニメーション付きUI（フェードイン、スライドイン）
-8. メニューシステムの実装
+1. `bg` で背景を設定する
+2. `lsp_rect` + `sp_fill`/`sp_round`/`sp_border` でボタン背景を作る
+3. `lsp_text` でボタンラベルを作る
+4. `spbtn` でスプライトをボタン化する
+5. `sp_hover_color` / `sp_hover_scale` / `sp_cursor` でホバーエフェクトを追加する
+6. `btnwait` でクリックを待ち、`if` で分岐する
+7. `fade_out` / `csp -1` / `fade_in` で画面を遷移する
 
-これでスタイリッシュなUIを作成できるようになりました！次はチャプターシステムに挑戦しましょう。
+---
+
+## トラブルシューティング
+
+### ボタンをクリックしても反応しない
+
+- `spbtn` でスプライトIDと結果値が正しく設定されているか確認
+- テキストスプライトだけに `spbtn` を設定して、矩形に設定し忘れていないか確認
+- 他のスプライトが上に重なっていないか確認（Z順を `sp_z` で調整）
+
+### ホバーエフェクトが動かない
+
+- `spbtn` でボタン登録されているか確認（`spbtn` なしではホバーは機能しません）
+- `sp_hover_color` や `sp_hover_scale` の対象IDが正しいか確認
+
+### テキストが表示されない
+
+- `sp_color` で文字色が背景と被っていないか確認
+- `sp_fontsize` でサイズが0になっていないか確認
+- `sp_text_align` を使う時、X座標がテキストの中心になるように設定しているか確認
+
+---
+
+## 次のステップ
+
+タイトル画面の作成ができたら、次のトピックに進みましょう:
+
+- [スプライト・描画コマンドリファレンス](../reference/opcodes/sprite.md) - すべてのスプライトコマンド
+- [ボタン・入力コマンドリファレンス](../reference/opcodes/button.md) - ボタンと入力の詳細
+- [アニメーションリファレンス](../reference/opcodes/animation.md) - `amsp` / `afade` など

@@ -264,18 +264,7 @@ public class ZIndexSpriteManager
         _cacheMissCount = 0;
     }
 
-    /// <summary>
-    /// バケット構造を最適化します。
-    /// 小さなバケットをマージしてメモリ使用量を削減します。
-    /// </summary>
-    public void OptimizeBuckets()
-    {
-        if (_zBuckets.Count < 2)
-            return;
 
-        // バケット数が多い場合、隣接するバケットをマージ
-        // （実装は複雑なため、簡易版のみ提供）
-    }
 }
 
 /// <summary>

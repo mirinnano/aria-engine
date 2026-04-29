@@ -1,49 +1,70 @@
 # チャプターシステム
 
-このチュートリアルでは、AriaEngineを使用してチャプターシステムを実装する方法を説明します。
+このチュートリアルでは、AriaEngineのチャプターシステムを使ってゲームを章単位で管理する方法を説明します。チャプター選択画面、アンロック機能、進行度管理を段階的に実装します。
 
-## ステップ1: チャプターの基本概念
-
-チャプターシステムとは、ゲームを複数の章（チャプター）に分けて管理するシステムです。これにより、以下のことが可能になります：
-
-- ゲームの進行度管理
-- チャプターのアンロック機能
-- チャプター選択画面
-- 進行度の保存とロード
-
-## ステップ2: チャプターの定義
+## ステップ1: チャプターの定義
 
 ### 基本的なチャプター定義
 
-まず、スクリプト内でチャプターを定義します。
+チャプターは `defchapter` 〜 `endchapter` のブロックで定義します。各チャプターにID、タイトル、説明、スクリプトパスを設定します。定義されたチャプターは `chapters.json` に自動保存されます。
 
 ```aria
 ; チャプター1の定義
 defchapter
-    chapter_id "chapter_1"
-    chapter_title "第1章: はじまり"
-    chapter_desc "物語の始まり"
+    chapter_id 1
+    chapter_title "第一章 はじまり"
+    chapter_desc "物語の始まり。新しい世界への第一歩。"
     chapter_script "assets/scripts/chapters/chapter1.aria"
 endchapter
 
 ; チャプター2の定義
 defchapter
-    chapter_id "chapter_2"
-    chapter_title "第2章: 冒険"
-    chapter_desc "新しい世界へ"
+    chapter_id 2
+    chapter_title "第二章 冒険"
+    chapter_desc "未知の世界へ踏み出す。"
     chapter_script "assets/scripts/chapters/chapter2.aria"
 endchapter
 
 ; チャプター3の定義
 defchapter
-    chapter_id "chapter_3"
-    chapter_title "第3章: 決戦"
-    chapter_desc "最後の戦い"
+    chapter_id 3
+    chapter_title "第三章 結末"
+    chapter_desc "すべての謎が解き明かされる。"
     chapter_script "assets/scripts/chapters/chapter3.aria"
 endchapter
 ```
 
-### チャプターファイルの作成
+### チャプター定義の配置場所
+
+チャプター定義は通常、`init.aria` またはタイトル画面のスクリプトに記述します。ゲーム起動時に一度定義すれば、`chapters.json` から自動的に読み込まれます。
+
+```aria
+*init_chapters
+    defchapter
+        chapter_id 1
+        chapter_title "第一章 はじまり"
+        chapter_desc "物語の始まり"
+        chapter_script "assets/scripts/chapters/chapter1.aria"
+    endchapter
+
+    defchapter
+        chapter_id 2
+        chapter_title "第二章 冒険"
+        chapter_desc "新しい世界へ"
+        chapter_script "assets/scripts/chapters/chapter2.aria"
+    endchapter
+
+    defchapter
+        chapter_id 3
+        chapter_title "第三章 決戦"
+        chapter_desc "最後の戦い"
+        chapter_script "assets/scripts/chapters/chapter3.aria"
+    endchapter
+
+    return
+```
+
+### チャプタースクリプトの作成
 
 各チャプターのスクリプトファイルを作成します。
 
@@ -51,188 +72,75 @@ endchapter
 ```aria
 *chapter_start
     ; 背景表示
-    lsp 10, "assets/bg/forest.png", 0, 0
-    vsp 10, on
-
-    ; キャラクター表示
-    lsp 20, "assets/ch/mio.png", 800, 0
-    vsp 20, on
+    bg "forest.png", 0
 
     ; 会話
     ミオ「こんにちは、世界へようこそ！」
 
-    ; チャプター完了フラグ
-    set_flag "chapter_1_completed", 1
+    ; チャプター1を完了として記録
+    set_pflag "chapter_1_completed", 1
+    chapter_progress 1, 100
 
     ; チャプター2をアンロック
-    set_flag "chapter_2_unlocked", 1
+    unlock_chapter 2
+    set_pflag "chapter_2_unlocked", 1
 
-    ; 次のチャプターへ
-    text "第1章完了"
+    text "第一章 完了！"
     goto *title_screen
 ```
 
-## ステップ3: チャプター選択画面
+## ステップ2: 自動生成チャプター選択画面
 
-### 基本的なチャプター選択画面
+### chapter_select を使った簡易実装
+
+`chapter_select` コマンドを使うと、登録済みのチャプターを縦に並べたカードUIが自動生成されます。スプライトID `2000` 〜 `2099` を使用するので、既存スプライトと競合しないよう注意してください。
 
 ```aria
-*chapter_select
-    ; 背景
-    bg "#1a1a2e", 2
+*chapter_select_auto
+    ; 画面をクリア
+    csp -1
+    bg "#1a1a2e", 0
 
     ; タイトル
-    lsp_text 100, "チャプター選択", 640, 100
-    sp_fontsize 100, 48
+    lsp_text 100, "チャプター選択", 640, 50
+    sp_fontsize 100, 36
     sp_text_align 100, "center"
     sp_color 100, "#ffffff"
 
-    ; 戻るボタン
-    lsp_rect 199, 440, 650, 400, 60
-    sp_fill 199, "#2a2a3e", 255
-    sp_round 199, 10
-    sp_hover_color 199, "#3a3a5e"
-    sp_isbutton 199, true
-    spbtn 199, 0
+    ; 自動生成UI（スプライトID 2000〜2099を使用）
+    chapter_select
 
-    lsp_text 200, "戻る", 640, 665
-    sp_text_align 200, "center"
+    ; ボタン待機
+    btnwait %selected
 
-    ; チャプター選択
-    chapter_select %selected
-
-    if %selected == 0
-        goto *title_screen
-    elseif %selected == 1
-        goto *chapter_1
+    if %selected == 1
+        script "assets/scripts/chapters/chapter1.aria"
     elseif %selected == 2
-        goto *chapter_2
+        script "assets/scripts/chapters/chapter2.aria"
     elseif %selected == 3
-        goto *chapter_3
+        script "assets/scripts/chapters/chapter3.aria"
     endif
 ```
 
-## ステップ4: アンロック機能の実装
+### 戻るボタンの追加
 
-### フラグによるアンロック管理
-
-チャプターのアンロック状態をフラグで管理します。
+`chapter_select` はスプライトID 2000〜2099を占有するので、戻るボタンなどは別のID（例: 199）で事前に作成してください。
 
 ```aria
-*init_chapters
-    ; チャプター1は常にアンロック
-    set_flag "chapter_1_unlocked", 1
-    set_flag "chapter_1_completed", 0
-
-    ; チャプター2-3はロック
-    set_flag "chapter_2_unlocked", 0
-    set_flag "chapter_2_completed", 0
-    set_flag "chapter_3_unlocked", 0
-    set_flag "chapter_3_completed", 0
-
-    return
-```
-
-### チャプターカードのアンロック状態表示
-
-```aria
-*chapter_card
-    let %card_id, %1
-    let %chapter_num, %2
-
-    ; アンロック状態を確認
-    if %chapter_num == 1
-        let %is_unlocked, 1
-    elseif %chapter_num == 2
-        get_flag "chapter_2_unlocked", %is_unlocked
-    elseif %chapter_num == 3
-        get_flag "chapter_3_unlocked", %is_unlocked
-    endif
-
-    ; 完了状態を確認
-    if %chapter_num == 1
-        get_flag "chapter_1_completed", %is_completed
-    elseif %chapter_num == 2
-        get_flag "chapter_2_completed", %is_completed
-    elseif %chapter_num == 3
-        get_flag "chapter_3_completed", %is_completed
-    endif
-
-    ; カード背景
-    let %x, 100 + (%chapter_num - 1) * 360
-    let %y, 200
-
-    lsp_rect %card_id, %x, %y, 300, 150
-
-    if %is_unlocked == 1
-        ; アンロック済み
-        if %is_completed == 1
-            ; 完了済み
-            sp_fill %card_id, "#4a6fa5", 255
-        else
-            ; 未完了
-            sp_fill %card_id, "#2a2a3e", 255
-        endif
-
-        ; ボタンとして設定
-        sp_isbutton %card_id, true
-        spbtn %card_id, %chapter_num
-    else
-        ; ロック中
-        sp_fill %card_id, "#1a1a2e", 255
-    endif
-
-    sp_round %card_id, 10
-    sp_border %card_id, "#4a4a6e", 2
-
-    ; チャプタータイトル
-    lsp_text %card_id + 100, "第${%chapter_num}章", %x + 150, %y + 30
-    sp_fontsize %card_id + 100, 24
-    sp_text_align %card_id + 100, "center"
-    sp_color %card_id + 100, "#ffffff"
-
-    ; ステータス表示
-    if %is_completed == 1
-        lsp_text %card_id + 200, "完了", %x + 150, %y + 80
-        sp_fontsize %card_id + 200, 16
-        sp_text_align %card_id + 200, "center"
-        sp_color %card_id + 200, "#4a6fa5"
-    elseif %is_unlocked == 1
-        lsp_text %card_id + 200, "プレイ可能", %x + 150, %y + 80
-        sp_fontsize %card_id + 200, 16
-        sp_text_align %card_id + 200, "center"
-        sp_color %card_id + 200, "#aaaaaa"
-    else
-        lsp_text %card_id + 200, "ロック中", %x + 150, %y + 80
-        sp_fontsize %card_id + 200, 16
-        sp_text_align %card_id + 200, "center"
-        sp_color %card_id + 200, "#666666"
-    endif
-
-    return
-```
-
-## ステップ5: 完全なチャプター選択画面
-
-### アンロック機能付きチャプター選択
-
-```aria
-*chapter_select_screen
-    ; 背景
-    bg "#1a1a2e", 2
+*chapter_select_with_back
+    csp -1
+    bg "#1a1a2e", 0
 
     ; タイトル
-    lsp_text 100, "チャプター選択", 640, 100
-    sp_fontsize 100, 48
+    lsp_text 100, "チャプター選択", 640, 50
+    sp_fontsize 100, 36
     sp_text_align 100, "center"
     sp_color 100, "#ffffff"
-    sp_text_shadow 100, 3, 3, "#000000"
 
-    ; 戻るボタン
+    ; 戻るボタン（ID 199）
     lsp_rect 199, 440, 650, 400, 60
     sp_fill 199, "#2a2a3e", 255
     sp_round 199, 10
-    sp_border 199, "#4a4a6e", 2
     sp_hover_color 199, "#3a3a5e"
     sp_isbutton 199, true
     spbtn 199, 0
@@ -241,152 +149,120 @@ endchapter
     sp_text_align 200, "center"
     sp_color 200, "#ffffff"
 
-    ; チャプターカード作成
-    gosub *chapter_card with 1, 1
-    gosub *chapter_card with 2, 2
-    gosub *chapter_card with 3, 3
+    ; 自動生成UI（2000〜2099）
+    chapter_select
 
-    ; ボタン待機
-    btnwait %result
+    btnwait %selected
 
-    if %result == 0
-        csp -1
+    if %selected == 0
         goto *title_screen
-    elseif %result == 1
-        csp -1
-        goto *chapter_1
-    elseif %result == 2
-        ; アンロック確認
-        get_flag "chapter_2_unlocked", %is_unlocked
-        if %is_unlocked == 1
-            csp -1
-            goto *chapter_2
-        else
-            text "まだアンロックされていません"
-            goto *chapter_select_screen
-        endif
-    elseif %result == 3
-        ; アンロック確認
-        get_flag "chapter_3_unlocked", %is_unlocked
-        if %is_unlocked == 1
-            csp -1
-            goto *chapter_3
-        else
-            text "まだアンロックされていません"
-            goto *chapter_select_screen
-        endif
+    elseif %selected == 1
+        script "assets/scripts/chapters/chapter1.aria"
+    elseif %selected == 2
+        script "assets/scripts/chapters/chapter2.aria"
+    elseif %selected == 3
+        script "assets/scripts/chapters/chapter3.aria"
     endif
 ```
 
-## ステップ6: 進行度管理
+## ステップ3: カスタムチャプター選択画面
 
-### チャプター完了時の処理
+### chapter_card を使った手動配置
+
+`chapter_card` を使うと、個別にカードを配置してカスタムレイアウトを構築できます。ただし、アンロック状態の判定や見た目の切り替えはスクリプト側で実装する必要があります。
 
 ```aria
-*chapter_1
-    ; 背景表示
-    lsp 10, "assets/bg/forest.png", 0, 0
-    vsp 10, on
-
-    ; キャラクター表示
-    lsp 20, "assets/ch/mio.png", 800, 0
-    vsp 20, on
-
-    ; 会話
-    ミオ「こんにちは、世界へようこそ！」
-
-    ; イベント1
-    text "イベント1が発生しました"
-    wait 1000
-
-    ; イベント2
-    text "イベント2が発生しました"
-    wait 1000
-
-    ; チャプター完了フラグ
-    set_flag "chapter_1_completed", 1
-
-    ; 次のチャプターをアンロック
-    set_flag "chapter_2_unlocked", 1
-
-    ; 進行度を保存
-    set_counter "current_chapter", 2
-
-    ; チャプター完了メッセージ
-    text "第1章完了！"
-    wait 1000
-
-    ; セーブ
-    save 1
-
-    ; タイトルへ戻る
+*custom_chapter_select
     csp -1
-    goto *title_screen
-```
+    bg "#1a1a2e", 0
 
-### 総進行度の表示
+    ; タイトル
+    lsp_text 100, "チャプター選択", 640, 50
+    sp_fontsize 100, 36
+    sp_text_align 100, "center"
+    sp_color 100, "#ffffff"
 
-```aria
-*show_progress
-    ; 総チャプター数
-    let %total_chapters, 3
+    ; チャプター1（常にアンロック）
+    chapter_card 200, "第一章 はじまり", "新しい世界への第一歩", 340, 180
+    spbtn 200, 1
 
-    ; 完了チャプター数
-    let %completed_chapters, 0
-
-    ; チャプター1
-    get_flag "chapter_1_completed", %is_completed
-    if %is_completed == 1
-        inc %completed_chapters
-    endif
-
-    ; チャプター2
-    get_flag "chapter_2_completed", %is_completed
-    if %is_completed == 1
-        inc %completed_chapters
+    ; チャプター2（アンロック状態で見た目変更）
+    get_pflag "chapter_2_unlocked", %is_unlocked
+    if %is_unlocked == 1
+        chapter_card 203, "第二章 冒険", "未知の世界へ踏み出す", 340, 300
+        spbtn 203, 2
+    else
+        chapter_card 203, "第二章 ？？？", "まだアンロックされていません", 340, 300
+        sp_fill 203, "#1a1a1a", 255
+        sp_color 204, "#555555"
+        sp_color 205, "#444444"
     endif
 
     ; チャプター3
-    get_flag "chapter_3_completed", %is_completed
-    if %is_completed == 1
-        inc %completed_chapters
+    get_pflag "chapter_3_unlocked", %is_unlocked
+    if %is_unlocked == 1
+        chapter_card 206, "第三章 結末", "すべての謎が解き明かされる", 340, 420
+        spbtn 206, 3
+    else
+        chapter_card 206, "第三章 ？？？", "まだアンロックされていません", 340, 420
+        sp_fill 206, "#1a1a1a", 255
+        sp_color 207, "#555555"
+        sp_color 208, "#444444"
     endif
 
-    ; 進行度計算
-    let %progress, (%completed_chapters * 100) / %total_chapters
+    ; 戻るボタン
+    lsp_rect 199, 440, 650, 400, 60
+    sp_fill 199, "#2a2a3e", 255
+    sp_round 199, 10
+    sp_hover_color 199, "#3a3a5e"
+    sp_isbutton 199, true
+    spbtn 199, 0
 
-    ; 進行度表示
-    text "進行度: ${%progress}%"
-    text "完了チャプター: ${%completed_chapters}/${%total_chapters}"
+    lsp_text 200, "戻る", 640, 665
+    sp_text_align 200, "center"
+    sp_color 200, "#ffffff"
 
-    return
+    btnwait %selected
+
+    if %selected == 0
+        goto *title_screen
+    elseif %selected == 1
+        script "assets/scripts/chapters/chapter1.aria"
+    elseif %selected == 2
+        script "assets/scripts/chapters/chapter2.aria"
+    elseif %selected == 3
+        script "assets/scripts/chapters/chapter3.aria"
+    endif
 ```
 
-## ステップ7: チャプターサムネイル
+### サムネイル付きカスタムカード
 
-### サムネイル画像の使用
-
-チャプターカードにサムネイル画像を表示します。
+`chapter_thumbnail` で設定した画像パスを参照し、スクリプト側で `lsp` を使ってサムネイルを表示できます。
 
 ```aria
+*init_thumbnails
+    chapter_thumbnail 1, "assets/chapters/chapter1_thumb.png"
+    chapter_thumbnail 2, "assets/chapters/chapter2_thumb.png"
+    chapter_thumbnail 3, "assets/chapters/chapter3_thumb.png"
+    return
+
 *chapter_card_with_thumbnail
-    let %card_id, %1
-    let %chapter_num, %2
+    getparam %card_id
+    getparam %chapter_num
 
-    ; サムネイル画像
-    let %thumbnail_path, "assets/chapters/chapter${%chapter_num}_thumb.png"
-
-    ; カード背景
+    ; 座標計算
     let %x, 100 + (%chapter_num - 1) * 360
     let %y, 200
 
+    ; カード背景
     lsp_rect %card_id, %x, %y, 300, 200
     sp_fill %card_id, "#2a2a3e", 255
     sp_round %card_id, 10
     sp_border %card_id, "#4a4a6e", 2
 
     ; サムネイル表示
-    lsp %card_id + 1000, %thumbnail_path, %x, %y
+    let %thumb_path, "assets/chapters/chapter${%chapter_num}_thumb.png"
+    lsp %card_id + 1000, %thumb_path, %x, %y
     sp_width %card_id + 1000, 300
     sp_height %card_id + 1000, 150
     sp_round %card_id + 1000, 10
@@ -400,96 +276,322 @@ endchapter
     return
 ```
 
-## ステップ8: 自動セーブ機能
+## ステップ4: アンロック機能の実装
 
-### チャプター開始時の自動セーブ
+### セーブフラグを使ったアンロック管理
+
+チャプターのアンロック状態はセーブフラグ (`pflag` / `sflag`) で管理します。セーブフラグは全セーブデータを通じて共有されるため、ゲーム再起動後も保持されます。
 
 ```aria
-*auto_save_chapter
-    let %current_chapter, %1
+*init_unlock_flags
+    ; チャプター1は常にアンロック
+    set_pflag "chapter_1_unlocked", 1
 
-    ; チャプター番号を保存
-    set_counter "auto_chapter", %current_chapter
-
-    ; オートセーブ
-    save 0
-
-    text "オートセーブしました"
+    ; チャプター2〜3は最初はロック
+    set_pflag "chapter_2_unlocked", 0
+    set_pflag "chapter_3_unlocked", 0
 
     return
 ```
 
-### チャプター完了時の自動セーブ
+### チャプター完了時のアンロック
+
+チャプターをクリアした際に、次のチャプターをアンロックします。
 
 ```aria
-*chapter_complete_auto_save
-    let %completed_chapter, %1
+*chapter1_end
+    ; チャプター1を完了として記録
+    set_pflag "chapter_1_completed", 1
+    chapter_progress 1, 100
 
-    ; 完了チャプターを記録
-    set_counter "last_completed_chapter", %completed_chapter
+    ; チャプター2をアンロック
+    unlock_chapter 2
+    set_pflag "chapter_2_unlocked", 1
 
-    ; オートセーブ
-    save 0
+    text "第一章 完了！チャプター2がアンロックされました。"
+    goto *title_screen
 
-    text "進行度を保存しました"
+*chapter2_end
+    ; チャプター2を完了として記録
+    set_pflag "chapter_2_completed", 1
+    chapter_progress 2, 100
+
+    ; チャプター3をアンロック
+    unlock_chapter 3
+    set_pflag "chapter_3_unlocked", 1
+
+    text "第二章 完了！チャプター3がアンロックされました。"
+    goto *title_screen
+```
+
+### unlock_chapter コマンドの使用
+
+`unlock_chapter` は `ChapterManager` 内の該当チャプターの `IsUnlocked` を `true` に設定し、自動的に `chapters.json` へ保存します。
+
+```aria
+; チャプター2をアンロック
+unlock_chapter 2
+
+; 進行度も同時に更新
+chapter_progress 2, 0
+```
+
+## ステップ5: 進行度管理
+
+### chapter_progress で進行度を記録
+
+`chapter_progress` は指定したチャプターの進行度（パーセンテージ）を更新します。範囲は 0 〜 100 に自動クリップされます。
+
+```aria
+*chapter1_playing
+    ; イベント1
+    text "イベント1が発生しました"
+    chapter_progress 1, 30
+
+    ; イベント2
+    text "イベント2が発生しました"
+    chapter_progress 1, 60
+
+    ; イベント3
+    text "イベント3が発生しました"
+    chapter_progress 1, 90
+
+    ; 最終イベント
+    text "最終イベント"
+    chapter_progress 1, 100
+
+    goto *chapter1_end
+```
+
+### 総進行度の表示
+
+全チャプターの完了状況を集計して、総進行度を表示します。
+
+```aria
+*show_total_progress
+    let %total_chapters, 3
+    let %completed_chapters, 0
+
+    get_pflag "chapter_1_completed", %is_completed
+    if %is_completed == 1
+        inc %completed_chapters
+    endif
+
+    get_pflag "chapter_2_completed", %is_completed
+    if %is_completed == 1
+        inc %completed_chapters
+    endif
+
+    get_pflag "chapter_3_completed", %is_completed
+    if %is_completed == 1
+        inc %completed_chapters
+    endif
+
+    let %progress, (%completed_chapters * 100) / %total_chapters
+
+    text "総進行度: ${%progress}%"
+    text "完了: ${%completed_chapters} / ${%total_chapters} 章"
+
+    return
+```
+
+## ステップ6: 完全なチャプター選択画面
+
+### アンロック確認付きカスタム画面
+
+以下は、ステップ1〜5の内容を統合した完全なチャプター選択画面の例です。
+
+```aria
+*chapter_select_screen
+    csp -1
+    bg "#1a1a2e", 0
+
+    ; タイトル
+    lsp_text 100, "チャプター選択", 640, 80
+    sp_fontsize 100, 48
+    sp_text_align 100, "center"
+    sp_color 100, "#ffffff"
+    sp_text_shadow 100, 3, 3, "#000000"
+
+    ; チャプター1（常にアンロック）
+    chapter_card 200, "第一章 はじまり", "物語の始まり", 340, 180
+    spbtn 200, 1
+
+    ; チャプター2
+    get_pflag "chapter_2_unlocked", %is_unlocked
+    if %is_unlocked == 1
+        chapter_card 203, "第二章 冒険", "新しい世界へ", 340, 300
+        spbtn 203, 2
+    else
+        chapter_card 203, "第二章 ？？？", "まだアンロックされていません", 340, 300
+        sp_fill 203, "#1a1a1a", 255
+        sp_color 204, "#555555"
+        sp_color 205, "#444444"
+    endif
+
+    ; チャプター3
+    get_pflag "chapter_3_unlocked", %is_unlocked
+    if %is_unlocked == 1
+        chapter_card 206, "第三章 決戦", "最後の戦い", 340, 420
+        spbtn 206, 3
+    else
+        chapter_card 206, "第三章 ？？？", "まだアンロックされていません", 340, 420
+        sp_fill 206, "#1a1a1a", 255
+        sp_color 207, "#555555"
+        sp_color 208, "#444444"
+    endif
+
+    ; 戻るボタン
+    lsp_rect 199, 440, 650, 400, 60
+    sp_fill 199, "#2a2a3e", 255
+    sp_round 199, 10
+    sp_border 199, "#4a4a6e", 2
+    sp_hover_color 199, "#3a3a5e"
+    sp_isbutton 199, true
+    spbtn 199, 0
+
+    lsp_text 201, "戻る", 640, 665
+    sp_text_align 201, "center"
+    sp_color 201, "#ffffff"
+
+    ; ボタン待機
+    btnwait %result
+
+    if %result == 0
+        csp -1
+        goto *title_screen
+    elseif %result == 1
+        csp -1
+        script "assets/scripts/chapters/chapter1.aria"
+    elseif %result == 2
+        ; アンロック再確認
+        get_pflag "chapter_2_unlocked", %is_unlocked
+        if %is_unlocked == 1
+            csp -1
+            script "assets/scripts/chapters/chapter2.aria"
+        else
+            text "まだアンロックされていません"
+            goto *chapter_select_screen
+        endif
+    elseif %result == 3
+        get_pflag "chapter_3_unlocked", %is_unlocked
+        if %is_unlocked == 1
+            csp -1
+            script "assets/scripts/chapters/chapter3.aria"
+        else
+            text "まだアンロックされていません"
+            goto *chapter_select_screen
+        endif
+    endif
+```
+
+### 完了状態を視覚的に表示
+
+完了済みのチャプターにチェックマークや色分けを追加します。
+
+```aria
+*draw_chapter_status
+    getparam %card_id
+    getparam %chapter_num
+
+    ; 完了状態を確認
+    let %flag_name, "chapter_${%chapter_num}_completed"
+    get_pflag %flag_name, %is_completed
+
+    if %is_completed == 1
+        ; 完了マーク（緑のチェック）
+        lsp_text %card_id + 3000, "完了", %card_id + 280, %card_id + 230
+        sp_fontsize %card_id + 3000, 14
+        sp_color %card_id + 3000, "#4caf50"
+    endif
 
     return
 ```
 
 ## ベストプラクティス
 
-1. **フラグの一貫性**: チャプターアンロックと完了フラグを明確に区別する
-2. **進行度の保存**: 重要なポイントで自動セーブを行う
-3. **ユーザーフィードバック**: アンロック時や完了時に明確なフィードバックを提供する
-4. **バックアップセーブ**: チャプター開始前にセーブを作成する
-5. **進行度の可視化**: ユーザーに進行度を明確に表示する
+1. **チャプター定義は起動時に一度行う**: `init.aria` またはタイトル画面で `defchapter` を呼び出し、各チャプターの基本情報を登録します。
+2. **アンロックと完了を区別する**: `chapter_X_unlocked` と `chapter_X_completed` を別々のフラグで管理し、状態を明確に分けます。
+3. **`unlock_chapter` とフラグを併用する**: `unlock_chapter` は `chapters.json` に保存し、スクリプト内の分岐には `pflag` を使うと整合性が保ちやすいです。
+4. **進行度は適切なタイミングで更新する**: イベントの区切りやセーブポイントで `chapter_progress` を呼び出し、プレイヤーの進行状況を記録します。
+5. **スプライトIDの競合を避ける**: `chapter_select` は 2000 〜 2099 を使用します。カスタムUIではこの範囲を避け、かつ `chapter_card` の `+1` / `+2` も考慮してIDを割り当ててください。
+6. **セーブフラグを優先する**: 章解放やCG解放など、ゲーム全体で共有すべき状態には `pflag` / `sflag` を使用します。`set_flag` でも動作しますが、`pflag` の方が意図が明確です。
 
 ## トラブルシューティング
 
 ### チャプターがアンロックされない
 
-**問題**: チャプター完了しても次のチャプターがアンロックされない
+**問題**: チャプターをクリアしても次のチャプターがアンロックされない
 
 **解決策**:
-1. フラグが正しく設定されているか確認
-2. フラグ名のスペルを確認
-3. セーブデータにフラグが保存されているか確認
+1. `unlock_chapter` のIDが正しいか確認する
+2. `set_pflag` のフラグ名のスペルを確認する
+3. `chapters.json` が生成されているか、該当チャプターの `IsUnlocked` が `true` になっているか確認する
+
+### チャプター選択画面が表示されない
+
+**問題**: `chapter_select` を呼んでもUIが表示されない、または既存スプライトが消える
+
+**解決策**:
+1. `defchapter` 〜 `endchapter` でチャプターが正しく定義されているか確認する
+2. スプライトID 2000 〜 2099 を自分で使用していないか確認する
+3. `csp -1` などで意図せずスプライトを消去していないか確認する
+
+### chapter_card のテキストが表示されない
+
+**問題**: `chapter_card` でカード背景は表示されるがテキストが表示されない
+
+**解決策**:
+1. `chapter_card` は背景（ID）、タイトル（ID+1）、説明（ID+2）の3つのスプライトを生成する。これらのIDが他のスプライトと競合していないか確認する
+2. 説明が空文字列の場合、説明テキスト（ID+2）は生成されない
 
 ### 進行度が保存されない
 
-**問題**: チャプター完了後、進行度がリセットされる
+**問題**: `chapter_progress` を呼んでも、ゲーム再起動後に進行度がリセットされる
 
 **解決策**:
-1. セーブが正しく行われているか確認
-2. フラグとカウンターがセーブデータに含まれているか確認
-3. ロード時にフラグが正しく復元されているか確認
+1. `chapter_progress` は `chapters.json` に自動保存される。ファイルの書き込み権限を確認する
+2. エンジン終了時にも保存されるが、強制終了した場合は失われる可能性がある
 
-### チャプター選択画面が正しく表示されない
+## chapters.json の構造
 
-**問題**: チャプターカードが正しく表示されない
+チャプターデータはエンジンと同じディレクトリにある `chapters.json` に保存されます。
 
-**解決策**:
-1. チャプター定義が正しく行われているか確認
-2. カードIDの重複を確認
-3. Zオーダーを確認
+```json
+{
+  "Chapters": [
+    {
+      "Id": 1,
+      "Title": "第一章 はじまり",
+      "Description": "物語の始まり",
+      "ScriptPath": "assets/scripts/chapters/chapter1.aria",
+      "IsUnlocked": true,
+      "ThumbnailPath": "assets/chapters/chapter1_thumb.png",
+      "LastProgress": 100,
+      "LastPlayed": "2026-04-29T10:00:00"
+    }
+  ]
+}
+```
+
+ファイルが存在しない場合、エンジンは3つのデフォルトチャプターを自動生成します。
 
 ## 次のステップ
 
-チャプターシステムをマスターしたら、次のチュートリアルに進みましょう：
+チャプターシステムをマスターしたら、次のチュートリアルに進みましょう。
 
 - [セーブ/ロード実装](save-load.md) - 完全なセーブ/ロードシステム
+- [UI作成](creating-ui.md) - タイトル画面とボタンの作成
 
 ## まとめ
 
-このチュートリアルでは、以下のことを学びました：
+このチュートリアルでは、以下のことを学びました。
 
-1. チャプターの基本概念
-2. チャプターの定義方法
-3. チャプター選択画面の作成
-4. アンロック機能の実装
-5. フラグによるアンロック管理
-6. 進行度の管理と表示
-7. チャプターサムネイルの使用
-8. 自動セーブ機能の実装
+1. `defchapter` 〜 `endchapter` でチャプターを定義する方法
+2. `chapter_select` で自動生成チャプター選択画面を作る方法
+3. `chapter_card` でカスタムレイアウトの選択画面を作る方法
+4. `unlock_chapter` と `pflag` でアンロック機能を実装する方法
+5. `chapter_progress` で進行度を管理する方法
+6. カスタムカードにサムネイルや完了マークを追加する方法
 
-これで完全なチャプターシステムを実装できるようになりました！次はセーブ/ロードシステムに挑戦しましょう。
+これでチャプター選択画面とアンロック機能を持ったゲームが作れるようになりました。

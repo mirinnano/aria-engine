@@ -50,6 +50,9 @@ public static class AriaSaveCommand
             case "validate":
                 return RunValidate();
 
+            case "migrate":
+                return RunMigrate(args.Contains("--no-backup", StringComparer.OrdinalIgnoreCase));
+
             default:
                 Console.Error.WriteLine($"aria-save: unknown command '{subcommand}'");
                 Console.Error.WriteLine("Run 'aria-save help' for usage.");
@@ -161,6 +164,16 @@ public static class AriaSaveCommand
         return 0;
     }
 
+    private static int RunMigrate(bool noBackup)
+    {
+        var reporter = new ErrorReporter();
+        var saveManager = new SaveManager(reporter);
+        int migrated = saveManager.MigrateAll(backup: !noBackup);
+        reporter.WriteLogFile();
+        Console.WriteLine($"Migrated save files: {migrated}");
+        return reporter.Errors.Any(e => e.Level is AriaErrorLevel.Error or AriaErrorLevel.Fatal) ? 1 : 0;
+    }
+
     private static bool ValidateSaveFile(string path, string formatName)
     {
         try
@@ -240,6 +253,7 @@ public static class AriaSaveCommand
         Console.WriteLine("  list              List all save slots with metadata");
         Console.WriteLine("  info <slot>       Show detailed info for a specific slot (0-9)");
         Console.WriteLine("  validate          Validate all save files for corruption");
+        Console.WriteLine("  migrate           Rewrite saves to the current schema with backup");
         Console.WriteLine("  help              Show this help message");
         Console.WriteLine();
         Console.WriteLine("Examples:");

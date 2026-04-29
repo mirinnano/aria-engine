@@ -6,7 +6,6 @@ namespace AriaEngine.Core;
 public class NamespaceManager
 {
     private readonly Stack<string> _namespaceStack = new();
-    private readonly HashSet<string> _imports = new(StringComparer.OrdinalIgnoreCase);
     
     /// <summary>
     /// 現在の名前空間（階層をドットで結合）
@@ -30,13 +29,7 @@ public class NamespaceManager
             _namespaceStack.Pop();
     }
     
-    /// <summary>
-    /// using で名前空間をインポート
-    /// </summary>
-    public void Import(string name)
-    {
-        _imports.Add(name);
-    }
+
     
     /// <summary>
     /// 修飾名を生成
@@ -68,6 +61,5 @@ public class NamespaceManager
     public void Clear()
     {
         _namespaceStack.Clear();
-        _imports.Clear();
     }
 }

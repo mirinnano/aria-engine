@@ -90,7 +90,9 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                     int id = GetVal(inst.Arguments[0]);
                     if (id == -1)
                     {
+                        State.Sprites.TryGetValue(0, out var background);
                         State.Sprites.Clear();
+                        if (background != null) State.Sprites[0] = background;
                         State.SpriteButtonMap.Clear();
                         State.FocusedButtonId = -1;
                         State.SpriteLifetimeStacks.Clear();
@@ -175,7 +177,7 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                     string bgPath = GetString(inst.Arguments[0]);
                     State.Sprites[0] = bgPath.StartsWith("#")
                         ? new Sprite { Id = 0, Type = SpriteType.Rect, FillColor = bgPath, FillAlpha = 255, Width = State.WindowWidth, Height = State.WindowHeight, Z = 0 }
-                        : new Sprite { Id = 0, Type = SpriteType.Image, ImagePath = bgPath, Z = 0 };
+                        : new Sprite { Id = 0, Type = SpriteType.Image, ImagePath = bgPath, Width = State.WindowWidth, Height = State.WindowHeight, Z = 0 };
                 }
                 return true;
 

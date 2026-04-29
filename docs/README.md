@@ -60,6 +60,7 @@ AI agentで拡張     → ai-agent/ へ
 - [スプライト操作](how-to-guides/sprite-operations.md)
 - [アニメーション](how-to-guides/animations.md)
 - [音频Playback](how-to-guides/audio.md)
+- [リリースビルドの作成](how-to-guides/compile-and-package.md)
 
 📍 パス: `docs/how-to-guides/`
 
