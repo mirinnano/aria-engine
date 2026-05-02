@@ -1,12 +1,13 @@
 #![windows_subsystem = "windows"]
+#![allow(non_snake_case)]
 
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStrExt;
 use std::mem;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 type HINSTANCE = isize; type HWND = isize; type HDC = isize; type HFONT = isize;
-type HBRUSH = isize; type HPEN = isize; type HMENU = isize;
+type HMENU = isize;
 type WPARAM = usize; type LPARAM = isize; type LRESULT = isize;
 type ATOM = u16; type BOOL = i32;
 
@@ -19,26 +20,24 @@ const BS_DEFPUSHBUTTON: u32 = 1;
 const BS_PUSHBUTTON: u32 = 0;
 const ES_LEFT: u32 = 0;
 const ES_AUTOHSCROLL: u32 = 0x80;
-const SS_LEFT: u32 = 0;
-const SS_CENTER: u32 = 1;
-const SS_SUNKEN: u32 = 0x1000;
 const PBS_SMOOTH: u32 = 1;
 const LBS_NOTIFY: u32 = 1;
 const WS_VSCROLL: u32 = 0x200000;
 const WM_DESTROY: u32 = 2; const WM_CREATE: u32 = 1;
 const WM_COMMAND: u32 = 0x111; const WM_TIMER: u32 = 0x113;
 const WM_PAINT: u32 = 0x0F; const WM_SETFONT: u32 = 0x30;
-const WM_CTLCOLORSTATIC: u32 = 0x138; const WM_SIZE: u32 = 5;
+const WM_CTLCOLORSTATIC: u32 = 0x138;
 const SW_SHOW: i32 = 5; const IDC_ARROW: usize = 32512;
-const COLOR_WINDOW: i32 = 5; const COLOR_BTNFACE: i32 = 15;
+const COLOR_BTNFACE: i32 = 15;
 const DEFAULT_GUI_FONT: i32 = 17;
 const PS_SOLID: i32 = 0; const NULL_PEN: i32 = 8; const TRANSPARENT: i32 = 1;
+const PM_REMOVE: u32 = 1;
 
 // Control IDs
 const IDC_INSTALL: usize = 201; const IDC_BROWSE: usize = 202;
 const IDC_CANCEL: usize = 203; const IDC_PATH: usize = 204;
 const IDC_LOG: usize = 205; const IDC_PROGRESS: usize = 206;
-const IDC_TITLE: usize = 207; const IDC_SUBTITLE: usize = 208;
+const IDC_TITLE: usize = 207;
 const IDC_INFO: usize = 209;
 const IDC_DESKTOP_CB: usize = 210; const IDC_STARTMENU_CB: usize = 211;
 const TIMER_ANIM: usize = 1;
@@ -67,6 +66,13 @@ const PRODUCT: &str = "umikaze";
 const PUBLISHER: &str = "Ponkotusoft";
 const VERSION: &str = "1.0.0";
 const DESCRIPTION: &str = "ビジュアルノベルエンジン";
+const REQUIRED_PAYLOAD_FILES: &[&str] = &[
+    "AriaEngine.exe",
+    "data.pak",
+    "init.aria",
+    "scripts/scripts.ariac",
+];
+const REQUIRED_DOTNET_MAJOR: u32 = 8;
 
 unsafe fn to_wide(s: &str) -> Vec<u16> {
     OsString::from(s).encode_wide().chain(std::iter::once(0)).collect()
@@ -75,6 +81,13 @@ unsafe fn to_wide(s: &str) -> Vec<u16> {
 unsafe fn set_text(hwnd: HWND, text: &str) {
     let w = to_wide(text);
     SetWindowTextW(hwnd, w.as_ptr());
+}
+
+unsafe fn get_text(hwnd: HWND) -> String {
+    let len = GetWindowTextLengthW(hwnd).max(0) as usize;
+    let mut buf = vec![0u16; len + 1];
+    let read = GetWindowTextW(hwnd, buf.as_mut_ptr(), buf.len() as i32).max(0) as usize;
+    String::from_utf16_lossy(&buf[..read])
 }
 
 unsafe fn log_line(text: &str) {
@@ -99,9 +112,12 @@ unsafe fn log_line(text: &str) {
     fn GetMessageW(lpMsg: *mut MSG, hWnd: HWND, wMsgFilterMin: u32, wMsgFilterMax: u32) -> BOOL;
     fn TranslateMessage(lpMsg: *const MSG) -> BOOL;
     fn DispatchMessageW(lpMsg: *const MSG) -> LRESULT;
+    fn PeekMessageW(lpMsg: *mut MSG, hWnd: HWND, wMsgFilterMin: u32, wMsgFilterMax: u32, wRemoveMsg: u32) -> BOOL;
     fn DefWindowProcW(hWnd: HWND, Msg: u32, wParam: WPARAM, lParam: LPARAM) -> LRESULT;
     fn PostQuitMessage(nExitCode: i32);
     fn SetWindowTextW(hWnd: HWND, lpString: *const u16) -> BOOL;
+    fn GetWindowTextW(hWnd: HWND, lpString: *mut u16, nMaxCount: i32) -> i32;
+    fn GetWindowTextLengthW(hWnd: HWND) -> i32;
     fn EnableWindow(hWnd: HWND, bEnable: BOOL) -> BOOL;
     fn SendMessageW(hWnd: HWND, Msg: u32, wParam: WPARAM, lParam: LPARAM) -> LRESULT;
     fn SetTimer(hWnd: HWND, nIDEvent: usize, uElapse: u32, lpTimerFunc: isize) -> usize;
@@ -113,7 +129,6 @@ unsafe fn log_line(text: &str) {
     fn LoadCursorW(hInstance: HINSTANCE, lpCursorName: usize) -> isize;
     fn GetSysColorBrush(nIndex: i32) -> isize;
     fn SetFocus(hWnd: HWND) -> HWND;
-    fn MessageBoxW(hWnd: HWND, lpText: *const u16, lpCaption: *const u16, uType: u32) -> i32;
 }
 
 #[link(name="kernel32")] extern "system" { fn GetModuleHandleW(lpModuleName: *const u16) -> HINSTANCE; }
@@ -143,6 +158,107 @@ unsafe fn log_line(text: &str) {
 
 fn rgb(r: u8, g: u8, b: u8) -> u32 { (r as u32) | ((g as u32) << 8) | ((b as u32) << 16) }
 
+fn default_install_path() -> String {
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        if !local.trim().is_empty() {
+            return format!("{}\\{}\\{}", local, PUBLISHER, PRODUCT);
+        }
+    }
+    format!("C:\\{}\\{}", PUBLISHER, PRODUCT)
+}
+
+fn validate_payload(source: &Path) -> Result<(), String> {
+    let missing: Vec<&str> = REQUIRED_PAYLOAD_FILES
+        .iter()
+        .copied()
+        .filter(|relative| !source.join(relative).exists())
+        .collect();
+
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("payload is incomplete. Missing: {}", missing.join(", ")))
+    }
+}
+
+fn should_install_file(path: &Path, source: &Path) -> bool {
+    let Ok(relative) = path.strip_prefix(source) else {
+        return false;
+    };
+    let relative_lower = relative.to_string_lossy().replace('\\', "/").to_lowercase();
+    let file_name = path.file_name().and_then(|v| v.to_str()).unwrap_or("").to_lowercase();
+
+    if file_name == "ariainstaller.exe" || file_name == "aria-installer.exe" {
+        return false;
+    }
+    if relative_lower.starts_with("dist/") || relative_lower.starts_with("target/") {
+        return false;
+    }
+    true
+}
+
+fn collect_payload_files(source: &Path) -> Result<Vec<PathBuf>, String> {
+    validate_payload(source)?;
+    let files: Vec<PathBuf> = walkdir::WalkDir::new(source)
+        .into_iter()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().is_file())
+        .map(|entry| entry.into_path())
+        .filter(|path| should_install_file(path, source))
+        .collect();
+
+    if files.is_empty() {
+        Err("payload contains no installable files".to_string())
+    } else {
+        Ok(files)
+    }
+}
+
+fn has_required_dotnet_runtime(list_runtimes_output: &str) -> bool {
+    list_runtimes_output.lines().any(|line| {
+        let mut parts = line.split_whitespace();
+        let Some(name) = parts.next() else { return false; };
+        let Some(version) = parts.next() else { return false; };
+        if name != "Microsoft.NETCore.App" {
+            return false;
+        }
+        let Some(major) = version.split('.').next().and_then(|v| v.parse::<u32>().ok()) else {
+            return false;
+        };
+        major == REQUIRED_DOTNET_MAJOR
+    })
+}
+
+fn check_dotnet_runtime() -> Result<(), String> {
+    let output = std::process::Command::new("dotnet")
+        .arg("--list-runtimes")
+        .output()
+        .map_err(|_| ".NET 8 Runtime が見つかりません。先に .NET 8 Runtime をインストールしてください。".to_string())?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if output.status.success() && has_required_dotnet_runtime(&stdout) {
+        Ok(())
+    } else {
+        Err(".NET 8 Runtime が見つかりません。先に .NET 8 Runtime をインストールしてください。".to_string())
+    }
+}
+
+fn escape_vbs_string(value: &str) -> String {
+    value.replace('"', "\"\"")
+}
+
+fn command_id(wp: WPARAM) -> usize {
+    wp & 0xffff
+}
+
+unsafe fn pump_messages() {
+    let mut msg: MSG = mem::zeroed();
+    while PeekMessageW(&mut msg, 0, 0, 0, PM_REMOVE) != 0 {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+}
+
 fn main() {
     unsafe {
         HINST = GetModuleHandleW(std::ptr::null());
@@ -170,7 +286,7 @@ fn main() {
         }
 
         // Default install path
-        INSTALL_PATH = format!("C:\\Program Files\\{}\\{}", PUBLISHER, PRODUCT);
+        INSTALL_PATH = default_install_path();
 
         ShowWindow(HWND_MAIN, SW_SHOW);
         let mut msg: MSG = mem::zeroed();
@@ -184,7 +300,7 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRES
             WM_CREATE => { create_controls(hwnd); 0 }
 
             WM_COMMAND => {
-                match wp {
+                match command_id(wp) {
                     x if x == IDC_BROWSE as usize => {
                         let mut path_buf = vec![0u16; 260];
                         let title = to_wide("インストール先を選択");
@@ -198,11 +314,15 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRES
                         0
                     }
                     x if x == IDC_INSTALL as usize && !INSTALLING => {
+                        INSTALL_PATH = get_text(HWND_PATH).trim().to_string();
                         if INSTALL_PATH.is_empty() { return 0; }
                         INSTALLING = true;
                         EnableWindow(HWND_INSTALL, 0);
                         EnableWindow(HWND_BROWSE, 0);
                         set_text(HWND_CANCEL, "キャンセル");
+                        set_text(HWND_TITLE, &format!("{} - インストール中", PRODUCT));
+                        log_line("インストールを開始します...");
+                        pump_messages();
                         start_install();
                         0
                     }
@@ -221,8 +341,8 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRES
 
             WM_CTLCOLORSTATIC => {
                 if lp == HWND_TITLE || lp == HWND_INFO {
-                    SetBkMode(lp as HDC, TRANSPARENT);
-                    SetTextColor(lp as HDC, rgb(0, 64, 128));
+                    SetBkMode(wp as HDC, TRANSPARENT);
+                    SetTextColor(wp as HDC, rgb(0, 64, 128));
                     GetSysColorBrush(COLOR_BTNFACE) as LRESULT
                 } else { DefWindowProcW(hwnd, msg, wp, lp) }
             }
@@ -305,12 +425,35 @@ unsafe fn create_controls(hwnd: HWND) {
 unsafe fn start_install() {
     let source = PathBuf::from(&SOURCE_DIR);
     let dest = PathBuf::from(&INSTALL_PATH);
-    std::fs::create_dir_all(&dest).ok();
+    if let Err(err) = std::fs::create_dir_all(&dest) {
+        log_line(&format!("インストール先を作成できません: {}", err));
+        set_text(HWND_INSTALL, "再試行");
+        EnableWindow(HWND_INSTALL, 1);
+        EnableWindow(HWND_BROWSE, 1);
+        INSTALLING = false;
+        return;
+    }
 
-    let files: Vec<_> = walkdir::WalkDir::new(&source).into_iter()
-        .filter_map(|e| e.ok()).filter(|e| e.file_type().is_file())
-        .filter(|e| !e.file_name().to_string_lossy().contains("aria-installer"))
-        .collect();
+    let files = match collect_payload_files(&source) {
+        Ok(files) => files,
+        Err(err) => {
+            log_line(&format!("インストール元が壊れています: {}", err));
+            set_text(HWND_INSTALL, "再試行");
+            EnableWindow(HWND_INSTALL, 1);
+            EnableWindow(HWND_BROWSE, 1);
+            INSTALLING = false;
+            return;
+        }
+    };
+
+    if let Err(err) = check_dotnet_runtime() {
+        log_line(&err);
+        set_text(HWND_INSTALL, "再試行");
+        EnableWindow(HWND_INSTALL, 1);
+        EnableWindow(HWND_BROWSE, 1);
+        INSTALLING = false;
+        return;
+    }
 
     TOTAL_FILES = files.len();
     COPIED_FILES = 0;
@@ -325,18 +468,29 @@ unsafe fn start_install() {
     SetTimer(HWND_MAIN, TIMER_ANIM, 40, 0);
     SendMessageW(HWND_PROGRESS, 0x406, 0, TOTAL_FILES as isize); // PBM_SETRANGE32
 
-    for (i, entry) in files.iter().enumerate() {
+    for (i, path) in files.iter().enumerate() {
         if !INSTALLING { break; }
 
-        let rel = entry.path().strip_prefix(&source).unwrap();
+        let rel = path.strip_prefix(&source).unwrap();
         let dp = dest.join(rel);
-        if let Some(p) = dp.parent() { std::fs::create_dir_all(p).ok(); }
-        std::fs::copy(entry.path(), &dp).ok();
+        if let Some(p) = dp.parent() {
+            if let Err(err) = std::fs::create_dir_all(p) {
+                log_line(&format!("ディレクトリ作成失敗: {} ({})", p.display(), err));
+                INSTALLING = false;
+                break;
+            }
+        }
+        if let Err(err) = std::fs::copy(path, &dp) {
+            log_line(&format!("コピー失敗: {} ({})", rel.display(), err));
+            INSTALLING = false;
+            break;
+        }
 
         CURRENT_FILE = rel.to_string_lossy().to_string();
         COPIED_FILES = i + 1;
         SendMessageW(HWND_PROGRESS, 0x402, COPIED_FILES, 0); // PBM_SETPOS
         log_line(&CURRENT_FILE);
+        pump_messages();
     }
 
     KillTimer(HWND_MAIN, TIMER_ANIM);
@@ -377,6 +531,7 @@ unsafe fn start_install() {
         set_text(HWND_INSTALL, "再試行");
     }
     EnableWindow(HWND_INSTALL, 1);
+    EnableWindow(HWND_BROWSE, 1);
     INSTALLING = false;
 }
 
@@ -436,7 +591,9 @@ fn create_shortcut(link_path: &str, target: &str, working_dir: &str) {
          sc.WorkingDirectory = \"{}\"\r\n\
          sc.Arguments = \"--run-mode release --pak data.pak --compiled scripts/scripts.ariac\"\r\n\
          sc.Save()\r\n",
-        link_path, target, working_dir
+        escape_vbs_string(link_path),
+        escape_vbs_string(target),
+        escape_vbs_string(working_dir)
     );
 
     let tmp = std::env::temp_dir().join(format!("aria_inst_{}.vbs", std::process::id()));
@@ -460,4 +617,66 @@ fn create_shortcut(link_path: &str, target: &str, working_dir: &str) {
         }
     }
     std::fs::remove_file(&tmp).ok();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_root(name: &str) -> PathBuf {
+        let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let path = std::env::temp_dir().join(format!("aria_installer_test_{}_{}", name, stamp));
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn detects_dotnet_8_runtime_from_list_output() {
+        let output = "Microsoft.NETCore.App 8.0.22 [C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App]\r\n";
+
+        assert!(has_required_dotnet_runtime(output));
+    }
+
+    #[test]
+    fn rejects_only_old_dotnet_runtime() {
+        let output = "Microsoft.NETCore.App 7.0.20 [C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App]\r\n";
+
+        assert!(!has_required_dotnet_runtime(output));
+    }
+
+    #[test]
+    fn escapes_quotes_for_vbs_shortcut_script() {
+        assert_eq!(escape_vbs_string(r#"C:\Game "Test"\AriaEngine.exe"#), r#"C:\Game ""Test""\AriaEngine.exe"#);
+    }
+
+    #[test]
+    fn extracts_control_id_from_command_wparam() {
+        let clicked_with_notification = (1usize << 16) | IDC_INSTALL;
+
+        assert_eq!(command_id(clicked_with_notification), IDC_INSTALL);
+    }
+
+    #[test]
+    fn validates_required_payload_files() {
+        let root = temp_root("required");
+        fs::write(root.join("AriaEngine.exe"), b"exe").unwrap();
+        fs::write(root.join("data.pak"), b"pak").unwrap();
+
+        let err = validate_payload(&root).unwrap_err();
+
+        assert!(err.contains("init.aria"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn excludes_installer_binary_from_payload_copy() {
+        let root = temp_root("exclude");
+        let installer = root.join("AriaInstaller.exe");
+        fs::write(&installer, b"installer").unwrap();
+
+        assert!(!should_install_file(&installer, &root));
+        fs::remove_dir_all(root).unwrap();
+    }
 }
