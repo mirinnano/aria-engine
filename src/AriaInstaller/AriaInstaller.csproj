@@ -7,6 +7,9 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>umikaze.ico</ApplicationIcon>
+    <!-- Release: self-contained (installer must work without .NET pre-installed) -->
+    <PublishSingleFile Condition="'$(Configuration)' == 'Release'">true</PublishSingleFile>
+    <SelfContained Condition="'$(Configuration)' == 'Release'">true</SelfContained>
   </PropertyGroup>
 
   <PropertyGroup>

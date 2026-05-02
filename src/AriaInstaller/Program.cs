@@ -13,7 +13,57 @@ internal static class Program
     private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
+
+        if (!CheckDotNetRuntime())
+        {
+            MessageBox.Show(
+                ".NET 8.0 ランタイムが見つかりません。\n\n" +
+                "ダウンロードページを開きます。\n" +
+                "インストール後、再度 AriaInstaller を実行してください。",
+                "Aria Installer - 前提条件",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+
+            OpenUrl("https://dotnet.microsoft.com/ja-jp/download/dotnet/8.0/runtime/desktop/x64");
+            return;
+        }
+
         Application.Run(new InstallerForm(ParseInstallDir(args)));
+    }
+
+    private static bool CheckDotNetRuntime()
+    {
+        try
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "dotnet",
+                    Arguments = "--list-runtimes",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            process.Start();
+            string output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit(5000);
+            return output.Contains("Microsoft.NETCore.App 8.");
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch { }
     }
 
     private static string? ParseInstallDir(string[] args)
