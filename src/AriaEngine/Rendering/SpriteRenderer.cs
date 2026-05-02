@@ -1623,6 +1623,48 @@ public class SpriteRenderer
         // スプライト統計
         int spriteCount = _currentState?.Render.Sprites.Count ?? 0;
         Raylib.DrawText($"Sprites: {spriteCount}", 10, 170, 16, Color.Magenta);
+
+        // レジスタ値（%0-%9）
+        int y = 200;
+        Raylib.DrawText("Registers:", 10, y, 14, Color.SkyBlue); y += 16;
+        for (int r = 0; r < 10; r++)
+        {
+            string regName = r.ToString();
+            int val = state.Execution.ProgramCounter; // dummy to get VM reference
+            // Use fast registers or state lookup
+            if (state.RegisterState.Registers.TryGetValue(regName, out int regVal) && regVal != 0)
+            {
+                Raylib.DrawText($"  %{r}: {regVal}", 10, y, 14, Color.White);
+                y += 16;
+            }
+        }
+
+        // フラグ情報
+        if (state.FlagRuntime.Flags.Count > 0 || state.FlagRuntime.SaveFlags.Count > 0)
+        {
+            y += 4;
+            Raylib.DrawText($"Flags: {state.FlagRuntime.Flags.Count}", 10, y, 14, Color.Orange); y += 16;
+            Raylib.DrawText($"SaveFlags: {state.FlagRuntime.SaveFlags.Count}", 10, y, 14, Color.Orange); y += 16;
+        }
+
+        // シーン・状態情報
+        y += 4;
+        Raylib.DrawText($"Scene: {state.SceneRuntime.CurrentScene}", 10, y, 14, Color.Gold); y += 16;
+        Raylib.DrawText($"VM: {state.Execution.State}", 10, y, 14, Color.Gold); y += 16;
+        if (!string.IsNullOrEmpty(state.SaveRuntime.CurrentChapter))
+        {
+            Raylib.DrawText($"Chapter: {state.SaveRuntime.CurrentChapter}", 10, y, 14, Color.Gold); y += 16;
+        }
+
+        // テキストバッファプレビュー
+        if (!string.IsNullOrEmpty(state.TextRuntime.CurrentTextBuffer))
+        {
+            y += 4;
+            string preview = state.TextRuntime.CurrentTextBuffer.Length > 40
+                ? state.TextRuntime.CurrentTextBuffer[..40] + "..."
+                : state.TextRuntime.CurrentTextBuffer;
+            Raylib.DrawText($"Text: {preview}", 10, y, 14, Color.Lime);
+        }
     }
 
     /// <summary>
