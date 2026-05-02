@@ -453,6 +453,26 @@ namespace AriaEngine.Core;
             {
                 State.TextRuntime.TextTimerMs -= State.TextRuntime.TextSpeedMs;
                 State.TextRuntime.DisplayedTextLength++;
+
+                // Per-character SE: find which segment the newly revealed character belongs to and play its voice/SE
+                if (Audio != null && State.TextRuntime.CurrentTextSegments is { Count: > 0 } segments)
+                {
+                    int pos = State.TextRuntime.DisplayedTextLength - 1;
+                    int segStart = 0;
+                    foreach (var seg in segments)
+                    {
+                        int segLen = seg.Text.Length + (seg.IsNewLine ? 1 : 0);
+                        if (pos < segStart + segLen)
+                        {
+                            if (!string.IsNullOrEmpty(seg.Style.VoiceSePath))
+                            {
+                                Audio.PlayVoice(seg.Style.VoiceSePath, seg.Style.VoiceSeVolume);
+                            }
+                            break;
+                        }
+                        segStart += segLen;
+                    }
+                }
             }
 
             if (State.Render.Sprites.TryGetValue(State.TextWindow.TextTargetSpriteId, out var txtSprite))

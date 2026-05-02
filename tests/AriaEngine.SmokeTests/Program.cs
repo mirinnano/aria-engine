@@ -593,6 +593,35 @@ try
         Assert(!styleReporter.Errors.Any(e => e.Level == AriaErrorLevel.Error), $"Transition style '{s}' should parse without errors");
     }
 
+    // --- Text effect tests (per-character SE, ruby) ---
+    var textFxReporter = new ErrorReporter();
+    var textFxParser = new Parser(textFxReporter);
+    var textFxScript = textFxParser.Parse(new[]
+    {
+        "compat_mode on",
+        "textspeed 0",
+        "textbox 0, 0, 640, 120",
+        "text \"[se=click.wav]Hello[ruby=せかい]World[/ruby]\"",
+        "@"
+    }, "text-fx.aria");
+    Assert(!textFxReporter.Errors.Any(e => e.Level == AriaErrorLevel.Error), "Text effects should parse without errors");
+
+    var textFxVm = new VirtualMachine(textFxReporter, new TweenManager(), new SaveManager(textFxReporter), new ConfigManager());
+    textFxVm.LoadScript(textFxScript.Instructions, textFxScript.Labels, "text-fx.aria");
+    textFxVm.Step();
+
+    Assert(textFxVm.State.TextRuntime.CurrentTextSegments != null, "CurrentTextSegments should be parsed");
+    Assert(textFxVm.State.TextRuntime.CurrentTextSegments.Any(s => !string.IsNullOrEmpty(s.Style.VoiceSePath)),
+        "Should have segment with voice SE path");
+    Assert(textFxVm.State.TextRuntime.CurrentTextSegments.Any(s => !string.IsNullOrEmpty(s.RubyText)),
+        "Should have segment with ruby text");
+
+    // Test [ruby] standalone tag
+    var rubyReporter = new ErrorReporter();
+    var rubyParser = new Parser(rubyReporter);
+    rubyParser.Parse(new[] { "text \"[ruby=かな]漢字[/ruby]\"" }, "ruby.aria");
+    Assert(!rubyReporter.Errors.Any(e => e.Level == AriaErrorLevel.Error), "Ruby tag should parse");
+
     Console.WriteLine("ARIA smoke tests passed.");
 }
 finally
