@@ -168,3 +168,13 @@ src/AriaEngine/aria_error_ai.*
 temp_test*.aria
 
 .worktrees/
+
+# Rust
+src/aria-installer/target/
+
+# Publish test dirs
+publish-installer/
+publish-fd/
+publish-trimmed/
+publish-aot/
+src/AriaEngine/publish/
