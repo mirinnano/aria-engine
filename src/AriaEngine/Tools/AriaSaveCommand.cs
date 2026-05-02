@@ -20,12 +20,26 @@ public static class AriaSaveCommand
             return 0;
         }
 
+        string saveDir = "saves";
+        var normalizedArgs = new List<string>();
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i].Equals("--dir", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+            {
+                saveDir = args[++i];
+                continue;
+            }
+
+            normalizedArgs.Add(args[i]);
+        }
+
+        args = normalizedArgs.ToArray();
         var subcommand = args[0].ToLowerInvariant();
 
         switch (subcommand)
         {
             case "list":
-                return RunList();
+                return RunList(saveDir);
 
             case "help":
             case "--help":
@@ -45,13 +59,13 @@ public static class AriaSaveCommand
                     Console.Error.WriteLine($"aria-save: invalid slot '{args[1]}'. Must be 0-{MaxSlots - 1}");
                     return 2;
                 }
-                return RunInfo(slot);
+                return RunInfo(slot, saveDir);
 
             case "validate":
-                return RunValidate();
+                return RunValidate(saveDir);
 
             case "migrate":
-                return RunMigrate(args.Contains("--no-backup", StringComparer.OrdinalIgnoreCase));
+                return RunMigrate(args.Contains("--no-backup", StringComparer.OrdinalIgnoreCase), saveDir);
 
             default:
                 Console.Error.WriteLine($"aria-save: unknown command '{subcommand}'");
@@ -60,13 +74,13 @@ public static class AriaSaveCommand
         }
     }
 
-    private static int RunList()
+    private static int RunList(string saveDir)
     {
         var reporter = new ErrorReporter();
-        var saveManager = new SaveManager(reporter);
+        var saveManager = new SaveManager(reporter, saveDir);
         var saves = saveManager.GetAllSaveSlots();
 
-        Console.WriteLine($"Save Directory: {GetSaveDirectory()}");
+        Console.WriteLine($"Save Directory: {saveDir}");
         Console.WriteLine();
         Console.WriteLine($"{"Slot",-6} {"Chapter",-20} {"Saved At",-20} {"Play Time",-10} {"Preview"}");
         Console.WriteLine(new string('-', 80));
@@ -91,10 +105,10 @@ public static class AriaSaveCommand
         return 0;
     }
 
-    private static int RunInfo(int slot)
+    private static int RunInfo(int slot, string saveDir)
     {
         var reporter = new ErrorReporter();
-        var saveManager = new SaveManager(reporter);
+        var saveManager = new SaveManager(reporter, saveDir);
         var save = saveManager.GetSaveData(slot);
 
         if (save == null)
@@ -114,11 +128,10 @@ public static class AriaSaveCommand
         return 0;
     }
 
-    private static int RunValidate()
+    private static int RunValidate(string saveDir)
     {
         var reporter = new ErrorReporter();
-        var saveManager = new SaveManager(reporter);
-        string saveDir = GetSaveDirectory();
+        var saveManager = new SaveManager(reporter, saveDir);
 
         if (!Directory.Exists(saveDir))
         {
@@ -135,14 +148,14 @@ public static class AriaSaveCommand
 
             if (File.Exists(path))
             {
-                if (!ValidateSaveFile(path, "AriaSave v3"))
+                if (!ValidateSaveFile(path, "AriaSave v3", saveDir))
                 {
                     errorCount++;
                 }
             }
             else if (File.Exists(jsonPath))
             {
-                if (!ValidateSaveFile(jsonPath, "AriaSave JSON"))
+                if (!ValidateSaveFile(jsonPath, "AriaSave JSON", saveDir))
                 {
                     errorCount++;
                 }
@@ -164,23 +177,23 @@ public static class AriaSaveCommand
         return 0;
     }
 
-    private static int RunMigrate(bool noBackup)
+    private static int RunMigrate(bool noBackup, string saveDir)
     {
         var reporter = new ErrorReporter();
-        var saveManager = new SaveManager(reporter);
+        var saveManager = new SaveManager(reporter, saveDir);
         int migrated = saveManager.MigrateAll(backup: !noBackup);
         reporter.WriteLogFile();
         Console.WriteLine($"Migrated save files: {migrated}");
         return reporter.Errors.Any(e => e.Level is AriaErrorLevel.Error or AriaErrorLevel.Fatal) ? 1 : 0;
     }
 
-    private static bool ValidateSaveFile(string path, string formatName)
+    private static bool ValidateSaveFile(string path, string formatName, string saveDir)
     {
         try
         {
             // Try to load via SaveManager
             var reporter = new ErrorReporter();
-            var saveManager = new SaveManager(reporter);
+            var saveManager = new SaveManager(reporter, saveDir);
 
             int slot = ExtractSlotFromPath(path);
             var (data, success) = saveManager.Load(slot);
@@ -217,11 +230,6 @@ public static class AriaSaveCommand
         return -1;
     }
 
-    private static string GetSaveDirectory()
-    {
-        return "saves";
-    }
-
     private static string FormatPlayTime(TimeSpan playTime)
     {
         if (playTime == TimeSpan.Zero)
@@ -254,6 +262,7 @@ public static class AriaSaveCommand
         Console.WriteLine("  info <slot>       Show detailed info for a specific slot (0-9)");
         Console.WriteLine("  validate          Validate all save files for corruption");
         Console.WriteLine("  migrate           Rewrite saves to the current schema with backup");
+        Console.WriteLine("  --dir <path>      Use a specific save directory");
         Console.WriteLine("  help              Show this help message");
         Console.WriteLine();
         Console.WriteLine("Examples:");

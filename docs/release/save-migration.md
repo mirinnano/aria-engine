@@ -12,6 +12,12 @@
 dotnet run -c Release --project src/AriaEngine/AriaEngine.csproj -- aria-save migrate
 ```
 
+Use `--dir <path>` to validate or migrate an explicit save directory:
+
+```powershell
+dotnet run -c Release --project src/AriaEngine/AriaEngine.csproj -- aria-save --dir .tmp/release-save-validation validate
+```
+
 The command:
 
 - loads existing save slots

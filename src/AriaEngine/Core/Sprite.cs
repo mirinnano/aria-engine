@@ -24,6 +24,8 @@ public class Sprite
     
     // Image properties
     public string ImagePath { get; set; } = "";
+    public int BackgroundTimeOfDay { get; set; }
+    public string BackgroundTimePreset { get; set; } = "";
     
     // Text properties
     public string Text { get; set; } = "";

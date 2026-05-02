@@ -17,6 +17,9 @@ Use this before publishing a production build.
 - `scripts/visual-compare.ps1` passes for accepted baselines.
 - `scripts/replay.ps1` passes for release replay specs.
 - `scripts/installer.ps1` creates an installer zip.
+- `release-notes.md` is present in the package.
+- `manifest.json` records compatibility, packaging, and signing state.
+- Release CI uses the same `scripts/release.ps1` and `scripts/installer.ps1` path as local release builds.
 
 ## Manual QA
 
@@ -34,3 +37,5 @@ Use this before publishing a production build.
 - Corrupt save files without a migration or reset path.
 - Any crash on startup.
 - Broken save/load/backlog/rmenu.
+- Missing release notes or missing signing status metadata.
+- Public release artifact marked unsigned when CI signing secrets were expected.

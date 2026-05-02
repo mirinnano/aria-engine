@@ -7,7 +7,9 @@ param(
     [switch]$SkipSmoke,
     [switch]$SkipDoctor,
     [switch]$SkipPackage,
-    [switch]$NoZip
+    [switch]$NoZip,
+    [string]$ReleaseNotes = "",
+    [switch]$Sign
 )
 
 $ErrorActionPreference = "Stop"
@@ -43,7 +45,15 @@ Invoke-Step "release metadata" {
 
 if (-not $SkipDoctor) {
     Invoke-Step "doctor" {
-        & ./scripts/doctor.ps1 -Project $Project -InitScript $InitScript -MainScript $MainScript
+        $doctorArgs = @{
+            Project = $Project
+            InitScript = $InitScript
+            MainScript = $MainScript
+        }
+        if ($Version -match '^v1\.0\.0-rc' -or $Version -match '^v\d+\.\d+\.\d+$') {
+            $doctorArgs.Strict = $true
+        }
+        & ./scripts/doctor.ps1 @doctorArgs
     }
 }
 
@@ -66,7 +76,17 @@ Invoke-Step "release build" {
 
 if (-not $SkipPackage) {
     Invoke-Step "package" {
-        & ./scripts/package.ps1 -Project $Project -Version $Version -Runtime $Runtime -InitScript $InitScript -MainScript $MainScript -NoZip:$NoZip
+        $packageArgs = @{
+            Project = $Project
+            Version = $Version
+            Runtime = $Runtime
+            InitScript = $InitScript
+            MainScript = $MainScript
+            NoZip = $NoZip
+        }
+        if (-not [string]::IsNullOrWhiteSpace($ReleaseNotes)) { $packageArgs.ReleaseNotes = $ReleaseNotes }
+        if ($Sign) { $packageArgs.Sign = $true }
+        & ./scripts/package.ps1 @packageArgs
     }
 }
 

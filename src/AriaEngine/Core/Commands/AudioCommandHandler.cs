@@ -11,6 +11,9 @@ public sealed class AudioCommandHandler : BaseCommandHandler
         OpCode.Dwave,
         OpCode.DwaveLoop,
         OpCode.DwaveStop,
+        OpCode.Voice,
+        OpCode.VoiceWait,
+        OpCode.VoiceStop,
         OpCode.BgmVol,
         OpCode.SeVol,
         OpCode.Mp3Vol,
@@ -41,13 +44,13 @@ public sealed class AudioCommandHandler : BaseCommandHandler
 
             case OpCode.PlaySe:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.PendingSe.Add(inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : GetString(inst.Arguments[0]));
+                QueueSound(inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : GetString(inst.Arguments[0]));
                 return true;
 
             case OpCode.Dwave:
                 if (!ValidateArgs(inst, 1)) return true;
                 string voicePath = inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : GetString(inst.Arguments[0]);
-                State.PendingSe.Add(voicePath);
+                QueueSound(voicePath);
                 State.LastVoicePath = voicePath;
                 return true;
 
@@ -60,11 +63,29 @@ public sealed class AudioCommandHandler : BaseCommandHandler
 
             case OpCode.DwaveLoop:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.PendingSe.Add(inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : GetString(inst.Arguments[0]));
+                QueueSound(inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : GetString(inst.Arguments[0]));
                 return true;
 
             case OpCode.DwaveStop:
                 State.PendingSe.Clear();
+                return true;
+
+            case OpCode.Voice:
+                if (!ValidateArgs(inst, 1)) return true;
+                string path = GetString(inst.Arguments[0]);
+                QueueSound(path);
+                State.LastVoicePath = path;
+                State.Audio.VoiceWaitRequested = false;
+                return true;
+
+            case OpCode.VoiceWait:
+                State.Audio.VoiceWaitRequested = true;
+                State.State = VmState.WaitingForAnimation;
+                return true;
+
+            case OpCode.VoiceStop:
+                State.LastVoicePath = "";
+                State.Audio.VoiceWaitRequested = false;
                 return true;
 
             case OpCode.BgmVol:
@@ -119,5 +140,11 @@ public sealed class AudioCommandHandler : BaseCommandHandler
             default:
                 return false;
         }
+    }
+
+    private void QueueSound(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+        State.PendingSe.Add(path);
     }
 }

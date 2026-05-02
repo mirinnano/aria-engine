@@ -61,13 +61,18 @@ public class TweenManager
 
     public void FinishAll(GameState state)
     {
-        foreach (var t in _activeTweens)
+        while (_activeTweens.Count > 0)
         {
-            if (!state.Sprites.TryGetValue(t.SpriteId, out var sp)) continue;
-            ApplyValue(sp, t.Property, t.To);
-            t.OnComplete?.Invoke(state, sp);
+            var finishing = _activeTweens.ToArray();
+            _activeTweens.Clear();
+
+            foreach (var t in finishing)
+            {
+                if (!state.Sprites.TryGetValue(t.SpriteId, out var sp)) continue;
+                ApplyValue(sp, t.Property, t.To);
+                t.OnComplete?.Invoke(state, sp);
+            }
         }
-        _activeTweens.Clear();
     }
 
     public void Update(GameState state, float deltaTimeMs)

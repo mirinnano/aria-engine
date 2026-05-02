@@ -21,6 +21,8 @@ rmenu "SAVE",save,"LOAD",load,"BACKLOG",backlog,"SKIP",skip,"CONFIG",settings,"R
 
 #define CHAPTER_COUNT 6
 
+goto *start
+
 ; ===========================================================
 ; ユーティリティ関数
 ; ===========================================================
@@ -33,6 +35,7 @@ endfunc
 
 func adv()
     textclear
+    textfx reset
     textmode "adv"
     ; ADV: 黒鉄パネルで締める
     textbox 40, 540, 1200, 160
@@ -44,6 +47,7 @@ endfunc
 
 func nvl()
     textclear
+    textfx reset
     textmode "nvl"
     textbox 72, 28, 1136, 628
     fontsize 34
@@ -53,8 +57,7 @@ func nvl()
 endfunc
 
 func scenechange(path: string, dur: int)
-    bg "#000000", %dur
-    bg $path, %dur
+    transition bg, $path, "fade", %dur
 endfunc
 
 func fadeout(dur: int)
@@ -62,11 +65,145 @@ func fadeout(dur: int)
 endfunc
 
 func fadein(path: string, dur: int)
-    bg $path, %dur
+    transition bg, $path, "fade", %dur
+endfunc
+
+func flash()
+    screen flash, "#ffffff", 180
+    sync fx
+endfunc
+
+func shake_light()
+    camera shake, 3, 220
+endfunc
+
+func shake_strong()
+    camera shake, 7, 360
+endfunc
+
+func text_effect(name: string)
+    textfx $name, 1.2, 6
+endfunc
+
+func text_effect_off()
+    textfx reset
+endfunc
+
+func text_speed_tmp(speed: int)
+    textfx speed, %speed
+endfunc
+
+func text_speed_normal()
+    textfx speed, 24
 endfunc
 
 func playse(path: string)
     dwave 0, $path
+endfunc
+
+func fx_reset()
+    fx cancel, all
+endfunc
+
+func fx_profile_subtle()
+    fx profile, "subtle"
+    fx skip_policy, "finish"
+endfunc
+
+func fx_profile_intense()
+    fx profile, "intense"
+    fx skip_policy, "finish"
+endfunc
+
+func fx_scene_cut(path: string)
+    screen tint, "#ffffff", 24, 90
+    wait 60
+    transition bg, $path, "fade", 520
+endfunc
+
+func fx_memory()
+    screen tint, "#1d2430", 42, 1600
+    wait 60
+endfunc
+
+func fx_shock()
+    fx cancel, text
+    screen tint, "#000000", 38, 90
+    wait 60
+    screen flash, "#ffffff", 70
+    camera shake, 4, 190
+    sync fx
+    wait 70
+endfunc
+
+func fx_focus()
+    fx cancel, text
+    screen tint, "#000000", 36, 620
+    wait 60
+endfunc
+
+func voice_line(path: string)
+    voice $path
+endfunc
+
+func mood_calm()
+    fx cancel, screen
+    screen tint, "#101820", 24, 1200
+endfunc
+
+func mood_memory()
+    screen tint, "#1d2430", 42, 1600
+    wait 50
+endfunc
+
+func mood_danger()
+    screen tint, "#2b0f12", 42, 1200
+    wait 60
+endfunc
+
+func chapter_card_fx(title: string, sub: string)
+    fx cancel, all
+    screen tint, "#ffffff", 30, 110
+    wait 70
+    ui_rect 8700, 0, 0, 1280, 720
+    ui sprite:8700, fill, "#050607"
+    ui sprite:8700, fill_alpha, 232
+    ui sprite:8700, opacity, 0
+    ui sprite:8700, z, 9500
+    ui_text 8701, $title, 640, 304
+    ui sprite:8701, align, "center"
+    ui sprite:8701, font_size, 34
+    ui sprite:8701, color, "#e7e2d6"
+    ui sprite:8701, opacity, 0
+    ui sprite:8701, z, 9510
+    ui_text 8702, $sub, 640, 360
+    ui sprite:8702, align, "center"
+    ui sprite:8702, font_size, 20
+    ui sprite:8702, color, "#9aa18f"
+    ui sprite:8702, opacity, 0
+    ui sprite:8702, z, 9510
+    ui_fade 8700, 255, 420
+    ui_fade 8701, 255, 520
+    ui_fade 8702, 255, 620
+    ui_move 8701, 640, 292, 520
+    ui_move 8702, 640, 346, 620
+    wait 980
+    ui_fade 8701, 0, 420
+    ui_fade 8702, 0, 360
+    wait 120
+    ui_fade 8700, 0, 420
+    wait 460
+    csp 8700
+    csp 8701
+    csp 8702
+endfunc
+
+func choice_enter_fx()
+    screen tint, "#000000", 28, 320
+endfunc
+
+func focus_fx()
+    fx_focus()
 endfunc
 
 func card_mio()
@@ -74,23 +211,36 @@ func card_mio()
     ui_rect 900, 0, 0, 1280, 720
     ui sprite:900, fill, "#050607"
     ui sprite:900, fill_alpha, 238
+    ui sprite:900, opacity, 0
     ui sprite:900, z, 80
-    ui_text 901, "MIO SIDE", 640, 292
+    ui_text 901, "MIO SIDE", 640, 308
     ui sprite:901, font_size, 22
     ui sprite:901, align, "center"
     ui sprite:901, color, "#9aa18f"
+    ui sprite:901, opacity, 0
     ui sprite:901, z, 90
-    ui_text 902, "―― ミオ 視点 ――", 640, 336
+    ui_text 902, "―― ミオ 視点 ――", 640, 352
     ui sprite:902, font_size, 28
     ui sprite:902, align, "center"
     ui sprite:902, color, "#e7e2d6"
     ui sprite:902, text_shadow, 0, 3, "#000000"
+    ui sprite:902, opacity, 0
     ui sprite:902, z, 90
-    wait 1200
+    ui_fade 900, 255, 420
+    ui_fade 901, 255, 520
+    ui_fade 902, 255, 620
+    ui_move 901, 640, 292, 540
+    ui_move 902, 640, 336, 640
+    wait 980
+    ui_fade 901, 0, 360
+    ui_fade 902, 0, 360
+    wait 130
+    ui_fade 900, 0, 420
+    wait 460
     csp 900
     csp 901
     csp 902
-    wait 250
+    wait 120
 endfunc
 
 func card_ore()
@@ -98,30 +248,37 @@ func card_ore()
     ui_rect 910, 0, 0, 1280, 720
     ui sprite:910, fill, "#050607"
     ui sprite:910, fill_alpha, 238
+    ui sprite:910, opacity, 0
     ui sprite:910, z, 80
-    ui_text 911, "HIS SIDE", 640, 292
+    ui_text 911, "HIS SIDE", 640, 308
     ui sprite:911, font_size, 22
     ui sprite:911, align, "center"
     ui sprite:911, color, "#b8a46f"
+    ui sprite:911, opacity, 0
     ui sprite:911, z, 90
-    ui_text 912, "―― 俺 視点 ――", 640, 336
+    ui_text 912, "―― 俺 視点 ――", 640, 352
     ui sprite:912, font_size, 28
     ui sprite:912, align, "center"
     ui sprite:912, color, "#e7e2d6"
     ui sprite:912, text_shadow, 0, 3, "#000000"
+    ui sprite:912, opacity, 0
     ui sprite:912, z, 90
-    wait 1200
+    ui_fade 910, 255, 420
+    ui_fade 911, 255, 520
+    ui_fade 912, 255, 620
+    ui_move 911, 640, 292, 540
+    ui_move 912, 640, 336, 640
+    wait 980
+    ui_fade 911, 0, 360
+    ui_fade 912, 0, 360
+    wait 130
+    ui_fade 910, 0, 420
+    wait 460
     csp 910
     csp 911
     csp 912
-    wait 250
+    wait 120
 endfunc
-
-; ===========================================================
-; エントリポイント
-; ===========================================================
-
-goto *start
 
 include "ui_presets.aria"
 include "settings_ui.aria"
@@ -145,8 +302,10 @@ ui menu_action, gallery, *gallery_ui
 
 *start
 cls()
+fx_reset()
+clear_vflag in_scene
 erasetextwindow 0
-bg "bg/bg_title.bmp", 1
+bg "bg/ui_title_menu_ocean.png", 1
 wait 300
 
 get_pflag chapter_01 %10
@@ -266,8 +425,28 @@ ui sprite:13, color, "#e7e2d6"
 ui sprite:13, z, 20
 ui sprite:13, opacity, 0
 
+; TESTER ボタン
+ui_rect 35, 520, 510, 240, 36
+ui sprite:35, fill, "#071923"
+ui sprite:35, fill_alpha, 196
+ui sprite:35, border, 1, "#7fcbd8"
+ui sprite:35, border_alpha, 128
+ui sprite:35, shadow, 0, 4, "#000000"
+ui sprite:35, shadow_alpha, 130
+ui sprite:35, hover_fill, "#143b48"
+ui sprite:35, hover_scale, 1.012
+ui sprite:35, z, 10
+ui sprite:35, opacity, 0
+
+ui_text 15, "TESTER", 640, 520
+ui sprite:15, font_size, 20
+ui sprite:15, align, "center"
+ui sprite:15, color, "#eaf7f8"
+ui sprite:15, z, 20
+ui sprite:15, opacity, 0
+
 ; 終了 ボタン
-ui_rect 34, 520, 510, 240, 36
+ui_rect 34, 520, 560, 240, 36
 ui sprite:34, fill, "#101417"
 ui sprite:34, fill_alpha, 188
 ui sprite:34, border, 1, "#9aa18f"
@@ -279,7 +458,7 @@ ui sprite:34, hover_scale, 1.012
 ui sprite:34, z, 10
 ui sprite:34, opacity, 0
 
-ui_text 14, "EXIT", 640, 520
+ui_text 14, "EXIT", 640, 570
 ui sprite:14, font_size, 20
 ui sprite:14, align, "center"
 ui sprite:14, color, "#e7e2d6"
@@ -299,6 +478,9 @@ wait 80
 ui_fade 33, 255, 600
 ui_fade 13, 255, 600
 wait 80
+ui_fade 35, 255, 600
+ui_fade 15, 255, 600
+wait 80
 ui_fade 34, 255, 600
 ui_fade 14, 255, 600
 
@@ -308,23 +490,47 @@ ui_button 31, 2
 ui_button 32, 3
 ui_button 33, 4
 ui_button 34, 5
+ui_button 35, 6
 print 1
 
 *title_loop
 btnwait %0
-if %0 == 1 { goto *start_continue }
+if %0 == 1 { goto *start_game }
 if %0 == 2 { systemcall load }
-if %0 == 2 { goto *title_loop }
-    if %0 == 3 { settings_ui() }
-    if %0 == 3 { goto *title_loop }
-    if %0 == 4 { omake_ui() }
-    if %0 == 4 { goto *title_loop }
+if %0 == 2 { goto *return_title }
+if %0 == 3 { settings_ui() }
+if %0 == 3 { goto *return_title }
+if %0 == 4 { omake_ui() }
+if %0 == 4 { goto *return_title }
 if %0 == 5 { end }
+if %0 == 6 { goto *tester_info }
 goto *title_loop
 
+*return_title
+goto *start
+
+*tester_info
+cls()
+fx_reset()
+erasetextwindow 0
+bg "bg/ui_title_menu_ocean.png", 1
+nvl()
+「テスターのみなさまへ。」
+「今回は、"海風"の超Beta版というか、未完成品というか、なんていうか。ま、プレイしてくれて有難うございました。CONFIGとEXTRAは壊れてるまま放置してすいません。」
+「今回の作品は、ナルキッソスにモロ影響受けた作品だと自負してます。」
+「よかったら、Twitterで感想とか呟いてもらえると嬉しいです！宣伝、大事だね。ステマだステマ。」
+\
+goto *return_title
+
 *start_continue
+goto *start_game
+
+*start_game
 if %10 == 1 { goto *chapter_select }
 goto *scenario_01
+
+*enter_chapter_select
+goto *chapter_select
 
 ; ===========================================================
 ; 章選択画面
@@ -332,8 +538,14 @@ goto *scenario_01
 
 *chapter_select
 cls()
+fx_reset()
+clear_vflag in_scene
 erasetextwindow 0
-bg "#08090a", 1
+bg "bg/ui_chapter_select_ocean.png", 1
+ui_rect 298, 0, 0, 1280, 720
+ui sprite:298, fill, "#03101a"
+ui sprite:298, fill_alpha, 116
+ui sprite:298, z, 1
 
 get_pflag chapter_01 %10
 get_pflag chapter_02 %11
@@ -343,16 +555,16 @@ get_pflag chapter_05 %14
 get_pflag chapter_06 %15
 
 ; タイトル
-ui_text 20, "DATE SELECT", 640, 50
+ui_text 20, "CHAPTER SELECT", 640, 50
 ui sprite:20, font_size, 36
 ui sprite:20, align, "center"
-ui sprite:20, color, "#e7e2d6"
+ui sprite:20, color, "#eaf7f8"
 ui sprite:20, text_shadow, 0, 3, "#000000"
 
-ui_text 22, "SELECT A DAY TO BEGIN", 640, 96
+ui_text 22, "SELECT A TIDE TO BEGIN", 640, 96
 ui sprite:22, font_size, 14
 ui sprite:22, align, "center"
-ui sprite:22, color, "#9aa18f"
+ui sprite:22, color, "#91d7df"
 
 ; --- 日付カード ---
 ; 各カード: x=240, w=800, h=68
@@ -406,7 +618,7 @@ if %11 == 1
     ui sprite:101, align, "center"
     ui sprite:101, color, "#e7e2d6"
     ui sprite:101, z, 20
-    ui_text 111, "September 15th", 640, 260
+    ui_text 111, "September 21st", 640, 260
     ui sprite:111, font_size, 13
     ui sprite:111, align, "center"
     ui sprite:111, color, "#b8a46f"
@@ -417,7 +629,7 @@ else
     ui sprite:101, align, "center"
     ui sprite:101, color, "#757a72"
     ui sprite:101, z, 20
-    ui_text 111, "September 15th  -- LOCKED", 640, 260
+    ui_text 111, "September 21st  -- LOCKED", 640, 260
     ui sprite:111, font_size, 13
     ui sprite:111, align, "center"
     ui sprite:111, color, "#676b64"
@@ -449,7 +661,7 @@ if %12 == 1
     ui sprite:102, align, "center"
     ui sprite:102, color, "#e7e2d6"
     ui sprite:102, z, 20
-    ui_text 112, "September 16th", 640, 340
+    ui_text 112, "September 22nd", 640, 340
     ui sprite:112, font_size, 13
     ui sprite:112, align, "center"
     ui sprite:112, color, "#b8a46f"
@@ -460,7 +672,7 @@ else
     ui sprite:102, align, "center"
     ui sprite:102, color, "#757a72"
     ui sprite:102, z, 20
-    ui_text 112, "September 16th  -- LOCKED", 640, 340
+    ui_text 112, "September 22nd  -- LOCKED", 640, 340
     ui sprite:112, font_size, 13
     ui sprite:112, align, "center"
     ui sprite:112, color, "#676b64"
@@ -492,7 +704,7 @@ if %13 == 1
     ui sprite:103, align, "center"
     ui sprite:103, color, "#e7e2d6"
     ui sprite:103, z, 20
-    ui_text 113, "September 17th", 640, 420
+    ui_text 113, "September 23rd", 640, 420
     ui sprite:113, font_size, 13
     ui sprite:113, align, "center"
     ui sprite:113, color, "#b8a46f"
@@ -503,7 +715,7 @@ else
     ui sprite:103, align, "center"
     ui sprite:103, color, "#757a72"
     ui sprite:103, z, 20
-    ui_text 113, "September 17th  -- LOCKED", 640, 420
+    ui_text 113, "September 23rd  -- LOCKED", 640, 420
     ui sprite:113, font_size, 13
     ui sprite:113, align, "center"
     ui sprite:113, color, "#676b64"
@@ -535,7 +747,7 @@ if %14 == 1
     ui sprite:104, align, "center"
     ui sprite:104, color, "#e7e2d6"
     ui sprite:104, z, 20
-    ui_text 114, "September 18th", 640, 500
+    ui_text 114, "September 24th", 640, 500
     ui sprite:114, font_size, 13
     ui sprite:114, align, "center"
     ui sprite:114, color, "#b8a46f"
@@ -546,7 +758,7 @@ else
     ui sprite:104, align, "center"
     ui sprite:104, color, "#757a72"
     ui sprite:104, z, 20
-    ui_text 114, "September 18th  -- LOCKED", 640, 500
+    ui_text 114, "September 24th  -- LOCKED", 640, 500
     ui sprite:114, font_size, 13
     ui sprite:114, align, "center"
     ui sprite:114, color, "#676b64"
@@ -578,7 +790,7 @@ if %15 == 1
     ui sprite:105, align, "center"
     ui sprite:105, color, "#e7e2d6"
     ui sprite:105, z, 20
-    ui_text 115, "September 19th", 640, 580
+    ui_text 115, "September 25th", 640, 580
     ui sprite:115, font_size, 13
     ui sprite:115, align, "center"
     ui sprite:115, color, "#b8a46f"
@@ -589,44 +801,29 @@ else
     ui sprite:105, align, "center"
     ui sprite:105, color, "#757a72"
     ui sprite:105, z, 20
-    ui_text 115, "September 19th  -- LOCKED", 640, 580
+    ui_text 115, "September 25th  -- LOCKED", 640, 580
     ui sprite:115, font_size, 13
     ui sprite:115, align, "center"
     ui sprite:115, color, "#676b64"
     ui sprite:115, z, 20
 endif
 
-; UNLOCK ALL
-ui_rect 221, 1080, 660, 160, 30
-ui sprite:221, fill, "#101417"
-ui sprite:221, fill_alpha, 120
-ui sprite:221, border, 1, "#676b64"
-ui sprite:221, border_alpha, 90
-ui sprite:221, hover_fill, "#252a2f"
-ui sprite:221, z, 5
-
-ui_text 21, "UNLOCK ALL", 1160, 672
-ui sprite:21, font_size, 12
-ui sprite:21, align, "center"
-ui sprite:21, color, "#9aa18f"
-ui sprite:21, z, 10
-
 ; BACK
 ui_rect 399, 540, 640, 200, 42
-ui sprite:399, fill, "#101417"
+ui sprite:399, fill, "#071923"
 ui sprite:399, fill_alpha, 204
-ui sprite:399, border, 1, "#9aa18f"
+ui sprite:399, border, 1, "#7fcbd8"
 ui sprite:399, border_alpha, 136
 ui sprite:399, shadow, 0, 4, "#000000"
 ui sprite:399, shadow_alpha, 132
-ui sprite:399, hover_fill, "#252a2f"
+ui sprite:399, hover_fill, "#143b48"
 ui sprite:399, hover_scale, 1.012
 ui sprite:399, z, 10
 
 ui_text 199, "BACK", 640, 652
 ui sprite:199, font_size, 22
 ui sprite:199, align, "center"
-ui sprite:199, color, "#e7e2d6"
+ui sprite:199, color, "#eaf7f8"
 ui sprite:199, z, 20
 
 ; ボタン登録
@@ -637,13 +834,11 @@ if %12 == 1 { ui_button 302, 102 }
 if %13 == 1 { ui_button 303, 103 }
 if %14 == 1 { ui_button 304, 104 }
 if %15 == 1 { ui_button 305, 105 }
-ui_button 221, 50
 ui_button 399, 99
 print 1
 
 *chapter_loop
 btnwait %0
-if %0 == 50 { goto *unlock_all }
 if %0 == 99 { goto *start }
 if %0 == 100 { goto *scenario_01 }
 if %0 == 101 { goto *scenario_02 }
@@ -662,3 +857,118 @@ set_pflag chapter_05, 1
 set_pflag chapter_06, 1
 cls()
 goto *chapter_select
+
+*debug_tools
+cls()
+fx_reset()
+erasetextwindow 0
+bg "#08090a", 1
+
+get_pflag chapter_01 %10
+get_pflag chapter_02 %11
+get_pflag chapter_03 %12
+get_pflag chapter_04 %13
+get_pflag chapter_05 %14
+get_pflag chapter_06 %15
+
+ui_text 230, "DEBUG TOOLS", 640, 84
+ui sprite:230, font_size, 34
+ui sprite:230, align, "center"
+ui sprite:230, color, "#e7e2d6"
+ui sprite:230, text_shadow, 0, 3, "#000000"
+
+ui_text 231, "CHAPTER FLAGS", 640, 140
+ui sprite:231, font_size, 18
+ui sprite:231, align, "center"
+ui sprite:231, color, "#9aa18f"
+
+if %10 == 1 { ui_text 240, "PROLOGUE  OK", 640, 174 }
+if %10 != 1 { ui_text 240, "PROLOGUE  LOCKED", 640, 174 }
+ui sprite:240, font_size, 14
+ui sprite:240, align, "center"
+ui sprite:240, color, "#e7e2d6"
+
+if %11 == 1 { ui_text 241, "DAY 1     OK", 640, 198 }
+if %11 != 1 { ui_text 241, "DAY 1     LOCKED", 640, 198 }
+ui sprite:241, font_size, 14
+ui sprite:241, align, "center"
+ui sprite:241, color, "#e7e2d6"
+
+if %12 == 1 { ui_text 242, "DAY 2     OK", 640, 222 }
+if %12 != 1 { ui_text 242, "DAY 2     LOCKED", 640, 222 }
+ui sprite:242, font_size, 14
+ui sprite:242, align, "center"
+ui sprite:242, color, "#e7e2d6"
+
+if %13 == 1 { ui_text 243, "DAY 3     OK", 640, 246 }
+if %13 != 1 { ui_text 243, "DAY 3     LOCKED", 640, 246 }
+ui sprite:243, font_size, 14
+ui sprite:243, align, "center"
+ui sprite:243, color, "#e7e2d6"
+
+if %14 == 1 { ui_text 244, "DAY 4     OK", 640, 270 }
+if %14 != 1 { ui_text 244, "DAY 4     LOCKED", 640, 270 }
+ui sprite:244, font_size, 14
+ui sprite:244, align, "center"
+ui sprite:244, color, "#e7e2d6"
+
+if %15 == 1 { ui_text 245, "DAY 5     OK", 640, 294 }
+if %15 != 1 { ui_text 245, "DAY 5     LOCKED", 640, 294 }
+ui sprite:245, font_size, 14
+ui sprite:245, align, "center"
+ui sprite:245, color, "#e7e2d6"
+
+ui_rect 232, 480, 340, 320, 44
+ui sprite:232, fill, "#101417"
+ui sprite:232, fill_alpha, 204
+ui sprite:232, border, 1, "#9aa18f"
+ui sprite:232, border_alpha, 136
+ui sprite:232, hover_fill, "#252a2f"
+ui sprite:232, hover_scale, 1.012
+ui sprite:232, z, 10
+ui_text 233, "UNLOCK ALL", 640, 354
+ui sprite:233, font_size, 22
+ui sprite:233, align, "center"
+ui sprite:233, color, "#e7e2d6"
+ui sprite:233, z, 20
+
+ui_rect 234, 480, 410, 320, 44
+ui sprite:234, fill, "#101417"
+ui sprite:234, fill_alpha, 188
+ui sprite:234, border, 1, "#9aa18f"
+ui sprite:234, border_alpha, 118
+ui sprite:234, hover_fill, "#252a2f"
+ui sprite:234, hover_scale, 1.012
+ui sprite:234, z, 10
+ui_text 235, "DATE SELECT", 640, 424
+ui sprite:235, font_size, 22
+ui sprite:235, align, "center"
+ui sprite:235, color, "#e7e2d6"
+ui sprite:235, z, 20
+
+ui_rect 236, 480, 480, 320, 44
+ui sprite:236, fill, "#101417"
+ui sprite:236, fill_alpha, 188
+ui sprite:236, border, 1, "#9aa18f"
+ui sprite:236, border_alpha, 118
+ui sprite:236, hover_fill, "#252a2f"
+ui sprite:236, hover_scale, 1.012
+ui sprite:236, z, 10
+ui_text 237, "TITLE", 640, 494
+ui sprite:237, font_size, 22
+ui sprite:237, align, "center"
+ui sprite:237, color, "#e7e2d6"
+ui sprite:237, z, 20
+
+btndef clear
+ui_button 232, 1
+ui_button 234, 2
+ui_button 236, 3
+print 1
+
+*debug_tools_loop
+btnwait %0
+if %0 == 1 { goto *unlock_all }
+if %0 == 2 { goto *chapter_select }
+if %0 == 3 { goto *return_title }
+goto *debug_tools_loop

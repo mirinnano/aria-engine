@@ -2,13 +2,12 @@
 ; 設定画面（スクリプト主導UI）
 
 *settings_ui
-; 全面黒背景（既存スプライトを保護）
+fx_reset()
 ui_rect 9999, 0, 0, 1280, 720
-ui sprite:9999, fill, "#000000"
+ui sprite:9999, fill, "#08090a"
 ui sprite:9999, fill_alpha, 255
 ui sprite:9999, z, 1
 
-; 現在値を読み込み
 getconfig %220, "bgmvol"
 getconfig %230, "sevol"
 getconfig %240, "textspeed"
@@ -17,64 +16,78 @@ getconfig %260, "skipunread"
 getconfig %270, "clickcursor"
 getconfig %280, "fullscreen"
 
-; タイトル
-ui_text 200, "SETTINGS", 640, 60
+ui_text 200, "CONFIG", 640, 58
 ui sprite:200, font_size, 36
 ui sprite:200, align, "center"
-ui sprite:200, color, "#ffffff"
+ui sprite:200, color, "#e7e2d6"
+ui sprite:200, text_shadow, 0, 3, "#000000"
 
-; --- BGM 音量 ---
-ui_text 210, "BGM VOLUME", 200, 140
+ui_text 201, "SYSTEM SETTINGS", 640, 102
+ui sprite:201, font_size, 14
+ui sprite:201, align, "center"
+ui sprite:201, color, "#9aa18f"
+
+ui_rect 202, 168, 126, 944, 430
+ui sprite:202, fill, "#101417"
+ui sprite:202, fill_alpha, 188
+ui sprite:202, border, 1, "#9aa18f"
+ui sprite:202, border_alpha, 118
+ui sprite:202, shadow, 0, 4, "#000000"
+ui sprite:202, shadow_alpha, 132
+ui sprite:202, z, 5
+
+ui_text 210, "BGM VOLUME", 230, 170
 ui sprite:210, font_size, 18
-ui sprite:210, color, "#cccccc"
+ui sprite:210, color, "#e7e2d6"
+ui sprite:210, z, 20
+ui_slider 220, 500, 172, 420, 0, 100, %220
 
-ui_slider 220, 400, 145, 360, 0, 100, %220
-
-; --- SE 音量 ---
-ui_text 211, "SE VOLUME", 200, 200
+ui_text 211, "SE VOLUME", 230, 230
 ui sprite:211, font_size, 18
-ui sprite:211, color, "#cccccc"
+ui sprite:211, color, "#e7e2d6"
+ui sprite:211, z, 20
+ui_slider 230, 500, 232, 420, 0, 100, %230
 
-ui_slider 230, 400, 205, 360, 0, 100, %230
-
-; --- テキスト速度 ---
-ui_text 212, "TEXT SPEED", 200, 260
+ui_text 212, "TEXT SPEED", 230, 290
 ui sprite:212, font_size, 18
-ui sprite:212, color, "#cccccc"
+ui sprite:212, color, "#e7e2d6"
+ui sprite:212, z, 20
+ui_slider 240, 500, 292, 420, 0, 80, %240
 
-ui_slider 240, 400, 265, 360, 0, 80, %240
-
-; --- オート待機時間 ---
-ui_text 213, "AUTO WAIT (MS)", 200, 320
+ui_text 213, "AUTO WAIT", 230, 350
 ui sprite:213, font_size, 18
-ui sprite:213, color, "#cccccc"
+ui sprite:213, color, "#e7e2d6"
+ui sprite:213, z, 20
+ui_slider 250, 500, 352, 420, 500, 5000, %250
 
-ui_slider 250, 400, 325, 360, 500, 5000, %250
+ui_checkbox 260, 230, 420, "SKIP UNREAD", %260
+ui_checkbox 270, 500, 420, "CLICK CURSOR", %270
+ui_checkbox 280, 770, 420, "FULLSCREEN", %280
 
-; --- SKIP UNREAD ---
-ui_checkbox 260, 200, 390, "SKIP UNREAD", %260
+ui_text 214, "Changes are saved when you leave this screen.", 640, 500
+ui sprite:214, font_size, 14
+ui sprite:214, align, "center"
+ui sprite:214, color, "#9aa18f"
+ui sprite:214, z, 20
 
-; --- CLICK CURSOR ---
-ui_checkbox 270, 200, 430, "CLICK CURSOR", %270
-
-; --- FULLSCREEN ---
-ui_checkbox 280, 200, 470, "FULLSCREEN", %280
-
-; --- BACK ボタン ---
-ui_rect 299, 540, 540, 200, 42
-ui sprite:299, fill, "#000000"
-ui sprite:299, fill_alpha, 0
-ui sprite:299, border, 1, "#ffffff"
-ui sprite:299, hover_fill, "#151515"
+ui_rect 299, 540, 600, 200, 42
+ui sprite:299, fill, "#101417"
+ui sprite:299, fill_alpha, 204
+ui sprite:299, border, 1, "#9aa18f"
+ui sprite:299, border_alpha, 136
+ui sprite:299, shadow, 0, 4, "#000000"
+ui sprite:299, shadow_alpha, 132
+ui sprite:299, hover_fill, "#252a2f"
+ui sprite:299, hover_scale, 1.012
 ui sprite:299, z, 10
 
-ui_text 298, "BACK", 640, 532
+ui_text 298, "BACK", 640, 612
 ui sprite:298, font_size, 22
 ui sprite:298, align, "center"
-ui sprite:298, color, "#ffffff"
+ui sprite:298, color, "#e7e2d6"
 ui sprite:298, z, 20
 
-; ボタン登録
+btndef clear
 ui_button 220, 220
 ui_button 230, 230
 ui_button 240, 240
@@ -88,49 +101,41 @@ print 1
 *settings_loop
 btnwait %0
 
-; BACK
 if %0 == 290 
     saveconfig
     goto *settings_back
 endif
 
-; BGMスライダー変更
 if %0 == 220 
     setconfig "bgmvol", %220
     goto *settings_loop
 endif
 
-; SEスライダー変更
 if %0 == 230 
     setconfig "sevol", %230
     goto *settings_loop
 endif
 
-; TEXT SPEED変更
 if %0 == 240 
     setconfig "textspeed", %240
     goto *settings_loop
 endif
 
-; AUTO WAIT変更
 if %0 == 250 
     setconfig "autowait", %250
     goto *settings_loop
 endif
 
-; SKIP UNREAD チェックボックス
 if %0 == 260 
     setconfig "skipunread", %260
     goto *settings_loop
 endif
 
-; CLICK CURSOR チェックボックス
 if %0 == 270 
     setconfig "clickcursor", %270
     goto *settings_loop
 endif
 
-; FULLSCREEN チェックボックス
 if %0 == 280 
     setconfig "fullscreen", %280
     goto *settings_loop
@@ -140,4 +145,5 @@ goto *settings_loop
 
 *settings_back
 csp -1
+btndef clear
 return

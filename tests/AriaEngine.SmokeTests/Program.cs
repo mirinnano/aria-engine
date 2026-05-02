@@ -304,6 +304,11 @@ try
         "*done",
         "}",
     }, "modern.aria");
+    if (modernReporter.Errors.Any(e => e.Level == AriaErrorLevel.Error)) {
+        foreach (var err in modernReporter.Errors.Where(e => e.Level == AriaErrorLevel.Error)) {
+            Console.WriteLine($"Parse Error: {err.Message} at line {err.LineNumber}");
+        }
+    }
     Assert(!modernReporter.Errors.Any(e => e.Level == AriaErrorLevel.Error), "Modern syntax should not report parser errors");
     Assert(modernScript.Labels.ContainsKey("title.entry") && modernScript.Labels.ContainsKey("title.done"), "namespace should qualify labels");
 
@@ -370,7 +375,7 @@ try
     persistentVm.Step();
 
     var restoredPersistentVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    Assert(restoredPersistentVm.State.Flags.TryGetValue("auto_unlock", out var autoUnlock) && autoUnlock, "pflag should auto-save without user slot save");
+    Assert(restoredPersistentVm.State.SaveFlags.TryGetValue("auto_unlock", out var autoUnlock) && autoUnlock, "pflag should auto-save without user slot save");
     Assert(restoredPersistentVm.State.SaveFlags.TryGetValue("route_seen", out var routeSeen) && routeSeen, "sflag should auto-save to persistent.ariasav without user slot save");
     Assert(restoredPersistentVm.State.Counters.TryGetValue("total_clicks", out var totalClicks) && totalClicks == 7, "counter should auto-save to persistent.ariasav immediately");
     Assert(restoredPersistentVm.State.ReadKeys.Any(key => key.Contains("persistent.aria", StringComparison.OrdinalIgnoreCase)), "read history should auto-save without user slot save");

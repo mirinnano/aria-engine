@@ -54,6 +54,8 @@ public readonly struct Condition
     public List<string> ToTokenList()
     {
         if (IsEmpty) return new List<string>();
+        if (Expression != null) return SerializeExpression(Expression);
+        if (Terms == null || Terms.Count == 0) return new List<string>();
         var tokens = new List<string>();
         foreach (var term in Terms)
         {
@@ -74,6 +76,76 @@ public readonly struct Condition
             }
         }
         return tokens;
+    }
+
+    private static List<string> SerializeExpression(Expression expression)
+    {
+        return expression switch
+        {
+            IntLiteralExpr literal => new List<string> { literal.Value.ToString() },
+            StringLiteralExpr literal => new List<string> { QuoteString(literal.Value) },
+            RegisterExpr register => new List<string> { register.Name.StartsWith("%") ? register.Name : "%" + register.Name },
+            StringRegisterExpr register => new List<string> { register.Name.StartsWith("$") ? register.Name : "$" + register.Name },
+            ArrayAccessExpr array => SerializeArrayAccess(array),
+            UnaryExpr unary => new List<string> { unary.Op }.Concat(SerializeExpression(unary.Operand)).ToList(),
+            BinaryExpr binary => SerializeBinary(binary),
+            ArrayLiteralExpr array => SerializeArrayLiteral(array),
+            TernaryExpr ternary => SerializeTernary(ternary),
+            _ => new List<string>()
+        };
+    }
+
+    private static List<string> SerializeArrayAccess(ArrayAccessExpr array)
+    {
+        var tokens = new List<string> { "%" + array.ArrayName, "[" };
+        tokens.AddRange(SerializeExpression(array.Index));
+        tokens.Add("]");
+        return tokens;
+    }
+
+    private static List<string> SerializeBinary(BinaryExpr binary)
+    {
+        var tokens = new List<string> { "(" };
+        tokens.AddRange(SerializeExpression(binary.Left));
+        tokens.Add(binary.Op);
+        tokens.AddRange(SerializeExpression(binary.Right));
+        tokens.Add(")");
+        return tokens;
+    }
+
+    private static List<string> SerializeArrayLiteral(ArrayLiteralExpr array)
+    {
+        var tokens = new List<string> { "[" };
+        for (int i = 0; i < array.Elements.Count; i++)
+        {
+            if (i > 0) tokens.Add(",");
+            tokens.AddRange(SerializeExpression(array.Elements[i]));
+        }
+        tokens.Add("]");
+        return tokens;
+    }
+
+    private static List<string> SerializeTernary(TernaryExpr ternary)
+    {
+        var tokens = new List<string> { "(" };
+        tokens.AddRange(SerializeExpression(ternary.Condition));
+        tokens.Add("?");
+        tokens.AddRange(SerializeExpression(ternary.TrueExpr));
+        tokens.Add(":");
+        tokens.AddRange(SerializeExpression(ternary.FalseExpr));
+        tokens.Add(")");
+        return tokens;
+    }
+
+    private static string QuoteString(string value)
+    {
+        if ((value.StartsWith("\"") && value.EndsWith("\"")) ||
+            (value.StartsWith("'") && value.EndsWith("'")))
+        {
+            return value;
+        }
+
+        return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
     }
 
     /// <summary>

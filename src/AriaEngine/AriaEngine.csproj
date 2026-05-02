@@ -10,15 +10,16 @@
     <AriaPakOutput>data.pak</AriaPakOutput>
     <AriaPackKey Condition="'$(AriaPackKey)'=='' and '$(ARIA_PACK_KEY)'!=''">$(ARIA_PACK_KEY)</AriaPackKey>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>assets\branding\umikaze.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!-- アセンブリメタデータ -->
   <PropertyGroup>
-    <AssemblyTitle>AriaEngine</AssemblyTitle>
-    <Product>AriaEngine</Product>
+    <AssemblyTitle>umikaze</AssemblyTitle>
+    <Product>umikaze</Product>
     <Company>Ponkotusoft</Company>
     <Copyright>Copyright (c) Ponkotusoft</Copyright>
-    <Description>Visual Novel Engine</Description>
+    <Description>umikaze visual novel runtime</Description>
     <Version>1.0.0</Version>
     <FileVersion>1.0.0.0</FileVersion>
     <InformationalVersion>1.0.0</InformationalVersion>

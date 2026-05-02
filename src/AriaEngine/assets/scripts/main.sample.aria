@@ -16,7 +16,7 @@ defsub talk
 		chapter_id 2
 		chapter_title "第二章 展開"
 		chapter_desc "物語が大きく動き出す。運命の分岐点。"
-		chapter_script "assets/scripts/chapter2.aria"
+		chapter_script "assets/scripts/scenario_02.aria"
 		; 初期状態ではロック
 		set_flag "chapter2_unlocked", 0
 	endchapter
@@ -25,7 +25,7 @@ defsub talk
 		chapter_id 3
 		chapter_title "第三章 決断"
 		chapter_desc "選択の時間が迫る。真実が明らかになる。"
-		chapter_script "assets/scripts/chapter3.aria"
+		chapter_script "assets/scripts/scenario_03.aria"
 		set_flag "chapter3_unlocked", 0
 	endchapter
 

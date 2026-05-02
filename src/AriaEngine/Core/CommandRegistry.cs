@@ -196,6 +196,15 @@ public static class CommandRegistry
         Register(CommandCategory.Input, OpCode.BtnTime, "btntime");
 
         Register(CommandCategory.Compatibility, OpCode.Bg, "bg");
+        Register(CommandCategory.Render, OpCode.BgFade, "bgfade", "bg_fade");
+        Register(CommandCategory.Render, OpCode.BgTime, "bgtime", "bg_time");
+        Register(CommandCategory.Render, OpCode.BgTimeMap, "bgtime_map", "bg_time_map");
+        Register(CommandCategory.Render, OpCode.Transition, "transition");
+        Register(CommandCategory.Render, OpCode.Camera, "camera");
+        Register(CommandCategory.Render, OpCode.Screen, "screen");
+        Register(CommandCategory.Text, OpCode.TextFx, "textfx");
+        Register(CommandCategory.Render, OpCode.Fx, "fx");
+        Register(CommandCategory.Render, OpCode.Sync, "sync");
         Register(CommandCategory.Compatibility, OpCode.Print, "print");
         Register(CommandCategory.Compatibility, OpCode.Effect, "effect");
         Register(CommandCategory.Render, OpCode.Quake, "quake", "quakex");
@@ -214,6 +223,9 @@ public static class CommandRegistry
         Register(CommandCategory.Audio, OpCode.Dwave, "dwave");
         Register(CommandCategory.Audio, OpCode.DwaveLoop, "dwaveloop");
         Register(CommandCategory.Audio, OpCode.DwaveStop, "dwavestop");
+        Register(CommandCategory.Audio, OpCode.Voice, "voice");
+        Register(CommandCategory.Audio, OpCode.VoiceWait, "voice_wait");
+        Register(CommandCategory.Audio, OpCode.VoiceStop, "voice_stop");
 
         Register(CommandCategory.System, OpCode.Window, "window");
         Register(CommandCategory.Text, OpCode.Font, "font");
@@ -407,6 +419,10 @@ public static class CommandRegistry
             OpCode.Mp3FadeOut => 1,
             OpCode.DwaveLoop => 1,
             OpCode.DwaveStop => 0,
+            OpCode.Transition => 4,
+            OpCode.Camera or OpCode.Screen or OpCode.TextFx or OpCode.Fx or OpCode.Sync => 1,
+            OpCode.Voice => 1,
+            OpCode.VoiceWait or OpCode.VoiceStop => 0,
             OpCode.SpCursor => 2,
             _ => 0
         };

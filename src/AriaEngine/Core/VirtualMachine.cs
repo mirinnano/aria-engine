@@ -434,6 +434,16 @@ namespace AriaEngine.Core;
             if (State.QuakeTimerMs <= 0f) State.QuakeAmplitude = 0;
         }
 
+        if (State.ScreenTintTimerMs > 0f)
+        {
+            State.ScreenTintTimerMs = Math.Max(0f, State.ScreenTintTimerMs - deltaTimeMs);
+            if (State.ScreenTintTimerMs <= 0f && State.ScreenTintOpacity > 0f)
+            {
+                State.ScreenTintOpacity = 0f;
+                State.ActiveEffects.RemoveAll(e => e.StartsWith("screen:", StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
         // Typewriter effect tracking
         if (State.TextSpeedMs > 0 && State.DisplayedTextLength < State.CurrentTextBuffer.Length)
         {
@@ -452,7 +462,7 @@ namespace AriaEngine.Core;
 
             if (State.DisplayedTextLength >= State.CurrentTextBuffer.Length && State.State == VmState.WaitingForAnimation)
             {
-                if (!Tweens.IsAnimating)
+                if (!HasBlockingEffect())
                 {
                     State.State = VmState.Running; // Resume script
                 }
@@ -475,8 +485,8 @@ namespace AriaEngine.Core;
             }
         }
 
-        // Tween完了チェック: awaitで止まっているとき、全Tweenが終了したらRunningに戻す
-        if (State.State == VmState.WaitingForAnimation && !Tweens.IsAnimating)
+        // Tween/画面効果完了チェック: awaitで止まっているとき、効果が終わったらRunningに戻す
+        if (State.State == VmState.WaitingForAnimation && !HasBlockingEffect())
         {
             // タイプライター中でもなければ復帰
             bool typewriterActive = State.TextSpeedMs > 0 && State.DisplayedTextLength < State.CurrentTextBuffer.Length;
@@ -871,6 +881,11 @@ namespace AriaEngine.Core;
             return GetString(arg);
         }
         return arg;
+    }
+
+    private bool HasBlockingEffect()
+    {
+        return Tweens.IsAnimating || State.ScreenTintTimerMs > 0f || State.QuakeTimerMs > 0f;
     }
 
     internal float GetFloat(string valStr, Instruction? inst = null, float fallback = 0f)

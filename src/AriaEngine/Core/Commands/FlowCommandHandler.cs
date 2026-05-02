@@ -44,6 +44,27 @@ public sealed class FlowCommandHandler : BaseCommandHandler
     {
     }
 
+    private static List<string> ReconstructArrayTokens(List<string> args)
+    {
+        var result = new List<string>(args.Count);
+        for (int i = 0; i < args.Count; i++)
+        {
+            if (i + 3 < args.Count &&
+                args[i].StartsWith("%", StringComparison.Ordinal) &&
+                args[i + 1] == "[" &&
+                args[i + 3] == "]")
+            {
+                result.Add($"{args[i]}[{args[i + 2]}]");
+                i += 3;
+                continue;
+            }
+
+            result.Add(args[i]);
+        }
+
+        return result;
+    }
+
     public override bool Execute(Instruction inst)
     {
         switch (inst.Op)
@@ -95,6 +116,10 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                 // let %x = 100 の "=" を除去
                 var args = inst.Arguments.Where(a => a != "=").ToList();
                 if (args.Count < 2) return true;
+
+                // Reconstruct array access tokens split by tokenizer:
+                // %arr [ idx ] → %arr[idx]
+                args = ReconstructArrayTokens(args);
 
                 // Global scope bypass: explicit scope recorded on the instruction
                 if (inst.Scope == AriaEngine.Core.StorageScope.Global)
