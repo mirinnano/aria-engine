@@ -132,12 +132,12 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
 
             case OpCode.SetSceneData:
                 if (!ValidateArgs(inst, 2)) return true;
-                State.SceneData[inst.Arguments[0]] = GetString(inst.Arguments[1]);
+                State.SceneRuntime.SceneData[inst.Arguments[0]] = GetString(inst.Arguments[1]);
                 return true;
 
             case OpCode.GetSceneData:
                 if (!ValidateArgs(inst, 1)) return true;
-                if (State.SceneData.TryGetValue(inst.Arguments[0], out object? value) && value != null)
+                if (State.SceneRuntime.SceneData.TryGetValue(inst.Arguments[0], out object? value) && value != null)
                 {
                     string str = value.ToString() ?? "";
                     SetReg(inst.Arguments[0], int.TryParse(str, out int num) ? num : 0);
@@ -149,34 +149,34 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
                 return true;
 
             case OpCode.DefChapter:
-                State.CurrentChapterDefinition = new ChapterInfo();
+                State.FlagRuntime.CurrentChapterDefinition = new ChapterInfo();
                 return true;
 
             case OpCode.ChapterId:
                 if (!ValidateArgs(inst, 1)) return true;
-                if (State.CurrentChapterDefinition != null) State.CurrentChapterDefinition.Id = GetVal(inst.Arguments[0]);
+                if (State.FlagRuntime.CurrentChapterDefinition != null) State.FlagRuntime.CurrentChapterDefinition.Id = GetVal(inst.Arguments[0]);
                 return true;
 
             case OpCode.ChapterTitle:
                 if (!ValidateArgs(inst, 1)) return true;
-                if (State.CurrentChapterDefinition != null) State.CurrentChapterDefinition.Title = GetString(inst.Arguments[0]);
+                if (State.FlagRuntime.CurrentChapterDefinition != null) State.FlagRuntime.CurrentChapterDefinition.Title = GetString(inst.Arguments[0]);
                 return true;
 
             case OpCode.ChapterDesc:
                 if (!ValidateArgs(inst, 1)) return true;
-                if (State.CurrentChapterDefinition != null) State.CurrentChapterDefinition.Description = GetString(inst.Arguments[0]);
+                if (State.FlagRuntime.CurrentChapterDefinition != null) State.FlagRuntime.CurrentChapterDefinition.Description = GetString(inst.Arguments[0]);
                 return true;
 
             case OpCode.ChapterScript:
                 if (!ValidateArgs(inst, 1)) return true;
-                if (State.CurrentChapterDefinition != null) State.CurrentChapterDefinition.ScriptPath = GetString(inst.Arguments[0]);
+                if (State.FlagRuntime.CurrentChapterDefinition != null) State.FlagRuntime.CurrentChapterDefinition.ScriptPath = GetString(inst.Arguments[0]);
                 return true;
 
             case OpCode.EndChapter:
-                if (State.CurrentChapterDefinition != null)
+                if (State.FlagRuntime.CurrentChapterDefinition != null)
                 {
-                    Vm.ChapterManager.AddChapter(State.CurrentChapterDefinition);
-                    State.CurrentChapterDefinition = null;
+                    Vm.ChapterManager.AddChapter(State.FlagRuntime.CurrentChapterDefinition);
+                    State.FlagRuntime.CurrentChapterDefinition = null;
                 }
                 return true;
 
@@ -192,8 +192,8 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
 
         for (int i = 2000; i < 2100; i++)
         {
-            State.Sprites.Remove(i);
-            State.SpriteButtonMap.Remove(i);
+            State.Render.Sprites.Remove(i);
+            State.Interaction.SpriteButtonMap.Remove(i);
         }
 
         for (int i = 0; i < chapters.Count; i++)
@@ -201,13 +201,13 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
             int cardId = 2000 + i;
             var chapter = chapters[i];
             bool isUnlocked = chapter.IsUnlocked;
-            if (State.Flags.TryGetValue($"chapter{chapter.Id}_unlocked", out bool flagValue))
+            if (State.FlagRuntime.Flags.TryGetValue($"chapter{chapter.Id}_unlocked", out bool flagValue))
             {
                 isUnlocked = flagValue;
             }
 
             int y = chapterStartY + (i * 120);
-            State.Sprites[cardId] = new Sprite
+            State.Render.Sprites[cardId] = new Sprite
             {
                 Id = cardId,
                 Type = SpriteType.Rect,
@@ -228,7 +228,7 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
                 HoverScale = 1.02f
             };
 
-            State.Sprites[cardId + 1] = new Sprite
+            State.Render.Sprites[cardId + 1] = new Sprite
             {
                 Id = cardId + 1,
                 Type = SpriteType.Text,
@@ -242,7 +242,7 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
                 TextShadowY = 2
             };
 
-            State.Sprites[cardId + 2] = new Sprite
+            State.Render.Sprites[cardId + 2] = new Sprite
             {
                 Id = cardId + 2,
                 Type = SpriteType.Text,
@@ -253,7 +253,7 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
                 Color = isUnlocked ? "#aaaaee" : "#555577"
             };
 
-            if (isUnlocked) State.SpriteButtonMap[cardId] = chapter.Id;
+            if (isUnlocked) State.Interaction.SpriteButtonMap[cardId] = chapter.Id;
         }
     }
 
@@ -265,7 +265,7 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
         int x = GetVal(inst.Arguments[3]);
         int y = GetVal(inst.Arguments[4]);
 
-        State.Sprites[cardId] = new Sprite
+        State.Render.Sprites[cardId] = new Sprite
         {
             Id = cardId,
             Type = SpriteType.Rect,
@@ -278,7 +278,7 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
             IsButton = true
         };
 
-        State.Sprites[cardId + 1] = new Sprite
+        State.Render.Sprites[cardId + 1] = new Sprite
         {
             Id = cardId + 1,
             Type = SpriteType.Text,
@@ -291,7 +291,7 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
 
         if (!string.IsNullOrEmpty(description))
         {
-            State.Sprites[cardId + 2] = new Sprite
+            State.Render.Sprites[cardId + 2] = new Sprite
             {
                 Id = cardId + 2,
                 Type = SpriteType.Text,

@@ -29,7 +29,7 @@ public sealed class TweenCommandHandler : BaseCommandHandler
                     float toX = GetVal(inst.Arguments[1]);
                     float toY = GetVal(inst.Arguments[2]);
                     float dur = GetVal(inst.Arguments[3]);
-                    if (State.Sprites.TryGetValue(tweenId, out var sp))
+                    if (State.Render.Sprites.TryGetValue(tweenId, out var sp))
                     {
                         Tweens.Add(new Tween { SpriteId = sp.Id, Property = TweenProperty.X, From = sp.X, To = toX, DurationMs = dur, Ease = Tweens.CurrentEaseType });
                         Tweens.Add(new Tween { SpriteId = sp.Id, Property = TweenProperty.Y, From = sp.Y, To = toY, DurationMs = dur, Ease = Tweens.CurrentEaseType });
@@ -39,7 +39,7 @@ public sealed class TweenCommandHandler : BaseCommandHandler
 
             case OpCode.Afade:
                 if (!ValidateArgs(inst, 3)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var fadeSprite))
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var fadeSprite))
                 {
                     Tweens.Add(new Tween { SpriteId = fadeSprite.Id, Property = TweenProperty.Opacity, From = fadeSprite.Opacity, To = GetVal(inst.Arguments[1]) / 255f, DurationMs = GetVal(inst.Arguments[2]), Ease = Tweens.CurrentEaseType });
                 }
@@ -47,7 +47,7 @@ public sealed class TweenCommandHandler : BaseCommandHandler
 
             case OpCode.Ascale:
                 if (!ValidateArgs(inst, 4)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var scaleSprite))
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var scaleSprite))
                 {
                     Tweens.Add(new Tween { SpriteId = scaleSprite.Id, Property = TweenProperty.ScaleX, From = scaleSprite.ScaleX, To = GetFloat(inst.Arguments[1], inst), DurationMs = GetVal(inst.Arguments[3]), Ease = Tweens.CurrentEaseType });
                     Tweens.Add(new Tween { SpriteId = scaleSprite.Id, Property = TweenProperty.ScaleY, From = scaleSprite.ScaleY, To = GetFloat(inst.Arguments[2], inst), DurationMs = GetVal(inst.Arguments[3]), Ease = Tweens.CurrentEaseType });
@@ -56,14 +56,14 @@ public sealed class TweenCommandHandler : BaseCommandHandler
 
             case OpCode.Acolor:
                 if (!ValidateArgs(inst, 2)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var colorSprite))
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var colorSprite))
                 {
                     colorSprite.Color = GetString(inst.Arguments[1]);
                 }
                 return true;
 
             case OpCode.Await:
-                State.State = VmState.WaitingForAnimation;
+                State.Execution.State = VmState.WaitingForAnimation;
                 return true;
 
             case OpCode.Ease:

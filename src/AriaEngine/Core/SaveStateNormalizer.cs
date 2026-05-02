@@ -29,58 +29,58 @@ public class SaveStateNormalizer
         var loaded = data.State;
 
         // 基本的な実行状態
-        _state.ProgramCounter = loaded.ProgramCounter;
-        _state.State = loaded.State;
-        _state.CurrentScene = loaded.CurrentScene;
+        _state.Execution.ProgramCounter = loaded.Execution.ProgramCounter;
+        _state.Execution.State = loaded.Execution.State;
+        _state.SceneRuntime.CurrentScene = loaded.SceneRuntime.CurrentScene;
 
         // レジスタのマージ（永続レジスタを維持しつつ、セーブデータのレジスタを適用）
-        var mergedRegisters = _state.Registers
+        var mergedRegisters = _state.RegisterState.Registers
             .Where(pair => RegisterStoragePolicy.IsPersistent(pair.Key))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var pair in loaded.Registers)
+        foreach (var pair in loaded.RegisterState.Registers)
         {
             if (RegisterStoragePolicy.IsSaveStored(pair.Key))
             {
                 mergedRegisters[RegisterStoragePolicy.Normalize(pair.Key)] = pair.Value;
             }
         }
-        _state.Registers = mergedRegisters;
+        _state.RegisterState.Registers = mergedRegisters;
 
         // 文字列レジスタとフラグ
-        _state.StringRegisters = new Dictionary<string, string>(loaded.StringRegisters, StringComparer.OrdinalIgnoreCase);
-        _state.SaveFlags = new Dictionary<string, bool>(loaded.SaveFlags, StringComparer.OrdinalIgnoreCase);
-        _state.VolatileFlags = new Dictionary<string, bool>(loaded.VolatileFlags, StringComparer.OrdinalIgnoreCase);
-        _state.Counters = new Dictionary<string, int>(loaded.Counters, StringComparer.OrdinalIgnoreCase);
+        _state.RegisterState.StringRegisters = new Dictionary<string, string>(loaded.RegisterState.StringRegisters, StringComparer.OrdinalIgnoreCase);
+        _state.FlagRuntime.SaveFlags = new Dictionary<string, bool>(loaded.FlagRuntime.SaveFlags, StringComparer.OrdinalIgnoreCase);
+        _state.FlagRuntime.VolatileFlags = new Dictionary<string, bool>(loaded.FlagRuntime.VolatileFlags, StringComparer.OrdinalIgnoreCase);
+        _state.FlagRuntime.Counters = new Dictionary<string, int>(loaded.FlagRuntime.Counters, StringComparer.OrdinalIgnoreCase);
 
         // スプライトとボタン
-        _state.Sprites = new FastSpriteDictionary(loaded.Sprites);
-        _state.SpriteButtonMap = new Dictionary<int, int>(loaded.SpriteButtonMap);
+        _state.Render.Sprites = new FastSpriteDictionary(loaded.Render.Sprites);
+        _state.Interaction.SpriteButtonMap = new Dictionary<int, int>(loaded.Interaction.SpriteButtonMap);
 
         // スタック
-        _state.CallStack = new Stack<int>(loaded.CallStack.Reverse());
-        _state.ParamStack = new Stack<string>(loaded.ParamStack.Reverse());
-        _state.LoopStack = loaded.LoopStack != null ? new Stack<LoopState>(loaded.LoopStack.Reverse()) : new Stack<LoopState>();
+        _state.Execution.CallStack = new Stack<int>(loaded.Execution.CallStack.Reverse());
+        _state.Execution.ParamStack = new Stack<string>(loaded.Execution.ParamStack.Reverse());
+        _state.Execution.LoopStack = loaded.Execution.LoopStack != null ? new Stack<LoopState>(loaded.Execution.LoopStack.Reverse()) : new Stack<LoopState>();
 
         // オーディオ状態
-        _state.CurrentBgm = loaded.CurrentBgm;
-        _state.BgmVolume = loaded.BgmVolume;
-        _state.SeVolume = loaded.SeVolume;
+        _state.Audio.CurrentBgm = loaded.Audio.CurrentBgm;
+        _state.Audio.BgmVolume = loaded.Audio.BgmVolume;
+        _state.Audio.SeVolume = loaded.Audio.SeVolume;
 
         // テキスト状態
-        _state.TextboxVisible = loaded.TextboxVisible;
-        _state.CurrentTextBuffer = loaded.CurrentTextBuffer;
-        _state.DisplayedTextLength = Math.Clamp(loaded.DisplayedTextLength, 0, _state.CurrentTextBuffer.Length);
-        _state.TextAdvanceMode = loaded.TextAdvanceMode;
-        _state.TextAdvanceRatio = loaded.TextAdvanceRatio;
-        _state.TextTimerMs = 0f;
-        _state.IsWaitingPageClear = loaded.IsWaitingPageClear;
-        _state.TextHistory = new List<BacklogEntry>(loaded.TextHistory);
-        _state.TextHistoryStartNumber = Math.Max(1, loaded.TextHistoryStartNumber);
-        _state.TextTargetSpriteId = loaded.TextTargetSpriteId;
-        _state.TextboxBackgroundSpriteId = loaded.TextboxBackgroundSpriteId;
-        _state.UseManualTextLayout = loaded.UseManualTextLayout;
-        _state.CompatAutoUi = loaded.CompatAutoUi;
+        _state.TextWindow.TextboxVisible = loaded.TextWindow.TextboxVisible;
+        _state.TextRuntime.CurrentTextBuffer = loaded.TextRuntime.CurrentTextBuffer;
+        _state.TextRuntime.DisplayedTextLength = Math.Clamp(loaded.TextRuntime.DisplayedTextLength, 0, _state.TextRuntime.CurrentTextBuffer.Length);
+        _state.TextRuntime.TextAdvanceMode = loaded.TextRuntime.TextAdvanceMode;
+        _state.TextRuntime.TextAdvanceRatio = loaded.TextRuntime.TextAdvanceRatio;
+        _state.TextRuntime.TextTimerMs = 0f;
+        _state.TextRuntime.IsWaitingPageClear = loaded.TextRuntime.IsWaitingPageClear;
+        _state.TextRuntime.TextHistory = new List<BacklogEntry>(loaded.TextRuntime.TextHistory);
+        _state.TextRuntime.TextHistoryStartNumber = Math.Max(1, loaded.TextRuntime.TextHistoryStartNumber);
+        _state.TextWindow.TextTargetSpriteId = loaded.TextWindow.TextTargetSpriteId;
+        _state.TextWindow.TextboxBackgroundSpriteId = loaded.TextWindow.TextboxBackgroundSpriteId;
+        _state.TextWindow.UseManualTextLayout = loaded.TextWindow.UseManualTextLayout;
+        _state.TextWindow.CompatAutoUi = loaded.TextWindow.CompatAutoUi;
 
         // テキストボックス設定
         NormalizeTextboxSettings(loaded);
@@ -89,8 +89,8 @@ public class SaveStateNormalizer
         NormalizeChoiceSettings(loaded);
 
         // フォントとテキスト設定
-        _state.FontFilter = loaded.FontFilter;
-        _state.TextSpeedMs = loaded.TextSpeedMs;
+        _state.EngineSettings.FontFilter = loaded.EngineSettings.FontFilter;
+        _state.TextRuntime.TextSpeedMs = loaded.TextRuntime.TextSpeedMs;
         NormalizeTextEffectSettings(loaded);
         NormalizeSkipSettings(loaded);
 
@@ -101,16 +101,16 @@ public class SaveStateNormalizer
         NormalizeMenuSettings(loaded);
 
         // UI構成
-        _state.UiGroups = loaded.UiGroups.ToDictionary(pair => pair.Key, pair => new List<int>(pair.Value));
-        _state.UiLayouts = new Dictionary<int, string>(loaded.UiLayouts);
-        _state.UiAnchors = new Dictionary<int, string>(loaded.UiAnchors);
-        _state.UiEvents = new Dictionary<string, string>(loaded.UiEvents, StringComparer.OrdinalIgnoreCase);
-        _state.UiHotkeys = new Dictionary<string, string>(loaded.UiHotkeys, StringComparer.OrdinalIgnoreCase);
-        _state.UiHoverActive = new HashSet<int>();
+        _state.UiComposition.Groups = loaded.UiComposition.Groups.ToDictionary(pair => pair.Key, pair => new List<int>(pair.Value));
+        _state.UiComposition.Layouts = new Dictionary<int, string>(loaded.UiComposition.Layouts);
+        _state.UiComposition.Anchors = new Dictionary<int, string>(loaded.UiComposition.Anchors);
+        _state.UiComposition.Events = new Dictionary<string, string>(loaded.UiComposition.Events, StringComparer.OrdinalIgnoreCase);
+        _state.UiComposition.Hotkeys = new Dictionary<string, string>(loaded.UiComposition.Hotkeys, StringComparer.OrdinalIgnoreCase);
+        _state.UiComposition.HoverActive = new HashSet<int>();
 
         // シーン情報
-        _state.CurrentChapter = loaded.CurrentChapter;
-        _state.UnlockedCgs = new HashSet<string>(loaded.UnlockedCgs, StringComparer.OrdinalIgnoreCase);
+        _state.SaveRuntime.CurrentChapter = loaded.SaveRuntime.CurrentChapter;
+        _state.FlagRuntime.UnlockedCgs = new HashSet<string>(loaded.FlagRuntime.UnlockedCgs, StringComparer.OrdinalIgnoreCase);
         _currentScriptFile = data.ScriptFile;
 
         // UI状態を正規化
@@ -119,110 +119,110 @@ public class SaveStateNormalizer
 
     private void NormalizeTextboxSettings(GameState loaded)
     {
-        _state.DefaultTextboxX = loaded.DefaultTextboxX;
-        _state.DefaultTextboxY = loaded.DefaultTextboxY;
-        _state.DefaultTextboxW = loaded.DefaultTextboxW;
-        _state.DefaultTextboxH = loaded.DefaultTextboxH;
-        _state.DefaultFontSize = loaded.DefaultFontSize;
-        _state.DefaultTextColor = loaded.DefaultTextColor;
-        _state.DefaultTextboxBgColor = loaded.DefaultTextboxBgColor;
-        _state.DefaultTextboxBgAlpha = loaded.DefaultTextboxBgAlpha;
-        _state.DefaultTextboxPaddingX = loaded.DefaultTextboxPaddingX;
-        _state.DefaultTextboxPaddingY = loaded.DefaultTextboxPaddingY;
-        _state.DefaultTextboxCornerRadius = loaded.DefaultTextboxCornerRadius;
-        _state.DefaultTextboxBorderColor = loaded.DefaultTextboxBorderColor;
-        _state.DefaultTextboxBorderWidth = loaded.DefaultTextboxBorderWidth;
-        _state.DefaultTextboxBorderOpacity = loaded.DefaultTextboxBorderOpacity;
-        _state.DefaultTextboxShadowColor = loaded.DefaultTextboxShadowColor;
-        _state.DefaultTextboxShadowOffsetX = loaded.DefaultTextboxShadowOffsetX;
-        _state.DefaultTextboxShadowOffsetY = loaded.DefaultTextboxShadowOffsetY;
-        _state.DefaultTextboxShadowAlpha = loaded.DefaultTextboxShadowAlpha;
+        _state.TextWindow.DefaultTextboxX = loaded.TextWindow.DefaultTextboxX;
+        _state.TextWindow.DefaultTextboxY = loaded.TextWindow.DefaultTextboxY;
+        _state.TextWindow.DefaultTextboxW = loaded.TextWindow.DefaultTextboxW;
+        _state.TextWindow.DefaultTextboxH = loaded.TextWindow.DefaultTextboxH;
+        _state.TextWindow.DefaultFontSize = loaded.TextWindow.DefaultFontSize;
+        _state.TextWindow.DefaultTextColor = loaded.TextWindow.DefaultTextColor;
+        _state.TextWindow.DefaultTextboxBgColor = loaded.TextWindow.DefaultTextboxBgColor;
+        _state.TextWindow.DefaultTextboxBgAlpha = loaded.TextWindow.DefaultTextboxBgAlpha;
+        _state.TextWindow.DefaultTextboxPaddingX = loaded.TextWindow.DefaultTextboxPaddingX;
+        _state.TextWindow.DefaultTextboxPaddingY = loaded.TextWindow.DefaultTextboxPaddingY;
+        _state.TextWindow.DefaultTextboxCornerRadius = loaded.TextWindow.DefaultTextboxCornerRadius;
+        _state.TextWindow.DefaultTextboxBorderColor = loaded.TextWindow.DefaultTextboxBorderColor;
+        _state.TextWindow.DefaultTextboxBorderWidth = loaded.TextWindow.DefaultTextboxBorderWidth;
+        _state.TextWindow.DefaultTextboxBorderOpacity = loaded.TextWindow.DefaultTextboxBorderOpacity;
+        _state.TextWindow.DefaultTextboxShadowColor = loaded.TextWindow.DefaultTextboxShadowColor;
+        _state.TextWindow.DefaultTextboxShadowOffsetX = loaded.TextWindow.DefaultTextboxShadowOffsetX;
+        _state.TextWindow.DefaultTextboxShadowOffsetY = loaded.TextWindow.DefaultTextboxShadowOffsetY;
+        _state.TextWindow.DefaultTextboxShadowAlpha = loaded.TextWindow.DefaultTextboxShadowAlpha;
     }
 
     private void NormalizeChoiceSettings(GameState loaded)
     {
-        _state.ChoiceWidth = loaded.ChoiceWidth;
-        _state.ChoiceHeight = loaded.ChoiceHeight;
-        _state.ChoiceSpacing = loaded.ChoiceSpacing;
-        _state.ChoiceFontSize = loaded.ChoiceFontSize;
-        _state.ChoiceTextColor = loaded.ChoiceTextColor;
-        _state.ChoiceBgColor = loaded.ChoiceBgColor;
-        _state.ChoiceBgAlpha = loaded.ChoiceBgAlpha;
-        _state.ChoiceHoverColor = loaded.ChoiceHoverColor;
-        _state.ChoiceCornerRadius = loaded.ChoiceCornerRadius;
-        _state.ChoiceBorderColor = loaded.ChoiceBorderColor;
-        _state.ChoiceBorderWidth = loaded.ChoiceBorderWidth;
-        _state.ChoiceBorderOpacity = loaded.ChoiceBorderOpacity;
-        _state.ChoicePaddingX = loaded.ChoicePaddingX;
+        _state.ChoiceStyle.ChoiceWidth = loaded.ChoiceStyle.ChoiceWidth;
+        _state.ChoiceStyle.ChoiceHeight = loaded.ChoiceStyle.ChoiceHeight;
+        _state.ChoiceStyle.ChoiceSpacing = loaded.ChoiceStyle.ChoiceSpacing;
+        _state.ChoiceStyle.ChoiceFontSize = loaded.ChoiceStyle.ChoiceFontSize;
+        _state.ChoiceStyle.ChoiceTextColor = loaded.ChoiceStyle.ChoiceTextColor;
+        _state.ChoiceStyle.ChoiceBgColor = loaded.ChoiceStyle.ChoiceBgColor;
+        _state.ChoiceStyle.ChoiceBgAlpha = loaded.ChoiceStyle.ChoiceBgAlpha;
+        _state.ChoiceStyle.ChoiceHoverColor = loaded.ChoiceStyle.ChoiceHoverColor;
+        _state.ChoiceStyle.ChoiceCornerRadius = loaded.ChoiceStyle.ChoiceCornerRadius;
+        _state.ChoiceStyle.ChoiceBorderColor = loaded.ChoiceStyle.ChoiceBorderColor;
+        _state.ChoiceStyle.ChoiceBorderWidth = loaded.ChoiceStyle.ChoiceBorderWidth;
+        _state.ChoiceStyle.ChoiceBorderOpacity = loaded.ChoiceStyle.ChoiceBorderOpacity;
+        _state.ChoiceStyle.ChoicePaddingX = loaded.ChoiceStyle.ChoicePaddingX;
     }
 
     private void NormalizeTextEffectSettings(GameState loaded)
     {
-        _state.DefaultTextShadowColor = loaded.DefaultTextShadowColor;
-        _state.DefaultTextShadowX = loaded.DefaultTextShadowX;
-        _state.DefaultTextShadowY = loaded.DefaultTextShadowY;
-        _state.DefaultTextOutlineColor = loaded.DefaultTextOutlineColor;
-        _state.DefaultTextOutlineSize = loaded.DefaultTextOutlineSize;
-        _state.DefaultTextEffect = loaded.DefaultTextEffect;
-        _state.DefaultTextEffectStrength = loaded.DefaultTextEffectStrength;
-        _state.DefaultTextEffectSpeed = loaded.DefaultTextEffectSpeed;
+        _state.TextRuntime.DefaultTextShadowColor = loaded.TextRuntime.DefaultTextShadowColor;
+        _state.TextRuntime.DefaultTextShadowX = loaded.TextRuntime.DefaultTextShadowX;
+        _state.TextRuntime.DefaultTextShadowY = loaded.TextRuntime.DefaultTextShadowY;
+        _state.TextRuntime.DefaultTextOutlineColor = loaded.TextRuntime.DefaultTextOutlineColor;
+        _state.TextRuntime.DefaultTextOutlineSize = loaded.TextRuntime.DefaultTextOutlineSize;
+        _state.TextRuntime.DefaultTextEffect = loaded.TextRuntime.DefaultTextEffect;
+        _state.TextRuntime.DefaultTextEffectStrength = loaded.TextRuntime.DefaultTextEffectStrength;
+        _state.TextRuntime.DefaultTextEffectSpeed = loaded.TextRuntime.DefaultTextEffectSpeed;
     }
 
     private void NormalizeSkipSettings(GameState loaded)
     {
-        _state.SkipAdvancePerFrame = loaded.SkipAdvancePerFrame;
-        _state.ForceSkipAdvancePerFrame = loaded.ForceSkipAdvancePerFrame;
+        _state.Playback.SkipAdvancePerFrame = loaded.Playback.SkipAdvancePerFrame;
+        _state.Playback.ForceSkipAdvancePerFrame = loaded.Playback.ForceSkipAdvancePerFrame;
     }
 
     private void NormalizeCursorSettings(GameState loaded)
     {
-        _state.ShowClickCursor = loaded.ShowClickCursor;
-        _state.ClickCursorMode = loaded.ClickCursorMode;
-        _state.ClickCursorPath = loaded.ClickCursorPath;
-        _state.ClickCursorOffsetX = loaded.ClickCursorOffsetX;
-        _state.ClickCursorOffsetY = loaded.ClickCursorOffsetY;
-        _state.ClickCursorSize = loaded.ClickCursorSize;
-        _state.ClickCursorColor = loaded.ClickCursorColor;
+        _state.UiRuntime.ShowClickCursor = loaded.UiRuntime.ShowClickCursor;
+        _state.UiRuntime.ClickCursorMode = loaded.UiRuntime.ClickCursorMode;
+        _state.UiRuntime.ClickCursorPath = loaded.UiRuntime.ClickCursorPath;
+        _state.UiRuntime.ClickCursorOffsetX = loaded.UiRuntime.ClickCursorOffsetX;
+        _state.UiRuntime.ClickCursorOffsetY = loaded.UiRuntime.ClickCursorOffsetY;
+        _state.UiRuntime.ClickCursorSize = loaded.UiRuntime.ClickCursorSize;
+        _state.UiRuntime.ClickCursorColor = loaded.UiRuntime.ClickCursorColor;
     }
 
     private void NormalizeMenuSettings(GameState loaded)
     {
-        _state.RightMenuWidth = loaded.RightMenuWidth;
-        _state.RightMenuAlign = loaded.RightMenuAlign;
-        _state.SaveLoadColumns = loaded.SaveLoadColumns;
-        _state.SaveLoadWidth = loaded.SaveLoadWidth;
-        _state.BacklogWidth = loaded.BacklogWidth;
-        _state.SettingsWidth = loaded.SettingsWidth;
-        _state.MenuFillColor = loaded.MenuFillColor;
-        _state.MenuFillAlpha = loaded.MenuFillAlpha;
-        _state.MenuTextColor = loaded.MenuTextColor;
-        _state.MenuLineColor = loaded.MenuLineColor;
-        _state.MenuCornerRadius = loaded.MenuCornerRadius;
+        _state.MenuRuntime.RightMenuWidth = loaded.MenuRuntime.RightMenuWidth;
+        _state.MenuRuntime.RightMenuAlign = loaded.MenuRuntime.RightMenuAlign;
+        _state.MenuRuntime.SaveLoadColumns = loaded.MenuRuntime.SaveLoadColumns;
+        _state.MenuRuntime.SaveLoadWidth = loaded.MenuRuntime.SaveLoadWidth;
+        _state.MenuRuntime.BacklogWidth = loaded.MenuRuntime.BacklogWidth;
+        _state.MenuRuntime.SettingsWidth = loaded.MenuRuntime.SettingsWidth;
+        _state.MenuRuntime.MenuFillColor = loaded.MenuRuntime.MenuFillColor;
+        _state.MenuRuntime.MenuFillAlpha = loaded.MenuRuntime.MenuFillAlpha;
+        _state.MenuRuntime.MenuTextColor = loaded.MenuRuntime.MenuTextColor;
+        _state.MenuRuntime.MenuLineColor = loaded.MenuRuntime.MenuLineColor;
+        _state.MenuRuntime.MenuCornerRadius = loaded.MenuRuntime.MenuCornerRadius;
     }
 
     private void NormalizeUiState()
     {
         // 無効なスプライトIDをクリア
-        if (_state.TextboxBackgroundSpriteId >= 0 && !_state.Sprites.ContainsKey(_state.TextboxBackgroundSpriteId))
+        if (_state.TextWindow.TextboxBackgroundSpriteId >= 0 && !_state.Render.Sprites.ContainsKey(_state.TextWindow.TextboxBackgroundSpriteId))
         {
-            _state.TextboxBackgroundSpriteId = -1;
+            _state.TextWindow.TextboxBackgroundSpriteId = -1;
         }
 
-        if (_state.TextTargetSpriteId >= 0 && !_state.Sprites.ContainsKey(_state.TextTargetSpriteId))
+        if (_state.TextWindow.TextTargetSpriteId >= 0 && !_state.Render.Sprites.ContainsKey(_state.TextWindow.TextTargetSpriteId))
         {
-            _state.TextTargetSpriteId = -1;
+            _state.TextWindow.TextTargetSpriteId = -1;
         }
 
         // ホバー状態をリセット
-        foreach (var sprite in _state.Sprites.Values)
+        foreach (var sprite in _state.Render.Sprites.Values)
         {
             sprite.IsHovered = false;
         }
-        _state.FocusedButtonId = -1;
+        _state.Interaction.FocusedButtonId = -1;
 
         // 無効なボタンのマッピングを削除
-        _state.SpriteButtonMap = _state.SpriteButtonMap
-            .Where(pair => _state.Sprites.TryGetValue(pair.Key, out var sprite) && sprite.IsButton)
+        _state.Interaction.SpriteButtonMap = _state.Interaction.SpriteButtonMap
+            .Where(pair => _state.Render.Sprites.TryGetValue(pair.Key, out var sprite) && sprite.IsButton)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
         // テキストスプライトを正規化
@@ -231,48 +231,48 @@ public class SaveStateNormalizer
 
     private void NormalizeRuntimeTextSprites()
     {
-        if (!_state.CompatAutoUi || _state.UseManualTextLayout) return;
+        if (!_state.TextWindow.CompatAutoUi || _state.TextWindow.UseManualTextLayout) return;
 
         // テキストボックス背景スプライトを更新
-        if (_state.TextboxBackgroundSpriteId >= 0 &&
-            _state.Sprites.TryGetValue(_state.TextboxBackgroundSpriteId, out var bg) &&
+        if (_state.TextWindow.TextboxBackgroundSpriteId >= 0 &&
+            _state.Render.Sprites.TryGetValue(_state.TextWindow.TextboxBackgroundSpriteId, out var bg) &&
             bg.Type == SpriteType.Rect)
         {
-            bg.X = _state.DefaultTextboxX;
-            bg.Y = _state.DefaultTextboxY;
-            bg.Width = _state.DefaultTextboxW;
-            bg.Height = _state.DefaultTextboxH;
-            bg.FillColor = _state.DefaultTextboxBgColor;
-            bg.FillAlpha = _state.DefaultTextboxBgAlpha;
-            bg.CornerRadius = _state.DefaultTextboxCornerRadius;
-            bg.BorderColor = _state.DefaultTextboxBorderColor;
-            bg.BorderWidth = _state.DefaultTextboxBorderWidth;
-            bg.BorderOpacity = _state.DefaultTextboxBorderOpacity;
-            bg.ShadowColor = _state.DefaultTextboxShadowColor;
-            bg.ShadowOffsetX = _state.DefaultTextboxShadowOffsetX;
-            bg.ShadowOffsetY = _state.DefaultTextboxShadowOffsetY;
-            bg.ShadowAlpha = _state.DefaultTextboxShadowAlpha;
+            bg.X = _state.TextWindow.DefaultTextboxX;
+            bg.Y = _state.TextWindow.DefaultTextboxY;
+            bg.Width = _state.TextWindow.DefaultTextboxW;
+            bg.Height = _state.TextWindow.DefaultTextboxH;
+            bg.FillColor = _state.TextWindow.DefaultTextboxBgColor;
+            bg.FillAlpha = _state.TextWindow.DefaultTextboxBgAlpha;
+            bg.CornerRadius = _state.TextWindow.DefaultTextboxCornerRadius;
+            bg.BorderColor = _state.TextWindow.DefaultTextboxBorderColor;
+            bg.BorderWidth = _state.TextWindow.DefaultTextboxBorderWidth;
+            bg.BorderOpacity = _state.TextWindow.DefaultTextboxBorderOpacity;
+            bg.ShadowColor = _state.TextWindow.DefaultTextboxShadowColor;
+            bg.ShadowOffsetX = _state.TextWindow.DefaultTextboxShadowOffsetX;
+            bg.ShadowOffsetY = _state.TextWindow.DefaultTextboxShadowOffsetY;
+            bg.ShadowAlpha = _state.TextWindow.DefaultTextboxShadowAlpha;
         }
 
         // テキストスプライトを更新
-        if (_state.TextTargetSpriteId >= 0 &&
-            _state.Sprites.TryGetValue(_state.TextTargetSpriteId, out var textSprite) &&
+        if (_state.TextWindow.TextTargetSpriteId >= 0 &&
+            _state.Render.Sprites.TryGetValue(_state.TextWindow.TextTargetSpriteId, out var textSprite) &&
             textSprite.Type == SpriteType.Text)
         {
-            textSprite.X = _state.DefaultTextboxX + _state.DefaultTextboxPaddingX;
-            textSprite.Y = _state.DefaultTextboxY + _state.DefaultTextboxPaddingY;
-            textSprite.Width = _state.DefaultTextboxW - _state.DefaultTextboxPaddingX * 2;
-            textSprite.Height = _state.DefaultTextboxH - _state.DefaultTextboxPaddingY * 2;
-            textSprite.FontSize = _state.DefaultFontSize;
-            textSprite.Color = _state.DefaultTextColor;
-            textSprite.TextShadowColor = _state.DefaultTextShadowColor;
-            textSprite.TextShadowX = _state.DefaultTextShadowX;
-            textSprite.TextShadowY = _state.DefaultTextShadowY;
-            textSprite.TextOutlineColor = _state.DefaultTextOutlineColor;
-            textSprite.TextOutlineSize = _state.DefaultTextOutlineSize;
-            textSprite.TextEffect = _state.DefaultTextEffect;
-            textSprite.TextEffectStrength = _state.DefaultTextEffectStrength;
-            textSprite.TextEffectSpeed = _state.DefaultTextEffectSpeed;
+            textSprite.X = _state.TextWindow.DefaultTextboxX + _state.TextWindow.DefaultTextboxPaddingX;
+            textSprite.Y = _state.TextWindow.DefaultTextboxY + _state.TextWindow.DefaultTextboxPaddingY;
+            textSprite.Width = _state.TextWindow.DefaultTextboxW - _state.TextWindow.DefaultTextboxPaddingX * 2;
+            textSprite.Height = _state.TextWindow.DefaultTextboxH - _state.TextWindow.DefaultTextboxPaddingY * 2;
+            textSprite.FontSize = _state.TextWindow.DefaultFontSize;
+            textSprite.Color = _state.TextWindow.DefaultTextColor;
+            textSprite.TextShadowColor = _state.TextRuntime.DefaultTextShadowColor;
+            textSprite.TextShadowX = _state.TextRuntime.DefaultTextShadowX;
+            textSprite.TextShadowY = _state.TextRuntime.DefaultTextShadowY;
+            textSprite.TextOutlineColor = _state.TextRuntime.DefaultTextOutlineColor;
+            textSprite.TextOutlineSize = _state.TextRuntime.DefaultTextOutlineSize;
+            textSprite.TextEffect = _state.TextRuntime.DefaultTextEffect;
+            textSprite.TextEffectStrength = _state.TextRuntime.DefaultTextEffectStrength;
+            textSprite.TextEffectSpeed = _state.TextRuntime.DefaultTextEffectSpeed;
         }
     }
 }

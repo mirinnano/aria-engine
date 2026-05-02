@@ -26,14 +26,14 @@ public static class CrashDiagnostics
             exception = exception?.ToString(),
             state = state == null ? null : new
             {
-                state.ProgramCounter,
-                state.State,
-                state.MainScript,
-                state.CurrentChapter,
-                state.CurrentProgress,
-                state.ProductionMode,
-                SpriteCount = state.Sprites.Count,
-                TextLength = state.CurrentTextBuffer.Length
+                state.Execution.ProgramCounter,
+                state.Execution.State,
+                state.EngineSettings.MainScript,
+                state.SaveRuntime.CurrentChapter,
+                state.SaveRuntime.CurrentProgress,
+                state.EngineSettings.ProductionMode,
+                SpriteCount = state.Render.Sprites.Count,
+                TextLength = state.TextRuntime.CurrentTextBuffer.Length
             }
         };
 

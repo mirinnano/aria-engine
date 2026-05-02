@@ -55,7 +55,7 @@ public class CommandTests
         flow.Execute(new Instruction { Op = OpCode.ScopeExit, Arguments = new List<string>(), SourceLine = 0 });
 
         // sprite 999 should be cleaned up
-        vm.State.Sprites.ContainsKey(999).Should().BeFalse();
+        vm.State.Render.Sprites.ContainsKey(999).Should().BeFalse();
         // no scope should remain
         vm.State.Execution.ScopeStack.Count.Should().Be(0);
     }
@@ -77,8 +77,8 @@ public class CommandTests
         // Exit scope should cleanup both defers in LIFO order
         flow.Execute(new Instruction { Op = OpCode.ScopeExit, Arguments = new List<string>(), SourceLine = 0 });
 
-        vm.State.Sprites.ContainsKey(1001).Should().BeFalse();
-        vm.State.Sprites.ContainsKey(1002).Should().BeFalse();
+        vm.State.Render.Sprites.ContainsKey(1001).Should().BeFalse();
+        vm.State.Render.Sprites.ContainsKey(1002).Should().BeFalse();
         vm.State.Execution.ScopeStack.Count.Should().Be(0);
     }
 
@@ -130,8 +130,8 @@ public class CommandTests
             Arguments = new List<string> { "chapter_day1", "%10" }
         }).Should().BeTrue();
 
-        vm.State.SaveFlags["chapter_day1"].Should().BeTrue();
-        vm.State.Registers["10"].Should().Be(1);
+        vm.State.FlagRuntime.SaveFlags["chapter_day1"].Should().BeTrue();
+        vm.State.RegisterState.Registers["10"].Should().Be(1);
     }
 
     [Fact]
@@ -158,11 +158,11 @@ public class CommandTests
             Arguments = new List<string> { "on" }
         }).Should().BeTrue();
 
-        vm.State.WindowWidth.Should().Be(800);
-        vm.State.WindowHeight.Should().Be(600);
-        vm.State.Title.Should().Be("Test Window");
-        vm.State.FontAtlasSize.Should().Be(64);
-        vm.State.DebugMode.Should().BeTrue();
+        vm.State.EngineSettings.WindowWidth.Should().Be(800);
+        vm.State.EngineSettings.WindowHeight.Should().Be(600);
+        vm.State.EngineSettings.Title.Should().Be("Test Window");
+        vm.State.EngineSettings.FontAtlasSize.Should().Be(64);
+        vm.State.EngineSettings.DebugMode.Should().BeTrue();
     }
 
     [Fact]
@@ -179,7 +179,7 @@ public class CommandTests
         });
 
         action.Should().NotThrow();
-        vm.State.Arrays.Should().NotContainKey("arr");
+        vm.State.RegisterState.Arrays.Should().NotContainKey("arr");
     }
 
     [Fact]
@@ -196,7 +196,7 @@ public class CommandTests
         });
 
         action.Should().NotThrow();
-        vm.State.Arrays.Should().NotContainKey("arr");
+        vm.State.RegisterState.Arrays.Should().NotContainKey("arr");
     }
 
     [Fact]
@@ -241,7 +241,7 @@ public class CommandTests
 
         reporter.Errors.Count.Should().BeGreaterThan(0);
         reporter.Errors.Should().Contain(e => e.Code == "VM_PANIC");
-        vm.State.State.Should().Be(VmState.Ended);
+        vm.State.Execution.State.Should().Be(VmState.Ended);
     }
 
     // ===========================================================
@@ -266,10 +266,10 @@ public class CommandTests
         });
 
         // Sprite should exist
-        vm.State.Sprites.ContainsKey(0).Should().BeTrue();
+        vm.State.Render.Sprites.ContainsKey(0).Should().BeTrue();
         // Lifetime stack should have been pushed because it's owned
-        vm.State.SpriteLifetimeStacks.Count.Should().Be(1);
-        vm.State.SpriteLifetimeStacks.Peek().Should().Contain(0);
+        vm.State.Execution.SpriteLifetimeStacks.Count.Should().Be(1);
+        vm.State.Execution.SpriteLifetimeStacks.Peek().Should().Contain(0);
     }
 
     [Fact]
@@ -293,13 +293,13 @@ public class CommandTests
             Arguments = new List<string> { "%bg", "bg.png", "0", "0" }
         });
 
-        vm.State.Sprites.ContainsKey(0).Should().BeTrue();
+        vm.State.Render.Sprites.ContainsKey(0).Should().BeTrue();
 
         // Exit scope
         flow.Execute(new Instruction { Op = OpCode.ScopeExit, Arguments = new List<string>(), SourceLine = 0 });
 
         // Owned sprite should be cleaned up
-        vm.State.Sprites.ContainsKey(0).Should().BeFalse();
+        vm.State.Render.Sprites.ContainsKey(0).Should().BeFalse();
     }
 
     [Fact]
@@ -317,9 +317,9 @@ public class CommandTests
         });
 
         // Sprite should exist
-        vm.State.Sprites.ContainsKey(10).Should().BeTrue();
+        vm.State.Render.Sprites.ContainsKey(10).Should().BeTrue();
         // No lifetime stack should exist at top level for non-owned sprites
-        vm.State.SpriteLifetimeStacks.Count.Should().Be(0);
+        vm.State.Execution.SpriteLifetimeStacks.Count.Should().Be(0);
     }
 
     [Fact]
@@ -349,8 +349,8 @@ public class CommandTests
             Arguments = new List<string> { "%rect", "0", "0", "100", "100" }
         });
 
-        vm.State.SpriteLifetimeStacks.Count.Should().Be(1);
-        vm.State.SpriteLifetimeStacks.Peek().Should().Contain(100); // txt
-        vm.State.SpriteLifetimeStacks.Peek().Should().Contain(101); // rect
+        vm.State.Execution.SpriteLifetimeStacks.Count.Should().Be(1);
+        vm.State.Execution.SpriteLifetimeStacks.Peek().Should().Contain(100); // txt
+        vm.State.Execution.SpriteLifetimeStacks.Peek().Should().Contain(101); // rect
     }
 }

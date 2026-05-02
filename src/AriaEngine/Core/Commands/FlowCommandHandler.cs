@@ -153,15 +153,15 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                     int index = GetVal(destArrayMatch.Groups[2].Value);
                     if (index < 0) return true;
                     int value = expr?.EvaluateInt(State, Vm) ?? GetVal(args[1]);
-                    if (!State.Arrays.TryGetValue(arrayName, out var array))
+                    if (!State.RegisterState.Arrays.TryGetValue(arrayName, out var array))
                     {
                         array = new int[index + 1];
-                        State.Arrays[arrayName] = array;
+                        State.RegisterState.Arrays[arrayName] = array;
                     }
                     if (index >= array.Length)
                     {
                         Array.Resize(ref array, index + 1);
-                        State.Arrays[arrayName] = array;
+                        State.RegisterState.Arrays[arrayName] = array;
                     }
                     if (index >= 0)
                         array[index] = value;
@@ -171,7 +171,7 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                     // let %x = %arr[index] → getarray
                     string arrayName = srcArrayMatch.Groups[1].Value;
                     int index = GetVal(srcArrayMatch.Groups[2].Value);
-                    if (State.Arrays.TryGetValue(arrayName, out var array) && index >= 0 && index < array.Length)
+                    if (State.RegisterState.Arrays.TryGetValue(arrayName, out var array) && index >= 0 && index < array.Length)
                         SetReg(args[0], array[index]);
                     else
                         SetReg(args[0], 0);
@@ -249,11 +249,11 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                     int index = GetVal(inst.Arguments[1]);
                     if (index < 0) return true;
                     int value = GetVal(inst.Arguments[2]);
-                    if (!State.Arrays.TryGetValue(arrayName, out var array))
+                    if (!State.RegisterState.Arrays.TryGetValue(arrayName, out var array))
                     {
                         // 配列が存在しない場合は自動作成（サイズは index + 1）
                         array = new int[index + 1];
-                        State.Arrays[arrayName] = array;
+                        State.RegisterState.Arrays[arrayName] = array;
                     }
                     if (index >= 0 && index < array.Length)
                     {
@@ -268,7 +268,7 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                     string destReg = inst.Arguments[0];
                     string arrayName = inst.Arguments[1].TrimStart('%');
                     int index = GetVal(inst.Arguments[2]);
-                    if (State.Arrays.TryGetValue(arrayName, out var array) && index >= 0 && index < array.Length)
+                    if (State.RegisterState.Arrays.TryGetValue(arrayName, out var array) && index >= 0 && index < array.Length)
                     {
                         SetReg(destReg, array[index]);
                     }
@@ -284,28 +284,28 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                 {
                     int lhs = GetReg(inst.Arguments[0]);
                     int rhs = GetVal(inst.Arguments[1]);
-                    State.CompareFlag = lhs == rhs ? 0 : (lhs > rhs ? 1 : -1);
+                    State.Execution.CompareFlag = lhs == rhs ? 0 : (lhs > rhs ? 1 : -1);
                 }
                 return true;
 
             case OpCode.Beq:
                 if (!ValidateArgs(inst, 1)) return true;
-                if (State.CompareFlag == 0) JumpTo(inst.Arguments[0]);
+                if (State.Execution.CompareFlag == 0) JumpTo(inst.Arguments[0]);
                 return true;
 
             case OpCode.Bne:
                 if (!ValidateArgs(inst, 1)) return true;
-                if (State.CompareFlag != 0) JumpTo(inst.Arguments[0]);
+                if (State.Execution.CompareFlag != 0) JumpTo(inst.Arguments[0]);
                 return true;
 
             case OpCode.Bgt:
                 if (!ValidateArgs(inst, 1)) return true;
-                if (State.CompareFlag == 1) JumpTo(inst.Arguments[0]);
+                if (State.Execution.CompareFlag == 1) JumpTo(inst.Arguments[0]);
                 return true;
 
             case OpCode.Blt:
                 if (!ValidateArgs(inst, 1)) return true;
-                if (State.CompareFlag == -1) JumpTo(inst.Arguments[0]);
+                if (State.Execution.CompareFlag == -1) JumpTo(inst.Arguments[0]);
                 return true;
 
             case OpCode.Jmp:
@@ -357,7 +357,7 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                 string targetArg = forArgs[2];
                 
                 int targetValue;
-                if (State.Arrays.TryGetValue(targetArg, out var arr))
+                if (State.RegisterState.Arrays.TryGetValue(targetArg, out var arr))
                 {
                     // for %i = 0 to arrayName → 配列長でループ
                     targetValue = arr.Length - 1;
@@ -368,38 +368,38 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                 }
                 
                 SetReg(forVar, startVal);
-                State.LoopStack.Push(new LoopState
+                State.Execution.LoopStack.Push(new LoopState
                 {
-                    PC = State.ProgramCounter,
+                    PC = State.Execution.ProgramCounter,
                     VarName = forVar,
                     TargetValue = targetValue
                 });
                 return true;
 
             case OpCode.Next:
-                if (State.LoopStack.Count > 0)
+                if (State.Execution.LoopStack.Count > 0)
                 {
-                    var loop = State.LoopStack.Peek();
+                    var loop = State.Execution.LoopStack.Peek();
                     int currVal = GetReg(loop.VarName) + 1;
                     SetReg(loop.VarName, currVal);
-                    if (currVal <= loop.TargetValue) State.ProgramCounter = loop.PC;
-                    else State.LoopStack.Pop();
+                    if (currVal <= loop.TargetValue) State.Execution.ProgramCounter = loop.PC;
+                    else State.Execution.LoopStack.Pop();
                 }
                 return true;
 
             case OpCode.GetTimer:
                 if (!ValidateArgs(inst, 1)) return true;
-                SetReg(inst.Arguments[0], (int)State.ScriptTimerMs);
+                SetReg(inst.Arguments[0], (int)State.Execution.ScriptTimerMs);
                 return true;
 
             case OpCode.ResetTimer:
-                State.ScriptTimerMs = 0;
+                State.Execution.ScriptTimerMs = 0;
                 return true;
 
             case OpCode.WaitTimer:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.DelayTimerMs = Math.Max(0, GetVal(inst.Arguments[0]) - State.ScriptTimerMs);
-                State.State = VmState.WaitingForDelay;
+                State.Execution.DelayTimerMs = Math.Max(0, GetVal(inst.Arguments[0]) - State.Execution.ScriptTimerMs);
+                State.Execution.State = VmState.WaitingForDelay;
                 return true;
 
             case OpCode.Include:
@@ -415,20 +415,20 @@ public sealed class FlowCommandHandler : BaseCommandHandler
                 if (inst.Arguments.Count > 0)
                 {
                     var retExpr = ExpressionParser.TryParse(inst.Arguments.ToList());
-                    State.LastReturnValue = retExpr?.EvaluateInt(State, Vm) ?? GetVal(inst.Arguments[0]);
+                    State.Execution.LastReturnValue = retExpr?.EvaluateInt(State, Vm) ?? GetVal(inst.Arguments[0]);
                 }
                 else
                 {
-                    State.LastReturnValue = 0;
+                    State.Execution.LastReturnValue = 0;
                 }
                 // ref マップを復元
-                if (State.RefStack.Count > 0)
+                if (State.Execution.RefStack.Count > 0)
                 {
-                    State.CurrentRefMap = State.RefStack.Pop();
+                    State.Execution.CurrentRefMap = State.Execution.RefStack.Pop();
                 }
                 else
                 {
-                    State.CurrentRefMap.Clear();
+                    State.Execution.CurrentRefMap.Clear();
                 }
                 // ローカルスコープとスプライト寿命をクリーンアップ
                 Vm.PopFunctionScope();

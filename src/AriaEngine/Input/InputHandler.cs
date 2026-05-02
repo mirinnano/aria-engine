@@ -7,27 +7,27 @@ public class InputHandler
 {
     public void Update(VirtualMachine vm)
     {
-        if (!vm.State.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F3)) vm.State.DebugMode = !vm.State.DebugMode;
-        if (!vm.State.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F5))
+        if (!vm.State.EngineSettings.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F3)) vm.State.EngineSettings.DebugMode = !vm.State.EngineSettings.DebugMode;
+        if (!vm.State.EngineSettings.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F5))
         {
             vm.SaveGame(0);
             return;
         }
-        if (!vm.State.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F9))
+        if (!vm.State.EngineSettings.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F9))
         {
             vm.Menu.CloseMenu();
             vm.LoadGame(0);
             return;
         }
-        vm.State.ForceSkipMode = IsForceSkipHeld();
+        vm.State.Playback.ForceSkipMode = IsForceSkipHeld();
 
         // スキップ中に読み進めキーが押されたら即停止
-        if ((vm.State.SkipMode || vm.State.ForceSkipMode) && IsAdvancePressed())
+        if ((vm.State.Playback.SkipMode || vm.State.Playback.ForceSkipMode) && IsAdvancePressed())
         {
             vm.StopSkip();
         }
 
-        foreach (var hotkey in vm.State.UiHotkeys)
+        foreach (var hotkey in vm.State.UiComposition.Hotkeys)
         {
             if (TryParseKey(hotkey.Key, out var key) && Raylib.IsKeyPressed(key))
             {
@@ -36,9 +36,9 @@ public class InputHandler
             }
         }
 
-        if (vm.State.State == VmState.WaitingForClick)
+        if (vm.State.Execution.State == VmState.WaitingForClick)
         {
-            if (vm.State.SkipMode && !vm.State.ForceSkipMode && IsAdvancePressed())
+            if (vm.State.Playback.SkipMode && !vm.State.Playback.ForceSkipMode && IsAdvancePressed())
             {
                 vm.StopSkip();
                 return;
@@ -47,47 +47,47 @@ public class InputHandler
             if (IsAdvancePressed())
             {
                 // テキストがまだ表示中の場合は、テキストを即座に完了させるだけ
-                if (vm.State.DisplayedTextLength < vm.State.CurrentTextBuffer.Length)
+                if (vm.State.TextRuntime.DisplayedTextLength < vm.State.TextRuntime.CurrentTextBuffer.Length)
                 {
-                    vm.State.DisplayedTextLength = vm.State.CurrentTextBuffer.Length;
+                    vm.State.TextRuntime.DisplayedTextLength = vm.State.TextRuntime.CurrentTextBuffer.Length;
                 }
                 else
                 {
-                    if (vm.State.IsWaitingPageClear)
+                    if (vm.State.TextRuntime.IsWaitingPageClear)
                     {
-                        vm.State.CurrentTextBuffer = "";
-                        vm.State.DisplayedTextLength = 0;
-                        vm.State.IsWaitingPageClear = false;
+                        vm.State.TextRuntime.CurrentTextBuffer = "";
+                        vm.State.TextRuntime.DisplayedTextLength = 0;
+                        vm.State.TextRuntime.IsWaitingPageClear = false;
                     }
                     vm.ResumeFromClick();
                 }
             }
         }
-        else if (vm.State.State == VmState.WaitingForAnimation)
+        else if (vm.State.Execution.State == VmState.WaitingForAnimation)
         {
-            if (vm.State.TextSpeedMs > 0 && vm.State.DisplayedTextLength < vm.State.CurrentTextBuffer.Length)
+            if (vm.State.TextRuntime.TextSpeedMs > 0 && vm.State.TextRuntime.DisplayedTextLength < vm.State.TextRuntime.CurrentTextBuffer.Length)
             {
                 if (IsAdvancePressed())
                 {
-                    if (vm.State.SkipMode && !vm.State.ForceSkipMode) vm.StopSkip();
+                    if (vm.State.Playback.SkipMode && !vm.State.Playback.ForceSkipMode) vm.StopSkip();
                     if (CanAdvanceTextAnimation(vm.State))
                     {
-                        vm.State.DisplayedTextLength = vm.State.CurrentTextBuffer.Length;
-                        vm.State.State = VmState.Running;
+                        vm.State.TextRuntime.DisplayedTextLength = vm.State.TextRuntime.CurrentTextBuffer.Length;
+                        vm.State.Execution.State = VmState.Running;
                     }
                     else
                     {
-                        vm.State.DisplayedTextLength = vm.State.CurrentTextBuffer.Length;
+                        vm.State.TextRuntime.DisplayedTextLength = vm.State.TextRuntime.CurrentTextBuffer.Length;
                     }
                 }
             }
         }
-        else if (vm.State.State == VmState.WaitingForButton)
+        else if (vm.State.Execution.State == VmState.WaitingForButton)
         {
-            if (vm.State.ButtonTimeoutMs > 0)
+            if (vm.State.Interaction.ButtonTimeoutMs > 0)
             {
-                vm.State.ButtonTimer += Raylib.GetFrameTime() * 1000f;
-                if (vm.State.ButtonTimer >= vm.State.ButtonTimeoutMs)
+                vm.State.Interaction.ButtonTimer += Raylib.GetFrameTime() * 1000f;
+                if (vm.State.Interaction.ButtonTimer >= vm.State.Interaction.ButtonTimeoutMs)
                 {
                     vm.SignalTimeout();
                     return;
@@ -104,7 +104,7 @@ public class InputHandler
             int clickedZ = int.MinValue;
             bool mouseHoverFound = false;
 
-            foreach (var kvp in vm.State.Sprites)
+            foreach (var kvp in vm.State.Render.Sprites)
             {
                 var btn = kvp.Value;
                 if (!btn.Visible || !btn.IsButton)
@@ -127,19 +127,19 @@ public class InputHandler
                 bool mouseHovered = Raylib.CheckCollisionPointRec(mousePoint, rect);
                 if (mouseHovered)
                 {
-                    vm.State.FocusedButtonId = btn.Id;
+                    vm.State.Interaction.FocusedButtonId = btn.Id;
                     mouseHoverFound = true;
                 }
 
-                btn.IsHovered = mouseHovered || btn.Id == vm.State.FocusedButtonId;
+                btn.IsHovered = mouseHovered || btn.Id == vm.State.Interaction.FocusedButtonId;
                 if (mouseHovered)
                 {
-                    int resultValue = vm.State.SpriteButtonMap.TryGetValue(btn.Id, out int mappedValue) ? mappedValue : btn.Id;
+                    int resultValue = vm.State.Interaction.SpriteButtonMap.TryGetValue(btn.Id, out int mappedValue) ? mappedValue : btn.Id;
                     if (TryDispatchHoverEvent(vm, btn.Id, resultValue)) return;
                 }
                 else
                 {
-                    vm.State.UiHoverActive.Remove(btn.Id);
+                    vm.State.UiComposition.HoverActive.Remove(btn.Id);
                 }
 
                 if (clicked && mouseHovered)
@@ -158,8 +158,8 @@ public class InputHandler
             }
 
             if (keyboardActivate &&
-                vm.State.FocusedButtonId >= 0 &&
-                vm.State.Sprites.TryGetValue(vm.State.FocusedButtonId, out var focusedButton) &&
+                vm.State.Interaction.FocusedButtonId >= 0 &&
+                vm.State.Render.Sprites.TryGetValue(vm.State.Interaction.FocusedButtonId, out var focusedButton) &&
                 focusedButton.Visible &&
                 focusedButton.IsButton)
             {
@@ -168,7 +168,7 @@ public class InputHandler
 
             if (clickedButton != null)
             {
-                int resultValue = vm.State.SpriteButtonMap.TryGetValue(clickedButton.Id, out int mappedValue) ? mappedValue : clickedButton.Id;
+                int resultValue = vm.State.Interaction.SpriteButtonMap.TryGetValue(clickedButton.Id, out int mappedValue) ? mappedValue : clickedButton.Id;
                 // スライダークリック処理
                 if (clickedButton.SliderMin < clickedButton.SliderMax)
                 {
@@ -194,7 +194,7 @@ public class InputHandler
             // スライダードラッグ対応（マウス押下中も連続更新）
             if (Raylib.IsMouseButtonDown(MouseButton.Left))
             {
-                foreach (var kvp in vm.State.Sprites)
+                foreach (var kvp in vm.State.Render.Sprites)
                 {
                     var sp = kvp.Value;
                     if (!sp.Visible || sp.SliderMin >= sp.SliderMax) continue;
@@ -246,29 +246,29 @@ public class InputHandler
         var buttons = GetFocusableButtons(state);
         if (buttons.Count == 0)
         {
-            state.FocusedButtonId = -1;
-            foreach (var sprite in state.Sprites.Values) sprite.IsHovered = false;
+            state.Interaction.FocusedButtonId = -1;
+            foreach (var sprite in state.Render.Sprites.Values) sprite.IsHovered = false;
             return -1;
         }
 
-        int current = buttons.FindIndex(sprite => sprite.Id == state.FocusedButtonId);
+        int current = buttons.FindIndex(sprite => sprite.Id == state.Interaction.FocusedButtonId);
         int step = direction < 0 ? -1 : 1;
         int next = current < 0
             ? (step > 0 ? 0 : buttons.Count - 1)
             : (current + step + buttons.Count) % buttons.Count;
 
-        state.FocusedButtonId = buttons[next].Id;
-        foreach (var sprite in state.Sprites.Values)
+        state.Interaction.FocusedButtonId = buttons[next].Id;
+        foreach (var sprite in state.Render.Sprites.Values)
         {
-            if (sprite.IsButton) sprite.IsHovered = sprite.Id == state.FocusedButtonId;
+            if (sprite.IsButton) sprite.IsHovered = sprite.Id == state.Interaction.FocusedButtonId;
         }
 
-        return state.FocusedButtonId;
+        return state.Interaction.FocusedButtonId;
     }
 
     private static List<Sprite> GetFocusableButtons(GameState state)
     {
-        return state.Sprites.Values
+        return state.Render.Sprites.Values
             .Where(sprite => sprite.Visible && sprite.IsButton)
             .OrderBy(sprite => sprite.Y)
             .ThenBy(sprite => sprite.X)
@@ -279,8 +279,8 @@ public class InputHandler
 
     private static bool IsFocusedButtonValid(GameState state)
     {
-        return state.FocusedButtonId >= 0 &&
-               state.Sprites.TryGetValue(state.FocusedButtonId, out var sprite) &&
+        return state.Interaction.FocusedButtonId >= 0 &&
+               state.Render.Sprites.TryGetValue(state.Interaction.FocusedButtonId, out var sprite) &&
                sprite.Visible &&
                sprite.IsButton;
     }
@@ -313,13 +313,13 @@ public class InputHandler
 
     private static bool CanAdvanceTextAnimation(GameState state)
     {
-        int total = Math.Max(1, state.CurrentTextBuffer.Length);
-        float ratio = Math.Clamp(state.DisplayedTextLength / (float)total, 0f, 1f);
-        return state.TextAdvanceMode switch
+        int total = Math.Max(1, state.TextRuntime.CurrentTextBuffer.Length);
+        float ratio = Math.Clamp(state.TextRuntime.DisplayedTextLength / (float)total, 0f, 1f);
+        return state.TextRuntime.TextAdvanceMode switch
         {
             "any" or "immediate" => true,
-            "ratio" => ratio >= Math.Clamp(state.TextAdvanceRatio, 0f, 1f),
-            _ => state.DisplayedTextLength >= state.CurrentTextBuffer.Length
+            "ratio" => ratio >= Math.Clamp(state.TextRuntime.TextAdvanceRatio, 0f, 1f),
+            _ => state.TextRuntime.DisplayedTextLength >= state.TextRuntime.CurrentTextBuffer.Length
         };
     }
 
@@ -330,9 +330,9 @@ public class InputHandler
         int valueId = slider.Id + 3;
         float ratio = slider.SliderMax > slider.SliderMin ? (float)(slider.SliderValue - slider.SliderMin) / (slider.SliderMax - slider.SliderMin) : 0f;
 
-        if (state.Sprites.TryGetValue(fillId, out var fill)) fill.Width = (int)(slider.Width * ratio);
-        if (state.Sprites.TryGetValue(thumbId, out var thumb)) thumb.X = slider.X + (int)(slider.Width * ratio) - 8;
-        if (state.Sprites.TryGetValue(valueId, out var valText)) valText.Text = slider.SliderValue.ToString();
+        if (state.Render.Sprites.TryGetValue(fillId, out var fill)) fill.Width = (int)(slider.Width * ratio);
+        if (state.Render.Sprites.TryGetValue(thumbId, out var thumb)) thumb.X = slider.X + (int)(slider.Width * ratio) - 8;
+        if (state.Render.Sprites.TryGetValue(valueId, out var valText)) valText.Text = slider.SliderValue.ToString();
     }
 
     private static void UpdateCheckboxVisuals(GameState state, Sprite checkbox)
@@ -340,15 +340,15 @@ public class InputHandler
         int checkId = checkbox.Id + 1;
         checkbox.FillColor = checkbox.CheckboxValue ? "#f5f5f5" : "#000000";
         checkbox.FillAlpha = checkbox.CheckboxValue ? 255 : 0;
-        if (state.Sprites.TryGetValue(checkId, out var checkMark)) checkMark.Text = checkbox.CheckboxValue ? "v" : "";
+        if (state.Render.Sprites.TryGetValue(checkId, out var checkMark)) checkMark.Text = checkbox.CheckboxValue ? "v" : "";
     }
 
     private static bool TryDispatchHoverEvent(VirtualMachine vm, int spriteId, int resultValue)
     {
-        if (vm.State.UiEvents.TryGetValue($"{spriteId}:hover", out string? label) ||
-            vm.State.UiEvents.TryGetValue($"{resultValue}:hover", out label))
+        if (vm.State.UiComposition.Events.TryGetValue($"{spriteId}:hover", out string? label) ||
+            vm.State.UiComposition.Events.TryGetValue($"{resultValue}:hover", out label))
         {
-            if (!vm.State.UiHoverActive.Add(spriteId)) return false;
+            if (!vm.State.UiComposition.HoverActive.Add(spriteId)) return false;
             vm.JumpTo(label);
             return true;
         }

@@ -20,16 +20,16 @@ public sealed class SaveCommandHandler : BaseCommandHandler
         switch (inst.Op)
         {
             case OpCode.SaveOn:
-                State.SaveMode = true;
+                State.MenuRuntime.SaveMode = true;
                 return true;
 
             case OpCode.SaveOff:
-                State.SaveMode = false;
+                State.MenuRuntime.SaveMode = false;
                 return true;
 
             case OpCode.Save:
                 if (!ValidateArgs(inst, 1)) return true;
-                if (State.SaveMode) Vm.SaveGame(GetVal(inst.Arguments[0]));
+                if (State.MenuRuntime.SaveMode) Vm.SaveGame(GetVal(inst.Arguments[0]));
                 return true;
 
             case OpCode.Load:

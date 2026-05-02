@@ -27,14 +27,14 @@ public sealed class InputCommandHandler : BaseCommandHandler
                 if (!ValidateArgs(inst, 1)) return true;
                 {
                     int id = GetVal(inst.Arguments[0]);
-                    if (State.Sprites.TryGetValue(id, out var btn)) btn.IsButton = true;
-                    State.SpriteButtonMap.TryAdd(id, id);
+                    if (State.Render.Sprites.TryGetValue(id, out var btn)) btn.IsButton = true;
+                    State.Interaction.SpriteButtonMap.TryAdd(id, id);
                 }
                 return true;
 
             case OpCode.BtnArea:
                 if (!ValidateArgs(inst, 5)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var ba))
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var ba))
                 {
                     ba.IsButton = true;
                     ba.ClickAreaX = GetVal(inst.Arguments[1]);
@@ -46,13 +46,13 @@ public sealed class InputCommandHandler : BaseCommandHandler
 
             case OpCode.BtnClear:
                 if (!ValidateArgs(inst, 1)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var bcl)) bcl.IsButton = false;
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var bcl)) bcl.IsButton = false;
                 return true;
 
             case OpCode.BtnClearAll:
-                foreach (var sprite in State.Sprites.Values) sprite.IsButton = false;
-                State.SpriteButtonMap.Clear();
-                State.FocusedButtonId = -1;
+                foreach (var sprite in State.Render.Sprites.Values) sprite.IsButton = false;
+                State.Interaction.SpriteButtonMap.Clear();
+                State.Interaction.FocusedButtonId = -1;
                 return true;
 
             case OpCode.SpBtn:
@@ -60,33 +60,33 @@ public sealed class InputCommandHandler : BaseCommandHandler
                 {
                     int spriteId = GetVal(inst.Arguments[0]);
                     int buttonId = GetVal(inst.Arguments[1]);
-                    if (State.Sprites.TryGetValue(spriteId, out var spb)) spb.IsButton = true;
-                    State.SpriteButtonMap[spriteId] = buttonId;
+                    if (State.Render.Sprites.TryGetValue(spriteId, out var spb)) spb.IsButton = true;
+                    State.Interaction.SpriteButtonMap[spriteId] = buttonId;
                 }
                 return true;
 
             case OpCode.BtnTime:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.ButtonTimeoutMs = GetVal(inst.Arguments[0]);
+                State.Interaction.ButtonTimeoutMs = GetVal(inst.Arguments[0]);
                 return true;
 
             case OpCode.BtnWait:
-                State.ButtonResultRegister = inst.Arguments.Count > 0 ? inst.Arguments[0] : "0";
-                State.State = VmState.WaitingForButton;
+                State.Interaction.ButtonResultRegister = inst.Arguments.Count > 0 ? inst.Arguments[0] : "0";
+                State.Execution.State = VmState.WaitingForButton;
                 Vm.AutoSaveGame();
                 return true;
 
             case OpCode.RightMenu:
                 if (inst.Arguments.Count == 1 && inst.Arguments[0].StartsWith("*", StringComparison.Ordinal))
                 {
-                    State.RightMenuLabel = inst.Arguments[0];
+                    State.MenuRuntime.RightMenuLabel = inst.Arguments[0];
                     return true;
                 }
 
-                State.RightMenuEntries.Clear();
+                State.MenuRuntime.RightMenuEntries.Clear();
                 for (int i = 0; i + 1 < inst.Arguments.Count; i += 2)
                 {
-                    State.RightMenuEntries.Add(new RightMenuEntry
+                    State.MenuRuntime.RightMenuEntries.Add(new RightMenuEntry
                     {
                         Label = GetString(inst.Arguments[i]),
                         Action = inst.Arguments[i + 1].TrimStart('*').ToLowerInvariant()
@@ -97,11 +97,11 @@ public sealed class InputCommandHandler : BaseCommandHandler
             case OpCode.ClickCursor:
                 if (inst.Arguments.Count > 0 && inst.Arguments[0].Equals("off", StringComparison.OrdinalIgnoreCase))
                 {
-                    State.ShowClickCursor = false;
+                    State.UiRuntime.ShowClickCursor = false;
                     return true;
                 }
 
-                State.ShowClickCursor = true;
+                State.UiRuntime.ShowClickCursor = true;
                 if (inst.Arguments.Count > 0)
                 {
                     string value = GetString(inst.Arguments[0]);
@@ -109,17 +109,17 @@ public sealed class InputCommandHandler : BaseCommandHandler
                         value.Equals("default", StringComparison.OrdinalIgnoreCase) ||
                         value.Equals("builtin", StringComparison.OrdinalIgnoreCase))
                     {
-                        State.ClickCursorMode = "engine";
-                        State.ClickCursorPath = "";
+                        State.UiRuntime.ClickCursorMode = "engine";
+                        State.UiRuntime.ClickCursorPath = "";
                     }
                     else
                     {
-                        State.ClickCursorMode = "image";
-                        State.ClickCursorPath = value;
+                        State.UiRuntime.ClickCursorMode = "image";
+                        State.UiRuntime.ClickCursorPath = value;
                     }
                 }
-                if (inst.Arguments.Count > 1) State.ClickCursorOffsetX = GetVal(inst.Arguments[1]);
-                if (inst.Arguments.Count > 2) State.ClickCursorOffsetY = GetVal(inst.Arguments[2]);
+                if (inst.Arguments.Count > 1) State.UiRuntime.ClickCursorOffsetX = GetVal(inst.Arguments[1]);
+                if (inst.Arguments.Count > 2) State.UiRuntime.ClickCursorOffsetY = GetVal(inst.Arguments[2]);
                 return true;
 
             default:

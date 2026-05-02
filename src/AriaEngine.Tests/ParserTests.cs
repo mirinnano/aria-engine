@@ -171,7 +171,7 @@ public class ParserTests
     public void Expression_StringComparison_UsesStringValues()
     {
         var vm = new VirtualMachine(new ErrorReporter(), new TweenManager(), new SaveManager(new ErrorReporter()), new ConfigManager());
-        vm.State.StringRegisters["name"] = "ayu";
+        vm.State.RegisterState.StringRegisters["name"] = "ayu";
 
         var equal = ExpressionParser.TryParse(new[] { "$name", "==", "nayuki" });
 

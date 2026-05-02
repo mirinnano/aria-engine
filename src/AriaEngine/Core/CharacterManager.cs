@@ -92,7 +92,7 @@ public class CharacterManager
         int spriteId = GetOrAllocateSpriteId(characterId);
 
         // スプライトを作成
-        _state.Sprites[spriteId] = new Sprite
+        _state.Render.Sprites[spriteId] = new Sprite
         {
             Id = spriteId,
             Type = SpriteType.Image,
@@ -115,7 +115,7 @@ public class CharacterManager
             return;
         }
 
-        if (_state.Sprites.TryGetValue(spriteId, out var sprite))
+        if (_state.Render.Sprites.TryGetValue(spriteId, out var sprite))
         {
             if (fadeDuration > 0)
             {
@@ -128,13 +128,13 @@ public class CharacterManager
                     To = 0f,
                     DurationMs = fadeDuration,
                     Ease = EaseType.EaseOut,
-                    OnComplete = (state, _) => state.Sprites.Remove(spriteId)
+                    OnComplete = (state, _) => state.Render.Sprites.Remove(spriteId)
                 });
             }
             else
             {
                 sprite.Visible = false;
-                _state.Sprites.Remove(spriteId);
+                _state.Render.Sprites.Remove(spriteId);
             }
         }
 
@@ -148,7 +148,7 @@ public class CharacterManager
             return;
         }
 
-        if (_state.Sprites.TryGetValue(spriteId, out var sprite))
+        if (_state.Render.Sprites.TryGetValue(spriteId, out var sprite))
         {
             _tweens.Add(new Tween
             {
@@ -185,7 +185,7 @@ public class CharacterManager
             return;
         }
 
-        if (character.Expressions.TryGetValue(expression, out string? imagePath) && _state.Sprites.TryGetValue(spriteId, out var sprite))
+        if (character.Expressions.TryGetValue(expression, out string? imagePath) && _state.Render.Sprites.TryGetValue(spriteId, out var sprite))
         {
             sprite.ImagePath = imagePath;
         }
@@ -204,7 +204,7 @@ public class CharacterManager
             return;
         }
 
-        if (character.Poses.TryGetValue(pose, out string? imagePath) && _state.Sprites.TryGetValue(spriteId, out var sprite))
+        if (character.Poses.TryGetValue(pose, out string? imagePath) && _state.Render.Sprites.TryGetValue(spriteId, out var sprite))
         {
             sprite.ImagePath = imagePath;
         }
@@ -222,7 +222,7 @@ public class CharacterManager
 
     public void SetCharacterZ(string characterId, int z)
     {
-        if (_activeCharacters.TryGetValue(characterId, out int spriteId) && _state.Sprites.TryGetValue(spriteId, out var sprite))
+        if (_activeCharacters.TryGetValue(characterId, out int spriteId) && _state.Render.Sprites.TryGetValue(spriteId, out var sprite))
         {
             sprite.Z = z;
         }
@@ -230,7 +230,7 @@ public class CharacterManager
 
     public void SetCharacterScale(string characterId, float scale)
     {
-        if (_activeCharacters.TryGetValue(characterId, out int spriteId) && _state.Sprites.TryGetValue(spriteId, out var sprite))
+        if (_activeCharacters.TryGetValue(characterId, out int spriteId) && _state.Render.Sprites.TryGetValue(spriteId, out var sprite))
         {
             sprite.ScaleX = scale;
             sprite.ScaleY = scale;
@@ -244,7 +244,7 @@ public class CharacterManager
             return spriteId;
         }
 
-        while (_state.Sprites.ContainsKey(_nextCharacterSpriteId) || _characterSpriteIds.ContainsValue(_nextCharacterSpriteId))
+        while (_state.Render.Sprites.ContainsKey(_nextCharacterSpriteId) || _characterSpriteIds.ContainsValue(_nextCharacterSpriteId))
         {
             _nextCharacterSpriteId++;
         }

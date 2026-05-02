@@ -36,12 +36,12 @@ public sealed class SystemCommandHandler : BaseCommandHandler
         switch (inst.Op)
         {
             case OpCode.Backlog:
-                if (inst.Arguments.Count > 0) State.BacklogEnabled = IsOn(inst.Arguments[0]);
+                if (inst.Arguments.Count > 0) State.TextRuntime.BacklogEnabled = IsOn(inst.Arguments[0]);
                 return true;
 
             case OpCode.BacklogCount:
                 if (!ValidateArgs(inst, 1)) return true;
-                SetReg(GetString(inst.Arguments[0]), State.TextHistory.Count);
+                SetReg(GetString(inst.Arguments[0]), State.TextRuntime.TextHistory.Count);
                 return true;
 
             case OpCode.BacklogEntry:
@@ -49,23 +49,23 @@ public sealed class SystemCommandHandler : BaseCommandHandler
                 {
                     int bIndex = GetVal(inst.Arguments[0]);
                     string bText = "";
-                    if (bIndex >= 0 && bIndex < State.TextHistory.Count)
+                    if (bIndex >= 0 && bIndex < State.TextRuntime.TextHistory.Count)
                     {
-                        bText = State.TextHistory[bIndex].Text.Replace("\r", " ").Replace("\n", " / ");
+                        bText = State.TextRuntime.TextHistory[bIndex].Text.Replace("\r", " ").Replace("\n", " / ");
                     }
                     SetStr(GetString(inst.Arguments[1]), bText);
                 }
                 return true;
 
             case OpCode.KidokuMode:
-                if (inst.Arguments.Count > 0) State.KidokuMode = GetVal(inst.Arguments[0]) != 0;
+                if (inst.Arguments.Count > 0) State.TextRuntime.KidokuMode = GetVal(inst.Arguments[0]) != 0;
                 return true;
 
             case OpCode.SkipMode:
                 if (inst.Arguments.Count > 0)
                 {
                     string skipMode = GetString(inst.Arguments[0]).ToLowerInvariant();
-                    State.SkipUnread = skipMode is "all" or "unread" or "1" or "on";
+                    State.Playback.SkipUnread = skipMode is "all" or "unread" or "1" or "on";
                     MarkPersistentDirty();
                 }
                 return true;
@@ -84,25 +84,25 @@ public sealed class SystemCommandHandler : BaseCommandHandler
                 return true;
 
             case OpCode.FadeIn:
-                State.State = VmState.FadingIn;
-                State.IsFading = true;
-                State.FadeDurationMs = inst.Arguments.Count > 0 ? GetVal(inst.Arguments[0]) : 1000;
+                State.Execution.State = VmState.FadingIn;
+                State.Render.IsFading = true;
+                State.Render.FadeDurationMs = inst.Arguments.Count > 0 ? GetVal(inst.Arguments[0]) : 1000;
                 return true;
 
             case OpCode.FadeOut:
-                State.State = VmState.FadingOut;
-                State.IsFading = true;
-                State.FadeDurationMs = inst.Arguments.Count > 0 ? GetVal(inst.Arguments[0]) : 1000;
+                State.Execution.State = VmState.FadingOut;
+                State.Render.IsFading = true;
+                State.Render.FadeDurationMs = inst.Arguments.Count > 0 ? GetVal(inst.Arguments[0]) : 1000;
                 return true;
 
             case OpCode.End:
-                State.State = VmState.Ended;
-                State.RequestClose = true;
+                State.Execution.State = VmState.Ended;
+                State.UiRuntime.RequestClose = true;
                 return true;
 
             case OpCode.FontFilter:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.FontFilter = GetString(inst.Arguments[0]).ToLowerInvariant() switch
+                State.EngineSettings.FontFilter = GetString(inst.Arguments[0]).ToLowerInvariant() switch
                 {
                     "trilinear" => TextureFilter.Trilinear,
                     "point" => TextureFilter.Point,
@@ -116,7 +116,7 @@ public sealed class SystemCommandHandler : BaseCommandHandler
                 string flag = GetString(inst.Arguments[0]).Trim();
                 string path = GetString(inst.Arguments[1]).Trim();
                 string title = GetString(inst.Arguments[2]).Trim();
-                State.GalleryEntries[flag] = new GalleryEntry
+                State.FlagRuntime.GalleryEntries[flag] = new GalleryEntry
                 {
                     FlagName = flag,
                     ImagePath = path,
@@ -127,7 +127,7 @@ public sealed class SystemCommandHandler : BaseCommandHandler
             case OpCode.CgUnlock:
                 if (!ValidateArgs(inst, 1)) return true;
                 string cgFlag = GetString(inst.Arguments[0]).Trim();
-                if (State.UnlockedCgs.Add(cgFlag))
+                if (State.FlagRuntime.UnlockedCgs.Add(cgFlag))
                 {
                     Vm.MarkPersistentDirty();
                 }
@@ -139,13 +139,13 @@ public sealed class SystemCommandHandler : BaseCommandHandler
                     string key = GetString(inst.Arguments[1]).Trim().ToLowerInvariant().Replace("_", "");
                     int value = key switch
                     {
-                        "bgmvol" or "bgmvolume" => State.BgmVolume,
-                        "sevol" or "sevolume" => State.SeVolume,
-                        "textspeed" or "textspeedms" => State.TextSpeedMs,
-                        "skipunread" or "skipunreadmode" => State.SkipUnread ? 1 : 0,
-                        "backlog" or "backlogenabled" => State.BacklogEnabled ? 1 : 0,
-                        "clickcursor" or "showclickcursor" => State.ShowClickCursor ? 1 : 0,
-                        "autowait" or "automodewait" or "automodewaittimems" => State.AutoModeWaitTimeMs,
+                        "bgmvol" or "bgmvolume" => State.Audio.BgmVolume,
+                        "sevol" or "sevolume" => State.Audio.SeVolume,
+                        "textspeed" or "textspeedms" => State.TextRuntime.TextSpeedMs,
+                        "skipunread" or "skipunreadmode" => State.Playback.SkipUnread ? 1 : 0,
+                        "backlog" or "backlogenabled" => State.TextRuntime.BacklogEnabled ? 1 : 0,
+                        "clickcursor" or "showclickcursor" => State.UiRuntime.ShowClickCursor ? 1 : 0,
+                        "autowait" or "automodewait" or "automodewaittimems" => State.Playback.AutoModeWaitTimeMs,
                         "fullscreen" => Config.Config.IsFullscreen ? 1 : 0,
                         _ => 0
                     };
@@ -161,27 +161,27 @@ public sealed class SystemCommandHandler : BaseCommandHandler
                     switch (key)
                     {
                         case "bgmvol" or "bgmvolume":
-                            State.BgmVolume = Math.Clamp(value, 0, 100);
+                            State.Audio.BgmVolume = Math.Clamp(value, 0, 100);
                             break;
                         case "sevol" or "sevolume":
-                            State.SeVolume = Math.Clamp(value, 0, 100);
+                            State.Audio.SeVolume = Math.Clamp(value, 0, 100);
                             break;
                         case "textspeed" or "textspeedms":
-                            State.TextSpeedMs = Math.Max(0, value);
-                            Config.Config.GlobalTextSpeedMs = State.TextSpeedMs;
+                            State.TextRuntime.TextSpeedMs = Math.Max(0, value);
+                            Config.Config.GlobalTextSpeedMs = State.TextRuntime.TextSpeedMs;
                             break;
                         case "skipunread" or "skipunreadmode":
-                            State.SkipUnread = value != 0;
+                            State.Playback.SkipUnread = value != 0;
                             break;
                         case "backlog" or "backlogenabled":
-                            State.BacklogEnabled = value != 0;
+                            State.TextRuntime.BacklogEnabled = value != 0;
                             break;
                         case "clickcursor" or "showclickcursor":
-                            State.ShowClickCursor = value != 0;
+                            State.UiRuntime.ShowClickCursor = value != 0;
                             break;
                         case "autowait" or "automodewait" or "automodewaittimems":
-                            State.AutoModeWaitTimeMs = Math.Clamp(value, 100, 10000);
-                            Config.Config.AutoModeWaitTimeMs = State.AutoModeWaitTimeMs;
+                            State.Playback.AutoModeWaitTimeMs = Math.Clamp(value, 100, 10000);
+                            Config.Config.AutoModeWaitTimeMs = State.Playback.AutoModeWaitTimeMs;
                             break;
                         case "fullscreen":
                             bool targetFullscreen = value != 0;
@@ -195,14 +195,14 @@ public sealed class SystemCommandHandler : BaseCommandHandler
 
             case OpCode.GalleryCount:
                 if (!ValidateArgs(inst, 1)) return true;
-                SetReg(GetString(inst.Arguments[0]), State.GalleryEntries.Count);
+                SetReg(GetString(inst.Arguments[0]), State.FlagRuntime.GalleryEntries.Count);
                 return true;
 
             case OpCode.GalleryInfo:
                 if (!ValidateArgs(inst, 4)) return true;
                 {
                     int gIndex = GetVal(inst.Arguments[0]);
-                    var gEntries = State.GalleryEntries.Values.ToList();
+                    var gEntries = State.FlagRuntime.GalleryEntries.Values.ToList();
                     string gTitle = "";
                     string gPath = "";
                     int gUnlocked = 0;
@@ -211,7 +211,7 @@ public sealed class SystemCommandHandler : BaseCommandHandler
                         var gEntry = gEntries[gIndex];
                         gTitle = gEntry.Title;
                         gPath = gEntry.ImagePath;
-                        gUnlocked = State.UnlockedCgs.Contains(gEntry.FlagName) ? 1 : 0;
+                        gUnlocked = State.FlagRuntime.UnlockedCgs.Contains(gEntry.FlagName) ? 1 : 0;
                     }
                     SetStr(GetString(inst.Arguments[1]), gTitle);
                     SetStr(GetString(inst.Arguments[2]), gPath);
@@ -230,7 +230,7 @@ public sealed class SystemCommandHandler : BaseCommandHandler
 
     private void ExecuteYesNoBox(Instruction inst)
     {
-        if (!State.CompatAutoUi)
+        if (!State.TextWindow.CompatAutoUi)
         {
             Reporter.Report(new AriaError("yesnobox の自動UI生成は compat_mode off で無効です。描画命令と btnwait で実装してください。", inst.SourceLine, CurrentScriptFile, AriaErrorLevel.Warning));
             return;
@@ -239,11 +239,11 @@ public sealed class SystemCommandHandler : BaseCommandHandler
         if (!ValidateArgs(inst, 3)) return;
         ClearCompatUiSprites();
 
-        int yesNoW = Math.Max(160, State.ChoiceWidth / 3);
-        int yesNoH = State.ChoiceHeight;
+        int yesNoW = Math.Max(160, State.ChoiceStyle.ChoiceWidth / 3);
+        int yesNoH = State.ChoiceStyle.ChoiceHeight;
         int yesNoGap = 36;
-        int centerX = State.WindowWidth / 2;
-        int btnY = State.WindowHeight / 2 + 40;
+        int centerX = State.EngineSettings.WindowWidth / 2;
+        int btnY = State.EngineSettings.WindowHeight / 2 + 40;
         int leftX = centerX - yesNoW - (yesNoGap / 2);
         int rightX = centerX + (yesNoGap / 2);
 
@@ -254,25 +254,25 @@ public sealed class SystemCommandHandler : BaseCommandHandler
         int msgRectId = AllocateCompatUiSpriteId();
         int msgTextId = AllocateCompatUiSpriteId();
 
-        State.Sprites[yesRectId] = CreateChoiceRect(yesRectId, leftX, btnY, yesNoW, yesNoH, true);
-        State.SpriteButtonMap[yesRectId] = 1;
+        State.Render.Sprites[yesRectId] = CreateChoiceRect(yesRectId, leftX, btnY, yesNoW, yesNoH, true);
+        State.Interaction.SpriteButtonMap[yesRectId] = 1;
         TrackCompatUiSprite(yesRectId);
 
-        State.Sprites[yesTextId] = CreateChoiceText(yesTextId, "Yes", leftX, btnY, yesNoW, yesNoH);
+        State.Render.Sprites[yesTextId] = CreateChoiceText(yesTextId, "Yes", leftX, btnY, yesNoW, yesNoH);
         TrackCompatUiSprite(yesTextId);
 
-        State.Sprites[noRectId] = CreateChoiceRect(noRectId, rightX, btnY, yesNoW, yesNoH, true);
-        State.SpriteButtonMap[noRectId] = 0;
+        State.Render.Sprites[noRectId] = CreateChoiceRect(noRectId, rightX, btnY, yesNoW, yesNoH, true);
+        State.Interaction.SpriteButtonMap[noRectId] = 0;
         TrackCompatUiSprite(noRectId);
 
-        State.Sprites[noTextId] = CreateChoiceText(noTextId, "No", rightX, btnY, yesNoW, yesNoH);
+        State.Render.Sprites[noTextId] = CreateChoiceText(noTextId, "No", rightX, btnY, yesNoW, yesNoH);
         TrackCompatUiSprite(noTextId);
 
-        int msgW = Math.Min(State.WindowWidth - 120, State.ChoiceWidth + 200);
-        int msgX = (State.WindowWidth - msgW) / 2;
+        int msgW = Math.Min(State.EngineSettings.WindowWidth - 120, State.ChoiceStyle.ChoiceWidth + 200);
+        int msgX = (State.EngineSettings.WindowWidth - msgW) / 2;
         int msgH = 110;
         int msgY = btnY - msgH - 30;
-        State.Sprites[msgRectId] = new Sprite
+        State.Render.Sprites[msgRectId] = new Sprite
         {
             Id = msgRectId,
             Type = SpriteType.Rect,
@@ -281,32 +281,32 @@ public sealed class SystemCommandHandler : BaseCommandHandler
             Y = msgY,
             Width = msgW,
             Height = msgH,
-            FillColor = State.DefaultTextboxBgColor,
-            FillAlpha = State.DefaultTextboxBgAlpha,
-            CornerRadius = State.DefaultTextboxCornerRadius,
-            BorderColor = State.DefaultTextboxBorderColor,
-            BorderWidth = State.DefaultTextboxBorderWidth,
-            BorderOpacity = State.DefaultTextboxBorderOpacity
+            FillColor = State.TextWindow.DefaultTextboxBgColor,
+            FillAlpha = State.TextWindow.DefaultTextboxBgAlpha,
+            CornerRadius = State.TextWindow.DefaultTextboxCornerRadius,
+            BorderColor = State.TextWindow.DefaultTextboxBorderColor,
+            BorderWidth = State.TextWindow.DefaultTextboxBorderWidth,
+            BorderOpacity = State.TextWindow.DefaultTextboxBorderOpacity
         };
         TrackCompatUiSprite(msgRectId);
 
-        State.Sprites[msgTextId] = new Sprite
+        State.Render.Sprites[msgTextId] = new Sprite
         {
             Id = msgTextId,
             Type = SpriteType.Text,
             Z = 9501,
             Text = GetString(inst.Arguments[1]),
-            X = msgX + State.DefaultTextboxPaddingX,
-            Y = msgY + State.DefaultTextboxPaddingY,
-            Width = msgW - (State.DefaultTextboxPaddingX * 2),
-            Height = msgH - (State.DefaultTextboxPaddingY * 2),
-            FontSize = State.DefaultFontSize,
-            Color = State.DefaultTextColor
+            X = msgX + State.TextWindow.DefaultTextboxPaddingX,
+            Y = msgY + State.TextWindow.DefaultTextboxPaddingY,
+            Width = msgW - (State.TextWindow.DefaultTextboxPaddingX * 2),
+            Height = msgH - (State.TextWindow.DefaultTextboxPaddingY * 2),
+            FontSize = State.TextWindow.DefaultFontSize,
+            Color = State.TextWindow.DefaultTextColor
         };
         TrackCompatUiSprite(msgTextId);
 
-        State.ButtonResultRegister = inst.Arguments[0];
-        State.State = VmState.WaitingForButton;
+        State.Interaction.ButtonResultRegister = inst.Arguments[0];
+        State.Execution.State = VmState.WaitingForButton;
     }
 
     private Sprite CreateChoiceRect(int id, int x, int y, int w, int h, bool isButton)
@@ -320,14 +320,14 @@ public sealed class SystemCommandHandler : BaseCommandHandler
             Y = y,
             Width = w,
             Height = h,
-            FillColor = State.ChoiceBgColor,
-            FillAlpha = State.ChoiceBgAlpha,
+            FillColor = State.ChoiceStyle.ChoiceBgColor,
+            FillAlpha = State.ChoiceStyle.ChoiceBgAlpha,
             IsButton = isButton,
-            CornerRadius = State.ChoiceCornerRadius,
-            BorderColor = State.ChoiceBorderColor,
-            BorderWidth = State.ChoiceBorderWidth,
-            BorderOpacity = State.ChoiceBorderOpacity,
-            HoverFillColor = State.ChoiceHoverColor
+            CornerRadius = State.ChoiceStyle.ChoiceCornerRadius,
+            BorderColor = State.ChoiceStyle.ChoiceBorderColor,
+            BorderWidth = State.ChoiceStyle.ChoiceBorderWidth,
+            BorderOpacity = State.ChoiceStyle.ChoiceBorderOpacity,
+            HoverFillColor = State.ChoiceStyle.ChoiceHoverColor
         };
     }
 
@@ -339,20 +339,20 @@ public sealed class SystemCommandHandler : BaseCommandHandler
             Type = SpriteType.Text,
             Z = 9501,
             Text = text,
-            X = x + State.ChoicePaddingX,
+            X = x + State.ChoiceStyle.ChoicePaddingX,
             Y = y,
-            Width = w - (State.ChoicePaddingX * 2),
+            Width = w - (State.ChoiceStyle.ChoicePaddingX * 2),
             Height = h,
-            FontSize = State.ChoiceFontSize,
-            Color = State.ChoiceTextColor,
-            TextAlign = "center",
-            TextVAlign = "center"
+            FontSize = State.ChoiceStyle.ChoiceFontSize,
+            Color = State.ChoiceStyle.ChoiceTextColor,
+            TextAlign = TextAlignment.Center,
+            TextVAlign = TextVerticalAlignment.Center
         };
     }
 
     private void ExecuteMesBox(Instruction inst)
     {
-        if (!State.CompatAutoUi)
+        if (!State.TextWindow.CompatAutoUi)
         {
             Reporter.Report(new AriaError("mesbox の自動UI生成は compat_mode off で無効です。", inst.SourceLine, CurrentScriptFile, AriaErrorLevel.Warning));
             return;
@@ -364,14 +364,14 @@ public sealed class SystemCommandHandler : BaseCommandHandler
         string message = GetString(inst.Arguments[0]);
         string title = GetString(inst.Arguments[1]);
 
-        int msgW = Math.Min(State.WindowWidth - 120, State.ChoiceWidth + 300);
-        int msgX = (State.WindowWidth - msgW) / 2;
+        int msgW = Math.Min(State.EngineSettings.WindowWidth - 120, State.ChoiceStyle.ChoiceWidth + 300);
+        int msgX = (State.EngineSettings.WindowWidth - msgW) / 2;
         int msgH = 140;
-        int msgY = (State.WindowHeight - msgH) / 2 - 30;
+        int msgY = (State.EngineSettings.WindowHeight - msgH) / 2 - 30;
 
-        int btnW = Math.Max(100, State.ChoiceWidth / 2);
-        int btnH = State.ChoiceHeight;
-        int btnX = (State.WindowWidth - btnW) / 2;
+        int btnW = Math.Max(100, State.ChoiceStyle.ChoiceWidth / 2);
+        int btnH = State.ChoiceStyle.ChoiceHeight;
+        int btnX = (State.EngineSettings.WindowWidth - btnW) / 2;
         int btnY = msgY + msgH + 20;
 
         int msgRectId = AllocateCompatUiSpriteId();
@@ -380,7 +380,7 @@ public sealed class SystemCommandHandler : BaseCommandHandler
         int btnRectId = AllocateCompatUiSpriteId();
         int btnTextId = AllocateCompatUiSpriteId();
 
-        State.Sprites[msgRectId] = new Sprite
+        State.Render.Sprites[msgRectId] = new Sprite
         {
             Id = msgRectId,
             Type = SpriteType.Rect,
@@ -389,53 +389,53 @@ public sealed class SystemCommandHandler : BaseCommandHandler
             Y = msgY,
             Width = msgW,
             Height = msgH,
-            FillColor = State.DefaultTextboxBgColor,
-            FillAlpha = State.DefaultTextboxBgAlpha,
-            CornerRadius = State.DefaultTextboxCornerRadius,
-            BorderColor = State.DefaultTextboxBorderColor,
-            BorderWidth = State.DefaultTextboxBorderWidth,
-            BorderOpacity = State.DefaultTextboxBorderOpacity
+            FillColor = State.TextWindow.DefaultTextboxBgColor,
+            FillAlpha = State.TextWindow.DefaultTextboxBgAlpha,
+            CornerRadius = State.TextWindow.DefaultTextboxCornerRadius,
+            BorderColor = State.TextWindow.DefaultTextboxBorderColor,
+            BorderWidth = State.TextWindow.DefaultTextboxBorderWidth,
+            BorderOpacity = State.TextWindow.DefaultTextboxBorderOpacity
         };
         TrackCompatUiSprite(msgRectId);
 
-        State.Sprites[titleTextId] = new Sprite
+        State.Render.Sprites[titleTextId] = new Sprite
         {
             Id = titleTextId,
             Type = SpriteType.Text,
             Z = 9501,
             Text = title,
-            X = msgX + State.DefaultTextboxPaddingX,
+            X = msgX + State.TextWindow.DefaultTextboxPaddingX,
             Y = msgY + 16,
-            Width = msgW - State.DefaultTextboxPaddingX * 2,
+            Width = msgW - State.TextWindow.DefaultTextboxPaddingX * 2,
             Height = 30,
-            FontSize = State.DefaultFontSize,
-            Color = State.DefaultTextColor
+            FontSize = State.TextWindow.DefaultFontSize,
+            Color = State.TextWindow.DefaultTextColor
         };
         TrackCompatUiSprite(titleTextId);
 
-        State.Sprites[msgTextId] = new Sprite
+        State.Render.Sprites[msgTextId] = new Sprite
         {
             Id = msgTextId,
             Type = SpriteType.Text,
             Z = 9501,
             Text = message,
-            X = msgX + State.DefaultTextboxPaddingX,
+            X = msgX + State.TextWindow.DefaultTextboxPaddingX,
             Y = msgY + 52,
-            Width = msgW - State.DefaultTextboxPaddingX * 2,
+            Width = msgW - State.TextWindow.DefaultTextboxPaddingX * 2,
             Height = msgH - 70,
-            FontSize = State.DefaultFontSize - 2,
-            Color = State.DefaultTextColor
+            FontSize = State.TextWindow.DefaultFontSize - 2,
+            Color = State.TextWindow.DefaultTextColor
         };
         TrackCompatUiSprite(msgTextId);
 
-        State.Sprites[btnRectId] = CreateChoiceRect(btnRectId, btnX, btnY, btnW, btnH, true);
-        State.SpriteButtonMap[btnRectId] = 1;
+        State.Render.Sprites[btnRectId] = CreateChoiceRect(btnRectId, btnX, btnY, btnW, btnH, true);
+        State.Interaction.SpriteButtonMap[btnRectId] = 1;
         TrackCompatUiSprite(btnRectId);
 
-        State.Sprites[btnTextId] = CreateChoiceText(btnTextId, "OK", btnX, btnY, btnW, btnH);
+        State.Render.Sprites[btnTextId] = CreateChoiceText(btnTextId, "OK", btnX, btnY, btnW, btnH);
         TrackCompatUiSprite(btnTextId);
 
-        State.ButtonResultRegister = "0";
-        State.State = VmState.WaitingForButton;
+        State.Interaction.ButtonResultRegister = "0";
+        State.Execution.State = VmState.WaitingForButton;
     }
 }

@@ -43,8 +43,8 @@ public class SpriteRenderer
     private int _cursorCacheSpriteId = -1;
     private float _cursorCacheX, _cursorCacheY, _cursorCacheW, _cursorCacheH;
     private float _cursorCacheFontSize, _cursorCacheScaleX;
-    private string _cursorCacheAlign = "";
-    private string _cursorCacheVAlign = "";
+    private TextAlignment _cursorCacheAlign = TextAlignment.Left;
+    private TextVerticalAlignment _cursorCacheVAlign = TextVerticalAlignment.Top;
     private Vector2 _cursorCacheResult;
 
     public SpriteRenderer(IAssetProvider assetProvider, ErrorReporter? reporter = null)
@@ -351,7 +351,7 @@ public class SpriteRenderer
 
     private Raylib_cs.TextureFilter CurrentTextureFilter()
     {
-        return _currentState?.HighQualityUiTextures == true ? Raylib_cs.TextureFilter.Trilinear : Raylib_cs.TextureFilter.Bilinear;
+        return _currentState?.UiQuality.HighQualityTextures == true ? Raylib_cs.TextureFilter.Trilinear : Raylib_cs.TextureFilter.Bilinear;
     }
 
     public void Draw(GameState state, TransitionManager transition)
@@ -363,8 +363,8 @@ public class SpriteRenderer
             UpdateUiPresentation(state);
 
             // 可視スプライトを収集してZ順にソート
-            var sortedSprites = new List<Sprite>(state.Sprites.Count);
-            foreach (var kvp in state.Sprites)
+            var sortedSprites = new List<Sprite>(state.Render.Sprites.Count);
+            foreach (var kvp in state.Render.Sprites)
             {
                 var sprite = kvp.Value;
                 if (sprite.Visible)
@@ -372,14 +372,14 @@ public class SpriteRenderer
             }
             sortedSprites.Sort((a, b) => a.Z.CompareTo(b.Z));
 
-            int qx = (int)state.CameraOffsetX;
-            int qy = (int)state.CameraOffsetY;
-            if (state.QuakeTimerMs > 0)
+            int qx = (int)state.Render.CameraOffsetX;
+            int qy = (int)state.Render.CameraOffsetY;
+            if (state.Render.QuakeTimerMs > 0)
             {
                 if ((int)(Raylib.GetTime() * 60) % 2 == 0)
                 {
-                    qx = Raylib.GetRandomValue(-state.QuakeAmplitude, state.QuakeAmplitude);
-                    qy = Raylib.GetRandomValue(-state.QuakeAmplitude, state.QuakeAmplitude);
+                    qx = Raylib.GetRandomValue(-state.Render.QuakeAmplitude, state.Render.QuakeAmplitude);
+                    qy = Raylib.GetRandomValue(-state.Render.QuakeAmplitude, state.Render.QuakeAmplitude);
                 }
             }
 
@@ -405,7 +405,7 @@ public class SpriteRenderer
             transition.Draw(state);
             DrawScreenEffects(state);
 
-            if (state.DebugMode)
+            if (state.EngineSettings.DebugMode)
             {
                 DrawDebugInfo(state);
             }
@@ -414,9 +414,9 @@ public class SpriteRenderer
 
     private void DrawScreenEffects(GameState state)
     {
-        if (state.ScreenTintOpacity <= 0f) return;
-        byte alpha = (byte)(Math.Clamp(state.ScreenTintOpacity, 0f, 1f) * 255);
-        Raylib.DrawRectangle(0, 0, state.WindowWidth, state.WindowHeight, ParseColor(state.ScreenTintColor, alpha));
+        if (state.Render.ScreenTintOpacity <= 0f) return;
+        byte alpha = (byte)(Math.Clamp(state.Render.ScreenTintOpacity, 0f, 1f) * 255);
+        Raylib.DrawRectangle(0, 0, state.EngineSettings.WindowWidth, state.EngineSettings.WindowHeight, ParseColor(state.Render.ScreenTintColor, alpha));
         TotalDrawCalls++;
     }
 
@@ -929,8 +929,8 @@ public class SpriteRenderer
 
         // セグメント描画モード: エフェクトが実際にある場合のみ使用
         // 単一セグメント・デフォルトスタイルは従来描画（文字単位折り返しが正確）
-        if (_currentState?.CurrentTextSegments != null && _currentState.CurrentTextSegments.Count > 0
-            && HasEffectSegments(_currentState.CurrentTextSegments))
+        if (_currentState?.TextRuntime.CurrentTextSegments != null && _currentState.TextRuntime.CurrentTextSegments.Count > 0
+            && HasEffectSegments(_currentState.TextRuntime.CurrentTextSegments))
         {
             DrawTextSegments(sp, baseColor, qx, qy);
             return;
@@ -958,7 +958,7 @@ public class SpriteRenderer
     /// </summary>
     private void DrawTextSegments(Sprite sp, Color baseColor, int qx, int qy)
     {
-        if (_currentState?.CurrentTextSegments == null) return;
+        if (_currentState?.TextRuntime.CurrentTextSegments == null) return;
 
         TotalDrawCalls++;
 
@@ -975,7 +975,7 @@ public class SpriteRenderer
         float currentLineWidth = 0;
         float currentLineHeight = baseFontSize + baseSpacing;
         
-        foreach (var seg in _currentState.CurrentTextSegments)
+        foreach (var seg in _currentState.TextRuntime.CurrentTextSegments)
         {
             if (seg.IsNewLine)
             {
@@ -1003,34 +1003,34 @@ public class SpriteRenderer
         
         if (sp.Width > 0)
         {
-            if (sp.TextAlign == "center") cursorX += (sp.Width - totalWidth) / 2f;
-            else if (sp.TextAlign == "right") cursorX += (sp.Width - totalWidth);
+            if (sp.TextAlign == TextAlignment.Center) cursorX += (sp.Width - totalWidth) / 2f;
+            else if (sp.TextAlign == TextAlignment.Right) cursorX += (sp.Width - totalWidth);
         }
         else
         {
-            if (sp.TextAlign == "center") cursorX -= totalWidth / 2f;
-            else if (sp.TextAlign == "right") cursorX -= totalWidth;
+            if (sp.TextAlign == TextAlignment.Center) cursorX -= totalWidth / 2f;
+            else if (sp.TextAlign == TextAlignment.Right) cursorX -= totalWidth;
         }
 
         if (sp.Height > 0)
         {
-            if (sp.TextVAlign == "center" || sp.TextVAlign == "middle")
+            if (sp.TextVAlign == TextVerticalAlignment.Center)
                 cursorY += (sp.Height - totalHeight) / 2f;
-            else if (sp.TextVAlign == "bottom")
+            else if (sp.TextVAlign == TextVerticalAlignment.Bottom)
                 cursorY += (sp.Height - totalHeight);
         }
 
         // タイプライター効果: DisplayedTextLength をセグメントに適用
-        int remainingLength = _currentState.DisplayedTextLength;
+        int remainingLength = _currentState.TextRuntime.DisplayedTextLength;
 
         // セグメントを順に描画（折り返し対応）
         float lineX = cursorX;
         float lineY = cursorY;
         float lineMaxHeight = baseFontSize + baseSpacing;
 
-        foreach (var seg in _currentState.CurrentTextSegments)
+        foreach (var seg in _currentState.TextRuntime.CurrentTextSegments)
         {
-            if (remainingLength <= 0 && _currentState.TextSpeedMs > 0) break;
+            if (remainingLength <= 0 && _currentState.TextRuntime.TextSpeedMs > 0) break;
 
             if (seg.IsNewLine)
             {
@@ -1046,7 +1046,7 @@ public class SpriteRenderer
             
             // タイプライター: 残り文字数で切り詰め
             string displayText = seg.Text;
-            if (_currentState.TextSpeedMs > 0 && remainingLength < seg.Text.Length)
+            if (_currentState.TextRuntime.TextSpeedMs > 0 && remainingLength < seg.Text.Length)
             {
                 displayText = seg.Text.Substring(0, Math.Max(0, remainingLength));
             }
@@ -1156,23 +1156,23 @@ public class SpriteRenderer
         // TextAlign implementation
         if (sp.Width > 0)
         {
-            if (sp.TextAlign == "center") rx += (sp.Width - textSize.X) / 2f;
-            else if (sp.TextAlign == "right") rx += (sp.Width - textSize.X);
+            if (sp.TextAlign == TextAlignment.Center) rx += (sp.Width - textSize.X) / 2f;
+            else if (sp.TextAlign == TextAlignment.Right) rx += (sp.Width - textSize.X);
         }
         else
         {
-            if (sp.TextAlign == "center") rx -= textSize.X / 2f;
-            else if (sp.TextAlign == "right") rx -= textSize.X;
+            if (sp.TextAlign == TextAlignment.Center) rx -= textSize.X / 2f;
+            else if (sp.TextAlign == TextAlignment.Right) rx -= textSize.X;
         }
 
         // Vertical align inside explicit text area
         if (sp.Height > 0)
         {
-            if (sp.TextVAlign == "center" || sp.TextVAlign == "middle")
+            if (sp.TextVAlign == TextVerticalAlignment.Center)
             {
                 ry += (sp.Height - textSize.Y) / 2f;
             }
-            else if (sp.TextVAlign == "bottom")
+            else if (sp.TextVAlign == TextVerticalAlignment.Bottom)
             {
                 ry += (sp.Height - textSize.Y);
             }
@@ -1284,17 +1284,17 @@ public class SpriteRenderer
 
     private static float SnapPixel(float value, GameState? state = null)
     {
-        return state?.SubpixelUiRendering == true ? value : MathF.Round(value);
+        return state?.UiQuality.SubpixelRendering == true ? value : MathF.Round(value);
     }
 
     private static Vector2 SnapVector(Vector2 value, GameState? state = null)
     {
-        return state?.SubpixelUiRendering == true ? value : new Vector2(MathF.Round(value.X), MathF.Round(value.Y));
+        return state?.UiQuality.SubpixelRendering == true ? value : new Vector2(MathF.Round(value.X), MathF.Round(value.Y));
     }
 
     private static int GetRoundSegments(GameState? state)
     {
-        return Math.Clamp(state?.RoundedRectSegments ?? UiQualityConstants.DefaultRoundedRectSegments, UiQualityConstants.MinRoundedRectSegments, UiQualityConstants.MaxRoundedRectSegments);
+        return Math.Clamp(state?.UiQuality.RoundedRectSegments ?? UiQualityConstants.DefaultRoundedRectSegments, UiQualityConstants.MinRoundedRectSegments, UiQualityConstants.MaxRoundedRectSegments);
     }
 
     private static Color LerpColor(Color from, Color to, float t)
@@ -1310,10 +1310,10 @@ public class SpriteRenderer
     private void UpdateUiPresentation(GameState state)
     {
         float dt = Math.Clamp(Raylib.GetFrameTime(), 0f, UiQualityConstants.MaxFrameTime);
-        float response = Math.Clamp(state.UiMotionResponse, UiQualityConstants.MinMotionResponse, UiQualityConstants.MaxMotionResponse);
-        float blend = state.SmoothUiMotion ? 1f - MathF.Exp(-response * dt) : 1f;
+        float response = Math.Clamp(state.UiQuality.MotionResponse, UiQualityConstants.MinMotionResponse, UiQualityConstants.MaxMotionResponse);
+        float blend = state.UiQuality.SmoothMotion ? 1f - MathF.Exp(-response * dt) : 1f;
 
-        foreach (var sp in state.Sprites.Values)
+        foreach (var sp in state.Render.Sprites.Values)
         {
             if (!sp.RenderStateInitialized)
             {
@@ -1340,14 +1340,14 @@ public class SpriteRenderer
 
     public void DrawClickCursor(GameState state)
     {
-        if (!state.ShowClickCursor ||
-            (state.State != VmState.WaitingForClick && state.State != VmState.WaitingForAnimation))
+        if (!state.UiRuntime.ShowClickCursor ||
+            (state.Execution.State != VmState.WaitingForClick && state.Execution.State != VmState.WaitingForAnimation))
         {
             return;
         }
 
-        if (state.State == VmState.WaitingForAnimation &&
-            state.DisplayedTextLength < state.CurrentTextBuffer.Length)
+        if (state.Execution.State == VmState.WaitingForAnimation &&
+            state.TextRuntime.DisplayedTextLength < state.TextRuntime.CurrentTextBuffer.Length)
         {
             return;
         }
@@ -1356,13 +1356,13 @@ public class SpriteRenderer
         float x = SnapPixel(cursorPos.X + 2, state);
         float y = SnapPixel(cursorPos.Y + 2, state);
 
-        if (state.ClickCursorMode.Equals("image", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(state.ClickCursorPath) &&
-            !_failedTextures.Contains(state.ClickCursorPath))
+        if (state.UiRuntime.ClickCursorMode.Equals("image", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(state.UiRuntime.ClickCursorPath) &&
+            !_failedTextures.Contains(state.UiRuntime.ClickCursorPath))
         {
             try
             {
-                string resolved = _assetProvider.MaterializeToFile(state.ClickCursorPath);
+                string resolved = _assetProvider.MaterializeToFile(state.UiRuntime.ClickCursorPath);
                 if (!_textureCache.TryGetValue(resolved, out var tex))
                 {
                     tex = LoadCursorTextureWithColorKey(resolved);
@@ -1375,7 +1375,7 @@ public class SpriteRenderer
 
                 if (tex.Id != 0)
                 {
-                    float targetSize = state.ClickCursorSize > 0 ? state.ClickCursorSize : Math.Clamp(state.DefaultFontSize * ClickCursorConstants.DefaultSizeRatio, ClickCursorConstants.MinSize, ClickCursorConstants.MaxSize);
+                    float targetSize = state.UiRuntime.ClickCursorSize > 0 ? state.UiRuntime.ClickCursorSize : Math.Clamp(state.TextWindow.DefaultFontSize * ClickCursorConstants.DefaultSizeRatio, ClickCursorConstants.MinSize, ClickCursorConstants.MaxSize);
                     float scale = Math.Clamp(targetSize / Math.Max(tex.Width, tex.Height), 0.1f, 1.0f);
                     Rectangle src = new Rectangle(0, 0, tex.Width, tex.Height);
                     Rectangle dst = new Rectangle(x, y, tex.Width * scale, tex.Height * scale);
@@ -1385,11 +1385,11 @@ public class SpriteRenderer
             }
             catch (Exception ex)
             {
-                _failedTextures.Add(state.ClickCursorPath);
+                _failedTextures.Add(state.UiRuntime.ClickCursorPath);
                 _reporter?.ReportException(
                     "RENDER_CLICK_CURSOR",
                     ex,
-                    $"クリック待ちカーソル '{state.ClickCursorPath}' を読み込めませんでした。既定カーソルで続行します。",
+                    $"クリック待ちカーソル '{state.UiRuntime.ClickCursorPath}' を読み込めませんでした。既定カーソルで続行します。",
                     AriaErrorLevel.Warning);
             }
         }
@@ -1408,7 +1408,7 @@ public class SpriteRenderer
         // Map to small upward float only (never dips below base position)
         float floatOffset = -MathF.Abs(combined) * 4f; // max 4px up, smooth settle
 
-        float baseSize = state.ClickCursorSize > 0 ? state.ClickCursorSize : Math.Clamp(state.DefaultFontSize * ClickCursorConstants.DefaultSizeRatio, ClickCursorConstants.MinSize, ClickCursorConstants.MaxSize);
+        float baseSize = state.UiRuntime.ClickCursorSize > 0 ? state.UiRuntime.ClickCursorSize : Math.Clamp(state.TextWindow.DefaultFontSize * ClickCursorConstants.DefaultSizeRatio, ClickCursorConstants.MinSize, ClickCursorConstants.MaxSize);
         float s = baseSize; // constant size, no scale change
 
         // Silver fill color
@@ -1433,12 +1433,12 @@ public class SpriteRenderer
 
     private Vector2 GetTextEndCursorPosition(GameState state)
     {
-        if (state.TextTargetSpriteId >= 0 &&
-            state.Sprites.TryGetValue(state.TextTargetSpriteId, out var sp) &&
+        if (state.TextWindow.TextTargetSpriteId >= 0 &&
+            state.Render.Sprites.TryGetValue(state.TextWindow.TextTargetSpriteId, out var sp) &&
             sp.Type == SpriteType.Text &&
             _fontLoaded)
         {
-            string text = string.IsNullOrEmpty(sp.Text) ? state.CurrentTextBuffer : sp.Text;
+            string text = string.IsNullOrEmpty(sp.Text) ? state.TextRuntime.CurrentTextBuffer : sp.Text;
 
             // キャッシュヒットチェック
             if (_cursorCacheSpriteId == sp.Id &&
@@ -1454,7 +1454,7 @@ public class SpriteRenderer
             float scaledFontSize = sp.FontSize > 0 ? sp.FontSize * Math.Max(sp.RenderScaleX, 0.001f) : 24f;
             var font = GetFontForSize(scaledFontSize);
             float spacing = scaledFontSize / 10f;
-            string wrapped = WrapText(font, text, sp.Width > 0 ? sp.Width : state.WindowWidth, scaledFontSize, spacing);
+            string wrapped = WrapText(font, text, sp.Width > 0 ? sp.Width : state.EngineSettings.WindowWidth, scaledFontSize, spacing);
             string[] lines = wrapped.Replace("\r\n", "\n").Split('\n');
             string lastLine = lines.Length > 0 ? lines[^1] : "";
             Vector2 lastLineSize = Raylib.MeasureTextEx(font, lastLine, scaledFontSize, spacing);
@@ -1464,14 +1464,14 @@ public class SpriteRenderer
             float baseY = sp.Y;
             if (sp.Width > 0)
             {
-                if (sp.TextAlign == "center") baseX += (sp.Width - allTextSize.X) / 2f;
-                else if (sp.TextAlign == "right") baseX += sp.Width - allTextSize.X;
+                if (sp.TextAlign == TextAlignment.Center) baseX += (sp.Width - allTextSize.X) / 2f;
+                else if (sp.TextAlign == TextAlignment.Right) baseX += sp.Width - allTextSize.X;
             }
 
             if (sp.Height > 0)
             {
-                if (sp.TextVAlign == "center" || sp.TextVAlign == "middle") baseY += (sp.Height - allTextSize.Y) / 2f;
-                else if (sp.TextVAlign == "bottom") baseY += sp.Height - allTextSize.Y;
+                if (sp.TextVAlign == TextVerticalAlignment.Center) baseY += (sp.Height - allTextSize.Y) / 2f;
+                else if (sp.TextVAlign == TextVerticalAlignment.Bottom) baseY += sp.Height - allTextSize.Y;
             }
 
             float lineHeight = scaledFontSize + spacing;
@@ -1491,7 +1491,7 @@ public class SpriteRenderer
             return result;
         }
 
-        return new Vector2(state.DefaultTextboxX + state.DefaultTextboxPaddingX, state.DefaultTextboxY + state.DefaultTextboxPaddingY);
+        return new Vector2(state.TextWindow.DefaultTextboxX + state.TextWindow.DefaultTextboxPaddingX, state.TextWindow.DefaultTextboxY + state.TextWindow.DefaultTextboxPaddingY);
     }
 
     private Texture2D LoadCursorTextureWithColorKey(string resolvedPath)
@@ -1593,8 +1593,8 @@ public class SpriteRenderer
         Raylib.DrawFPS(10, 10);
 
         // パフォーマンス統計
-        Raylib.DrawText($"PC: {state.ProgramCounter}", 10, 30, 20, Color.Green);
-        Raylib.DrawText($"Sprites: {state.Sprites.Count}", 10, 50, 20, Color.Green);
+        Raylib.DrawText($"PC: {state.Execution.ProgramCounter}", 10, 30, 20, Color.Green);
+        Raylib.DrawText($"Sprites: {state.Render.Sprites.Count}", 10, 50, 20, Color.Green);
         Raylib.DrawText($"Draw Calls: {TotalDrawCalls}", 10, 70, 20, Color.Yellow);
         Raylib.DrawText($"Tex Loads: {TotalTextureLoads}", 10, 90, 20, Color.Yellow);
 
@@ -1607,7 +1607,7 @@ public class SpriteRenderer
         Raylib.DrawText($"Tex Stats: {texStats.UtilizationPercent:F1}%", 10, 150, 16, cyanColor);
 
         // スプライト統計
-        int spriteCount = _currentState?.Sprites.Count ?? 0;
+        int spriteCount = _currentState?.Render.Sprites.Count ?? 0;
         Raylib.DrawText($"Sprites: {spriteCount}", 10, 170, 16, Color.Magenta);
     }
 

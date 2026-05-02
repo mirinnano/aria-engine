@@ -31,15 +31,15 @@ public sealed class AudioCommandHandler : BaseCommandHandler
         {
             case OpCode.PlayBgm:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.CurrentBgm = GetString(inst.Arguments[0]);
-                State.BgmFadeOutDurationMs = 0f;
-                State.BgmFadeOutTimerMs = 0f;
+                State.Audio.CurrentBgm = GetString(inst.Arguments[0]);
+                State.Audio.BgmFadeOutDurationMs = 0f;
+                State.Audio.BgmFadeOutTimerMs = 0f;
                 return true;
 
             case OpCode.StopBgm:
-                State.CurrentBgm = "";
-                State.BgmFadeOutDurationMs = 0f;
-                State.BgmFadeOutTimerMs = 0f;
+                State.Audio.CurrentBgm = "";
+                State.Audio.BgmFadeOutDurationMs = 0f;
+                State.Audio.BgmFadeOutTimerMs = 0f;
                 return true;
 
             case OpCode.PlaySe:
@@ -51,14 +51,14 @@ public sealed class AudioCommandHandler : BaseCommandHandler
                 if (!ValidateArgs(inst, 1)) return true;
                 string voicePath = inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : GetString(inst.Arguments[0]);
                 QueueSound(voicePath);
-                State.LastVoicePath = voicePath;
+                State.Audio.LastVoicePath = voicePath;
                 return true;
 
             case OpCode.PlayMp3:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.CurrentBgm = GetString(inst.Arguments[0]);
-                State.BgmFadeOutDurationMs = 0f;
-                State.BgmFadeOutTimerMs = 0f;
+                State.Audio.CurrentBgm = GetString(inst.Arguments[0]);
+                State.Audio.BgmFadeOutDurationMs = 0f;
+                State.Audio.BgmFadeOutTimerMs = 0f;
                 return true;
 
             case OpCode.DwaveLoop:
@@ -67,55 +67,55 @@ public sealed class AudioCommandHandler : BaseCommandHandler
                 return true;
 
             case OpCode.DwaveStop:
-                State.PendingSe.Clear();
+                State.Audio.PendingSe.Clear();
                 return true;
 
             case OpCode.Voice:
                 if (!ValidateArgs(inst, 1)) return true;
                 string path = GetString(inst.Arguments[0]);
                 QueueSound(path);
-                State.LastVoicePath = path;
+                State.Audio.LastVoicePath = path;
                 State.Audio.VoiceWaitRequested = false;
                 return true;
 
             case OpCode.VoiceWait:
                 State.Audio.VoiceWaitRequested = true;
-                State.State = VmState.WaitingForAnimation;
+                State.Execution.State = VmState.WaitingForAnimation;
                 return true;
 
             case OpCode.VoiceStop:
-                State.LastVoicePath = "";
+                State.Audio.LastVoicePath = "";
                 State.Audio.VoiceWaitRequested = false;
                 return true;
 
             case OpCode.BgmVol:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.BgmVolume = GetVal(inst.Arguments[0]);
+                State.Audio.BgmVolume = GetVal(inst.Arguments[0]);
                 return true;
 
             case OpCode.SeVol:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.SeVolume = GetVal(inst.Arguments[0]);
+                State.Audio.SeVolume = GetVal(inst.Arguments[0]);
                 return true;
 
             case OpCode.Mp3Vol:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.BgmVolume = GetVal(inst.Arguments[0]);
+                State.Audio.BgmVolume = GetVal(inst.Arguments[0]);
                 return true;
 
             case OpCode.BgmFade:
                 {
                     int durationMs = inst.Arguments.Count > 0 ? Math.Max(0, GetVal(inst.Arguments[0])) : 500;
-                    if (string.IsNullOrEmpty(State.CurrentBgm) || durationMs == 0)
+                    if (string.IsNullOrEmpty(State.Audio.CurrentBgm) || durationMs == 0)
                     {
-                        State.CurrentBgm = "";
-                        State.BgmFadeOutDurationMs = 0f;
-                        State.BgmFadeOutTimerMs = 0f;
+                        State.Audio.CurrentBgm = "";
+                        State.Audio.BgmFadeOutDurationMs = 0f;
+                        State.Audio.BgmFadeOutTimerMs = 0f;
                     }
                     else
                     {
-                        State.BgmFadeOutDurationMs = durationMs;
-                        State.BgmFadeOutTimerMs = durationMs;
+                        State.Audio.BgmFadeOutDurationMs = durationMs;
+                        State.Audio.BgmFadeOutTimerMs = durationMs;
                     }
                 }
                 return true;
@@ -123,16 +123,16 @@ public sealed class AudioCommandHandler : BaseCommandHandler
             case OpCode.Mp3FadeOut:
                 {
                     int mp3FadeMs = inst.Arguments.Count > 0 ? Math.Max(0, GetVal(inst.Arguments[0])) : 500;
-                    if (string.IsNullOrEmpty(State.CurrentBgm) || mp3FadeMs == 0)
+                    if (string.IsNullOrEmpty(State.Audio.CurrentBgm) || mp3FadeMs == 0)
                     {
-                        State.CurrentBgm = "";
-                        State.BgmFadeOutDurationMs = 0f;
-                        State.BgmFadeOutTimerMs = 0f;
+                        State.Audio.CurrentBgm = "";
+                        State.Audio.BgmFadeOutDurationMs = 0f;
+                        State.Audio.BgmFadeOutTimerMs = 0f;
                     }
                     else
                     {
-                        State.BgmFadeOutDurationMs = mp3FadeMs;
-                        State.BgmFadeOutTimerMs = mp3FadeMs;
+                        State.Audio.BgmFadeOutDurationMs = mp3FadeMs;
+                        State.Audio.BgmFadeOutTimerMs = mp3FadeMs;
                     }
                 }
                 return true;
@@ -145,6 +145,6 @@ public sealed class AudioCommandHandler : BaseCommandHandler
     private void QueueSound(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return;
-        State.PendingSe.Add(path);
+        State.Audio.PendingSe.Add(path);
     }
 }

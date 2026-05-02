@@ -21,14 +21,14 @@ public class SkipModeManager
     /// <returns>スキップした待機数（0 or 1）</returns>
     public int ProcessSkipFrame(float deltaTimeMs)
     {
-        if (!_state.SkipMode && !_state.ForceSkipMode) return 0;
+        if (!_state.Playback.SkipMode && !_state.Playback.ForceSkipMode) return 0;
 
-        _state.SkipTimerMs += deltaTimeMs;
-        int rate = Math.Max(50, _state.SkipRateMs);
-        if (_state.ForceSkipMode) rate = Math.Max(20, rate / 3); // Ctrl押し時は3倍速
+        _state.Playback.SkipTimerMs += deltaTimeMs;
+        int rate = Math.Max(50, _state.Playback.SkipRateMs);
+        if (_state.Playback.ForceSkipMode) rate = Math.Max(20, rate / 3); // Ctrl押し時は3倍速
 
-        if (_state.SkipTimerMs < rate) return 0;
-        _state.SkipTimerMs -= rate;
+        if (_state.Playback.SkipTimerMs < rate) return 0;
+        _state.Playback.SkipTimerMs -= rate;
 
         return ProcessSingleSkip();
     }
@@ -40,68 +40,69 @@ public class SkipModeManager
     {
         int guard = 64;
 
-        while ((_state.SkipMode || _state.ForceSkipMode) && _state.State != VmState.Ended && guard-- > 0)
+        while ((_state.Playback.SkipMode || _state.Playback.ForceSkipMode) && _state.Execution.State != VmState.Ended && guard-- > 0)
         {
-            if (_state.State == VmState.WaitingForClick)
+            if (_state.Execution.State == VmState.WaitingForClick)
             {
                 if (!CanSkipCurrentWait()) return 0;
 
                 CompleteCurrentText();
 
-                if (_state.IsWaitingPageClear)
+                if (_state.TextRuntime.IsWaitingPageClear)
                 {
-                    _state.CurrentTextBuffer = "";
-                    _state.DisplayedTextLength = 0;
-                    _state.IsWaitingPageClear = false;
+                    _state.TextRuntime.CurrentTextBuffer = "";
+                    _state.TextRuntime.DisplayedTextLength = 0;
+                    _state.TextRuntime.IsWaitingPageClear = false;
                 }
 
                 _vm.ResumeFromClick();
                 return 1;
             }
 
-            if (_state.State == VmState.WaitingForAnimation)
+            if (_state.Execution.State == VmState.WaitingForAnimation)
             {
-                if (_state.TextSpeedMs > 0 && _state.DisplayedTextLength < _state.CurrentTextBuffer.Length)
+                if (_state.TextRuntime.TextSpeedMs > 0 && _state.TextRuntime.DisplayedTextLength < _state.TextRuntime.CurrentTextBuffer.Length)
                 {
                     CompleteCurrentText();
-                    _state.State = VmState.Running;
+                    _state.Execution.State = VmState.Running;
                     return 1;
                 }
                 // Tweenアニメーションを即完了
                 _vm.FinishAllTweens();
-                _state.State = VmState.Running;
+                _state.Execution.State = VmState.Running;
                 return 1;
             }
 
-            if (_state.State == VmState.WaitingForDelay)
+            if (_state.Execution.State == VmState.WaitingForDelay)
             {
-                _state.DelayTimerMs = 0f;
-                _state.State = VmState.Running;
+                _state.Execution.DelayTimerMs = 0f;
+                _state.Execution.State = VmState.Running;
                 return 1;
             }
 
-            if (_state.State == VmState.FadingIn || _state.State == VmState.FadingOut)
+            if (_state.Execution.State == VmState.FadingIn || _state.Execution.State == VmState.FadingOut)
             {
-                _state.IsFading = false;
-                _state.FadeProgress = _state.State == VmState.FadingIn ? 1.0f : 0.0f;
-                _state.State = VmState.Running;
+                _state.Render.IsFading = false;
+                _state.Render.TransitionStyle = TransitionType.Fade;
+                _state.Render.FadeProgress = _state.Execution.State == VmState.FadingIn ? 1.0f : 0.0f;
+                _state.Execution.State = VmState.Running;
                 return 1;
             }
 
-            if (_state.State == VmState.WaitingForButton)
+            if (_state.Execution.State == VmState.WaitingForButton)
             {
                 // 選択肢に到達したらスキップを一時停止して選択肢を表示
                 StopSkip();
                 return 0;
             }
 
-            if (_state.State == VmState.Running)
+            if (_state.Execution.State == VmState.Running)
             {
-                int beforePc = _state.ProgramCounter;
+                int beforePc = _state.Execution.ProgramCounter;
                 _vm.Step();
 
                 // プログラムカウンタが進まない場合、ループを停止
-                if (_state.State == VmState.Running && _state.ProgramCounter == beforePc) return 0;
+                if (_state.Execution.State == VmState.Running && _state.Execution.ProgramCounter == beforePc) return 0;
                 continue;
             }
 
@@ -116,7 +117,7 @@ public class SkipModeManager
     /// </summary>
     public bool CanSkipCurrentWait()
     {
-        return _state.ForceSkipMode || _state.SkipUnread || _state.CurrentInstructionWasRead;
+        return _state.Playback.ForceSkipMode || _state.Playback.SkipUnread || _state.TextRuntime.CurrentInstructionWasRead;
     }
 
     /// <summary>
@@ -124,28 +125,28 @@ public class SkipModeManager
     /// </summary>
     public void StopSkip()
     {
-        _state.SkipMode = false;
-        _state.ForceSkipMode = false;
-        _state.SkipTimerMs = 0f;
+        _state.Playback.SkipMode = false;
+        _state.Playback.ForceSkipMode = false;
+        _state.Playback.SkipTimerMs = 0f;
     }
 
     /// <summary>
     /// スキップモードが有効かどうかを判定する
     /// </summary>
-    public bool IsSkipModeActive => _state.SkipMode || _state.ForceSkipMode;
+    public bool IsSkipModeActive => _state.Playback.SkipMode || _state.Playback.ForceSkipMode;
 
     /// <summary>
     /// 現在のテキストを完了させる
     /// </summary>
     private void CompleteCurrentText()
     {
-        _state.DisplayedTextLength = _state.CurrentTextBuffer.Length;
+        _state.TextRuntime.DisplayedTextLength = _state.TextRuntime.CurrentTextBuffer.Length;
 
-        if (_state.TextTargetSpriteId >= 0 &&
-            _state.Sprites.TryGetValue(_state.TextTargetSpriteId, out var textSprite) &&
+        if (_state.TextWindow.TextTargetSpriteId >= 0 &&
+            _state.Render.Sprites.TryGetValue(_state.TextWindow.TextTargetSpriteId, out var textSprite) &&
             textSprite.Type == SpriteType.Text)
         {
-            textSprite.Text = _state.CurrentTextBuffer;
+            textSprite.Text = _state.TextRuntime.CurrentTextBuffer;
         }
     }
 }

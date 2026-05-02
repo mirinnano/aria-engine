@@ -46,7 +46,7 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                 if (!ValidateArgs(inst, 4)) return true;
                 {
                     int id = GetVal(inst.Arguments[0]);
-                    State.Sprites[id] = new Sprite
+                    State.Render.Sprites[id] = new Sprite
                     {
                         Id = id,
                         Type = SpriteType.Image,
@@ -62,15 +62,15 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                 if (!ValidateArgs(inst, 4)) return true;
                 {
                     int id = GetVal(inst.Arguments[0]);
-                    State.Sprites[id] = new Sprite
+                    State.Render.Sprites[id] = new Sprite
                     {
                         Id = id,
                         Type = SpriteType.Text,
                         Text = GetString(inst.Arguments[1]),
                         X = GetVal(inst.Arguments[2]),
                         Y = GetVal(inst.Arguments[3]),
-                        FontSize = State.DefaultFontSize,
-                        Color = State.DefaultTextColor
+                        FontSize = State.TextWindow.DefaultFontSize,
+                        Color = State.TextWindow.DefaultTextColor
                     };
                     TrackSpriteLifetime(id, inst.Arguments[0]);
                 }
@@ -80,7 +80,7 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                 if (!ValidateArgs(inst, 5)) return true;
                 {
                     int id = GetVal(inst.Arguments[0]);
-                    State.Sprites[id] = new Sprite
+                    State.Render.Sprites[id] = new Sprite
                     {
                         Id = id,
                         Type = SpriteType.Rect,
@@ -99,25 +99,25 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                     int id = GetVal(inst.Arguments[0]);
                     if (id == -1)
                     {
-                        State.Sprites.TryGetValue(0, out var background);
-                        State.Sprites.Clear();
-                        if (background != null) State.Sprites[0] = background;
-                        State.SpriteButtonMap.Clear();
-                        State.FocusedButtonId = -1;
-                        State.SpriteLifetimeStacks.Clear();
+                        State.Render.Sprites.TryGetValue(0, out var background);
+                        State.Render.Sprites.Clear();
+                        if (background != null) State.Render.Sprites[0] = background;
+                        State.Interaction.SpriteButtonMap.Clear();
+                        State.Interaction.FocusedButtonId = -1;
+                        State.Execution.SpriteLifetimeStacks.Clear();
                     }
                     else
                     {
-                        State.Sprites.Remove(id);
-                        State.SpriteButtonMap.Remove(id);
-                        if (State.FocusedButtonId == id) State.FocusedButtonId = -1;
+                        State.Render.Sprites.Remove(id);
+                        State.Interaction.SpriteButtonMap.Remove(id);
+                        if (State.Interaction.FocusedButtonId == id) State.Interaction.FocusedButtonId = -1;
                     }
                 }
                 return true;
 
             case OpCode.Vsp:
                 if (!ValidateArgs(inst, 2)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var vsp))
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var vsp))
                 {
                     vsp.Visible = int.TryParse(inst.Arguments[1], out int v) ? v != 0 : inst.Arguments[1] == "on";
                 }
@@ -125,7 +125,7 @@ public sealed class RenderCommandHandler : BaseCommandHandler
 
             case OpCode.Msp:
                 if (!ValidateArgs(inst, 3)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var msp))
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var msp))
                 {
                     msp.X = GetVal(inst.Arguments[1]);
                     msp.Y = GetVal(inst.Arguments[2]);
@@ -134,7 +134,7 @@ public sealed class RenderCommandHandler : BaseCommandHandler
 
             case OpCode.MspRel:
                 if (!ValidateArgs(inst, 3)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var mspr))
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var mspr))
                 {
                     mspr.X += GetVal(inst.Arguments[1]);
                     mspr.Y += GetVal(inst.Arguments[2]);
@@ -143,17 +143,17 @@ public sealed class RenderCommandHandler : BaseCommandHandler
 
             case OpCode.SpZ:
                 if (!ValidateArgs(inst, 2)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spz)) spz.Z = GetVal(inst.Arguments[1]);
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spz)) spz.Z = GetVal(inst.Arguments[1]);
                 return true;
 
             case OpCode.SpAlpha:
                 if (!ValidateArgs(inst, 2)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spa)) spa.Opacity = GetVal(inst.Arguments[1]) / 255.0f;
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spa)) spa.Opacity = GetVal(inst.Arguments[1]) / 255.0f;
                 return true;
 
             case OpCode.SpScale:
                 if (!ValidateArgs(inst, 3)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spsc))
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spsc))
                 {
                     spsc.ScaleX = GetFloat(inst.Arguments[1], inst);
                     spsc.ScaleY = GetFloat(inst.Arguments[2], inst);
@@ -162,17 +162,17 @@ public sealed class RenderCommandHandler : BaseCommandHandler
 
             case OpCode.SpFontsize:
                 if (!ValidateArgs(inst, 2)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spf)) spf.FontSize = GetVal(inst.Arguments[1]);
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spf)) spf.FontSize = GetVal(inst.Arguments[1]);
                 return true;
 
             case OpCode.SpColor:
                 if (!ValidateArgs(inst, 2)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spc)) spc.Color = GetString(inst.Arguments[1]);
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spc)) spc.Color = GetString(inst.Arguments[1]);
                 return true;
 
             case OpCode.SpFill:
                 if (!ValidateArgs(inst, 3)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spfl))
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var spfl))
                 {
                     spfl.FillColor = GetString(inst.Arguments[1]);
                     spfl.FillAlpha = GetVal(inst.Arguments[2]);
@@ -185,7 +185,7 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                 {
                     string bgPath = GetString(inst.Arguments[0]);
                     var tone = ResolveBackgroundTone(inst, bgPath, 1);
-                    State.Sprites[0] = CreateBackgroundSprite(bgPath, tone.TimeOfDay, tone.Preset);
+                    State.Render.Sprites[0] = CreateBackgroundSprite(bgPath, tone.TimeOfDay, tone.Preset);
                 }
                 return true;
 
@@ -201,15 +201,15 @@ public sealed class RenderCommandHandler : BaseCommandHandler
 
             case OpCode.BgTime:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.BackgroundTimeOfDay = NormalizeBackgroundTime(GetVal(inst.Arguments[0]));
-                State.BackgroundTimePreset = inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : "";
+                State.Render.BackgroundTimeOfDay = NormalizeBackgroundTime(GetVal(inst.Arguments[0]));
+                State.Render.BackgroundTimePreset = inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : "";
                 return true;
 
             case OpCode.BgTimeMap:
                 if (!ValidateArgs(inst, 2)) return true;
                 {
                     string key = NormalizeBackgroundMapKey(GetString(inst.Arguments[0]));
-                    State.BackgroundTimeMap[key] = new BackgroundTimeMapping
+                    State.Render.BackgroundTimeMap[key] = new BackgroundTimeMapping
                     {
                         TimeOfDay = NormalizeBackgroundTime(GetVal(inst.Arguments[1])),
                         Preset = inst.Arguments.Count > 2 ? GetString(inst.Arguments[2]) : ""
@@ -250,18 +250,18 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                 {
                     int amp = inst.Arguments.Count > 0 ? GetVal(inst.Arguments[0]) : 5;
                     int time = inst.Arguments.Count > 1 ? GetVal(inst.Arguments[1]) : 500;
-                    State.QuakeAmplitude = amp;
-                    State.QuakeTimerMs = time;
+                    State.Render.QuakeAmplitude = amp;
+                    State.Render.QuakeTimerMs = time;
                 }
                 return true;
 
             case OpCode.Clr:
-                State.Sprites.Clear();
-                State.SpriteButtonMap.Clear();
-                State.FocusedButtonId = -1;
+                State.Render.Sprites.Clear();
+                State.Interaction.SpriteButtonMap.Clear();
+                State.Interaction.FocusedButtonId = -1;
                 ClearCompatUiSprites();
-                State.TextboxBackgroundSpriteId = -1;
-                State.SpriteLifetimeStacks.Clear();
+                State.TextWindow.TextboxBackgroundSpriteId = -1;
+                State.Execution.SpriteLifetimeStacks.Clear();
                 return true;
 
             default:
@@ -276,35 +276,35 @@ public sealed class RenderCommandHandler : BaseCommandHandler
     private void TrackSpriteLifetime(int spriteId, string? arg = null)
     {
         bool isOwned = arg != null && State.OwnedSprites.Contains(arg);
-        if (isOwned && State.SpriteLifetimeStacks.Count == 0)
+        if (isOwned && State.Execution.SpriteLifetimeStacks.Count == 0)
         {
-            State.SpriteLifetimeStacks.Push(new HashSet<int>());
+            State.Execution.SpriteLifetimeStacks.Push(new HashSet<int>());
         }
-        if (State.SpriteLifetimeStacks.Count > 0)
+        if (State.Execution.SpriteLifetimeStacks.Count > 0)
         {
-            State.SpriteLifetimeStacks.Peek().Add(spriteId);
+            State.Execution.SpriteLifetimeStacks.Peek().Add(spriteId);
         }
     }
 
     private Sprite CreateBackgroundSprite(string bgPath, int timeOfDay = 0, string preset = "")
     {
         return bgPath.StartsWith("#")
-            ? new Sprite { Id = 0, Type = SpriteType.Rect, FillColor = bgPath, FillAlpha = 255, Width = State.WindowWidth, Height = State.WindowHeight, Z = 0, BackgroundTimeOfDay = timeOfDay, BackgroundTimePreset = preset }
-            : new Sprite { Id = 0, Type = SpriteType.Image, ImagePath = bgPath, Width = State.WindowWidth, Height = State.WindowHeight, Z = 0, BackgroundTimeOfDay = timeOfDay, BackgroundTimePreset = preset };
+            ? new Sprite { Id = 0, Type = SpriteType.Rect, FillColor = bgPath, FillAlpha = 255, Width = State.EngineSettings.WindowWidth, Height = State.EngineSettings.WindowHeight, Z = 0, BackgroundTimeOfDay = timeOfDay, BackgroundTimePreset = preset }
+            : new Sprite { Id = 0, Type = SpriteType.Image, ImagePath = bgPath, Width = State.EngineSettings.WindowWidth, Height = State.EngineSettings.WindowHeight, Z = 0, BackgroundTimeOfDay = timeOfDay, BackgroundTimePreset = preset };
     }
 
     private void StartBackgroundFade(string bgPath, int durationMs, int timeOfDay = 0, string preset = "")
     {
         const int overlayId = 8999;
         int half = Math.Max(1, durationMs / 2);
-        State.Sprites[overlayId] = new Sprite
+        State.Render.Sprites[overlayId] = new Sprite
         {
             Id = overlayId,
             Type = SpriteType.Rect,
             X = 0,
             Y = 0,
-            Width = State.WindowWidth,
-            Height = State.WindowHeight,
+            Width = State.EngineSettings.WindowWidth,
+            Height = State.EngineSettings.WindowHeight,
             FillColor = "#000000",
             FillAlpha = 255,
             Opacity = 0f,
@@ -321,8 +321,8 @@ public sealed class RenderCommandHandler : BaseCommandHandler
             Ease = AriaEngine.Rendering.EaseType.EaseInOut,
             OnComplete = (state, _) =>
             {
-                state.Sprites[0] = CreateBackgroundSprite(bgPath, timeOfDay, preset);
-                if (!state.Sprites.TryGetValue(overlayId, out var overlay)) return;
+                state.Render.Sprites[0] = CreateBackgroundSprite(bgPath, timeOfDay, preset);
+                if (!state.Render.Sprites.TryGetValue(overlayId, out var overlay)) return;
                 overlay.Opacity = 1f;
                 Tweens.Add(new AriaEngine.Rendering.Tween
                 {
@@ -332,11 +332,11 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                     To = 0f,
                     DurationMs = half,
                     Ease = AriaEngine.Rendering.EaseType.EaseInOut,
-                    OnComplete = (innerState, __) => innerState.Sprites.Remove(overlayId)
+                    OnComplete = (innerState, __) => innerState.Render.Sprites.Remove(overlayId)
                 });
             }
         });
-        State.State = VmState.WaitingForAnimation;
+        State.Execution.State = VmState.WaitingForAnimation;
     }
 
     private static int NormalizeFadeDuration(int value)
@@ -354,13 +354,25 @@ public sealed class RenderCommandHandler : BaseCommandHandler
         int duration = Math.Max(0, GetVal(inst.Arguments[3]));
         if (target != "bg") return;
 
+        State.Render.TransitionStyle = style switch
+        {
+            "fade" or "crossfade" => TransitionType.Fade,
+            "slide_left" or "slideleft" => TransitionType.SlideLeft,
+            "slide_right" or "slideright" => TransitionType.SlideRight,
+            "slide_up" or "slideup" => TransitionType.SlideUp,
+            "slide_down" or "slidedown" => TransitionType.SlideDown,
+            "wipe" or "circle" or "wipe_circle" => TransitionType.WipeCircle,
+            "white" or "flash" => TransitionType.Fade,
+            _ => TransitionType.Fade
+        };
+
         if (style is "white" or "flash")
         {
             StartScreenPulse("#ffffff", 0.92f, Math.Min(duration, 260));
         }
 
         StartBackgroundFade(path, duration);
-        State.ActiveEffects.Add($"transition:bg:{style}");
+        State.Render.ActiveEffects.Add($"transition:bg:{style}");
     }
 
     private (int TimeOfDay, string Preset) ResolveBackgroundTone(Instruction inst, string bgPath, int firstToneArg)
@@ -373,12 +385,12 @@ public sealed class RenderCommandHandler : BaseCommandHandler
         }
 
         string key = NormalizeBackgroundMapKey(bgPath);
-        if (State.BackgroundTimeMap.TryGetValue(key, out var mapped))
+        if (State.Render.BackgroundTimeMap.TryGetValue(key, out var mapped))
         {
             return (NormalizeBackgroundTime(mapped.TimeOfDay), mapped.Preset);
         }
 
-        return (NormalizeBackgroundTime(State.BackgroundTimeOfDay), State.BackgroundTimePreset);
+        return (NormalizeBackgroundTime(State.Render.BackgroundTimeOfDay), State.Render.BackgroundTimePreset);
     }
 
     private static int NormalizeBackgroundTime(int value) => Math.Clamp(value, 0, 4);
@@ -398,26 +410,26 @@ public sealed class RenderCommandHandler : BaseCommandHandler
         switch (action)
         {
             case "shake":
-                State.QuakeAmplitude = inst.Arguments.Count > 1 ? GetVal(inst.Arguments[1]) : 6;
-                State.QuakeTimerMs = inst.Arguments.Count > 2 ? GetVal(inst.Arguments[2]) : 300;
-                State.ActiveEffects.Add("camera:shake");
+                State.Render.QuakeAmplitude = inst.Arguments.Count > 1 ? GetVal(inst.Arguments[1]) : 6;
+                State.Render.QuakeTimerMs = inst.Arguments.Count > 2 ? GetVal(inst.Arguments[2]) : 300;
+                State.Render.ActiveEffects.Add("camera:shake");
                 break;
             case "pan":
-                State.CameraOffsetX = inst.Arguments.Count > 1 ? GetVal(inst.Arguments[1]) : 0;
-                State.CameraOffsetY = inst.Arguments.Count > 2 ? GetVal(inst.Arguments[2]) : 0;
-                State.ActiveEffects.Add("camera:pan");
+                State.Render.CameraOffsetX = inst.Arguments.Count > 1 ? GetVal(inst.Arguments[1]) : 0;
+                State.Render.CameraOffsetY = inst.Arguments.Count > 2 ? GetVal(inst.Arguments[2]) : 0;
+                State.Render.ActiveEffects.Add("camera:pan");
                 break;
             case "zoom":
-                State.CameraZoom = inst.Arguments.Count > 1 ? GetFloat(inst.Arguments[1], inst, 1f) : 1f;
-                State.ActiveEffects.Add("camera:zoom");
+                State.Render.CameraZoom = inst.Arguments.Count > 1 ? GetFloat(inst.Arguments[1], inst, 1f) : 1f;
+                State.Render.ActiveEffects.Add("camera:zoom");
                 break;
             case "reset":
-                State.CameraOffsetX = 0;
-                State.CameraOffsetY = 0;
-                State.CameraZoom = 1f;
-                State.QuakeAmplitude = 0;
-                State.QuakeTimerMs = 0;
-                State.ActiveEffects.RemoveAll(e => e.StartsWith("camera:", StringComparison.OrdinalIgnoreCase));
+                State.Render.CameraOffsetX = 0;
+                State.Render.CameraOffsetY = 0;
+                State.Render.CameraZoom = 1f;
+                State.Render.QuakeAmplitude = 0;
+                State.Render.QuakeTimerMs = 0;
+                State.Render.ActiveEffects.RemoveAll(e => e.StartsWith("camera:", StringComparison.OrdinalIgnoreCase));
                 break;
         }
     }
@@ -435,16 +447,16 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                     inst.Arguments.Count > 2 ? GetVal(inst.Arguments[2]) : 180);
                 break;
             case "tint":
-                State.ScreenTintColor = inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : "#1d2430";
-                State.ScreenTintOpacity = inst.Arguments.Count > 2 ? Math.Clamp(GetVal(inst.Arguments[2]) / 255f, 0f, 1f) : 0.35f;
-                State.ScreenTintTimerMs = inst.Arguments.Count > 3 ? Math.Max(0, GetVal(inst.Arguments[3])) : 0;
-                State.ActiveEffects.Add("screen:tint");
+                State.Render.ScreenTintColor = inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : "#1d2430";
+                State.Render.ScreenTintOpacity = inst.Arguments.Count > 2 ? Math.Clamp(GetVal(inst.Arguments[2]) / 255f, 0f, 1f) : 0.35f;
+                State.Render.ScreenTintTimerMs = inst.Arguments.Count > 3 ? Math.Max(0, GetVal(inst.Arguments[3])) : 0;
+                State.Render.ActiveEffects.Add("screen:tint");
                 break;
             case "clear":
             case "reset":
-                State.ScreenTintOpacity = 0f;
-                State.ScreenTintTimerMs = 0f;
-                State.ActiveEffects.RemoveAll(e => e.StartsWith("screen:", StringComparison.OrdinalIgnoreCase));
+                State.Render.ScreenTintOpacity = 0f;
+                State.Render.ScreenTintTimerMs = 0f;
+                State.Render.ActiveEffects.RemoveAll(e => e.StartsWith("screen:", StringComparison.OrdinalIgnoreCase));
                 break;
         }
     }
@@ -455,25 +467,25 @@ public sealed class RenderCommandHandler : BaseCommandHandler
         string name = GetString(inst.Arguments[0]).ToLowerInvariant();
         if (name == "reset")
         {
-            State.DefaultTextEffect = "none";
-            State.DefaultTextEffectStrength = 0f;
-            State.DefaultTextEffectSpeed = 0f;
-            State.TextSpeedMs = Config.Config.GlobalTextSpeedMs > 0 ? Config.Config.GlobalTextSpeedMs : Config.Config.DefaultTextSpeedMs;
-            State.ActiveEffects.RemoveAll(e => e.StartsWith("textfx:", StringComparison.OrdinalIgnoreCase));
+            State.TextRuntime.DefaultTextEffect = "none";
+            State.TextRuntime.DefaultTextEffectStrength = 0f;
+            State.TextRuntime.DefaultTextEffectSpeed = 0f;
+            State.TextRuntime.TextSpeedMs = Config.Config.GlobalTextSpeedMs > 0 ? Config.Config.GlobalTextSpeedMs : Config.Config.DefaultTextSpeedMs;
+            State.Render.ActiveEffects.RemoveAll(e => e.StartsWith("textfx:", StringComparison.OrdinalIgnoreCase));
             return;
         }
 
         if (name is "speed" or "type")
         {
-            if (inst.Arguments.Count > 1) State.TextSpeedMs = Math.Max(0, GetVal(inst.Arguments[1]));
-            State.ActiveEffects.Add("textfx:speed");
+            if (inst.Arguments.Count > 1) State.TextRuntime.TextSpeedMs = Math.Max(0, GetVal(inst.Arguments[1]));
+            State.Render.ActiveEffects.Add("textfx:speed");
             return;
         }
 
-        State.DefaultTextEffect = name;
-        if (inst.Arguments.Count > 1) State.DefaultTextEffectStrength = GetFloat(inst.Arguments[1], inst, State.DefaultTextEffectStrength);
-        if (inst.Arguments.Count > 2) State.DefaultTextEffectSpeed = GetFloat(inst.Arguments[2], inst, State.DefaultTextEffectSpeed);
-        State.ActiveEffects.Add($"textfx:{name}");
+        State.TextRuntime.DefaultTextEffect = name;
+        if (inst.Arguments.Count > 1) State.TextRuntime.DefaultTextEffectStrength = GetFloat(inst.Arguments[1], inst, State.TextRuntime.DefaultTextEffectStrength);
+        if (inst.Arguments.Count > 2) State.TextRuntime.DefaultTextEffectSpeed = GetFloat(inst.Arguments[2], inst, State.TextRuntime.DefaultTextEffectSpeed);
+        State.Render.ActiveEffects.Add($"textfx:{name}");
     }
 
     private void ExecuteFx(Instruction inst)
@@ -483,10 +495,10 @@ public sealed class RenderCommandHandler : BaseCommandHandler
         switch (action)
         {
             case "profile":
-                if (inst.Arguments.Count > 1) State.FxProfile = GetString(inst.Arguments[1]).ToLowerInvariant();
+                if (inst.Arguments.Count > 1) State.Render.FxProfile = GetString(inst.Arguments[1]).ToLowerInvariant();
                 break;
             case "skip_policy":
-                if (inst.Arguments.Count > 1) State.FxSkipPolicy = GetString(inst.Arguments[1]).ToLowerInvariant();
+                if (inst.Arguments.Count > 1) State.Render.FxSkipPolicy = GetString(inst.Arguments[1]).ToLowerInvariant();
                 break;
             case "cancel":
                 string layer = inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]).ToLowerInvariant() : "all";
@@ -501,43 +513,43 @@ public sealed class RenderCommandHandler : BaseCommandHandler
         string target = GetString(inst.Arguments[0]).ToLowerInvariant();
         if (target is "fx" or "all")
         {
-            State.State = VmState.WaitingForAnimation;
+            State.Execution.State = VmState.WaitingForAnimation;
         }
     }
 
     private void StartScreenPulse(string color, float opacity, int durationMs)
     {
-        State.ScreenTintColor = color;
-        State.ScreenTintOpacity = Math.Clamp(opacity, 0f, 1f);
-        State.ScreenTintTimerMs = Math.Max(1, durationMs);
-        State.ActiveEffects.Add("screen:flash");
+        State.Render.ScreenTintColor = color;
+        State.Render.ScreenTintOpacity = Math.Clamp(opacity, 0f, 1f);
+        State.Render.ScreenTintTimerMs = Math.Max(1, durationMs);
+        State.Render.ActiveEffects.Add("screen:flash");
     }
 
     private void CancelFx(string layer)
     {
         if (layer is "all" or "screen")
         {
-            State.ScreenTintOpacity = 0f;
-            State.ScreenTintTimerMs = 0f;
-            State.ActiveEffects.RemoveAll(e => e.StartsWith("screen:", StringComparison.OrdinalIgnoreCase));
+            State.Render.ScreenTintOpacity = 0f;
+            State.Render.ScreenTintTimerMs = 0f;
+            State.Render.ActiveEffects.RemoveAll(e => e.StartsWith("screen:", StringComparison.OrdinalIgnoreCase));
         }
         if (layer is "all" or "camera")
         {
-            State.CameraOffsetX = 0;
-            State.CameraOffsetY = 0;
-            State.CameraZoom = 1f;
-            State.QuakeAmplitude = 0;
-            State.QuakeTimerMs = 0;
-            State.ActiveEffects.RemoveAll(e => e.StartsWith("camera:", StringComparison.OrdinalIgnoreCase));
+            State.Render.CameraOffsetX = 0;
+            State.Render.CameraOffsetY = 0;
+            State.Render.CameraZoom = 1f;
+            State.Render.QuakeAmplitude = 0;
+            State.Render.QuakeTimerMs = 0;
+            State.Render.ActiveEffects.RemoveAll(e => e.StartsWith("camera:", StringComparison.OrdinalIgnoreCase));
         }
         if (layer is "all" or "text" or "textfx")
         {
-            State.DefaultTextEffect = "none";
-            State.ActiveEffects.RemoveAll(e => e.StartsWith("textfx:", StringComparison.OrdinalIgnoreCase));
+            State.TextRuntime.DefaultTextEffect = "none";
+            State.Render.ActiveEffects.RemoveAll(e => e.StartsWith("textfx:", StringComparison.OrdinalIgnoreCase));
         }
         if (layer == "all")
         {
-            State.ActiveEffects.Clear();
+            State.Render.ActiveEffects.Clear();
         }
     }
 }

@@ -42,10 +42,10 @@ namespace AriaEngine.Core;
         // Push new local scopes for ints/strings
         var intScope = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var strScope = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        State.LocalIntStacks.Push(intScope);
-        State.LocalStringStacks.Push(strScope);
+        State.Execution.LocalIntStacks.Push(intScope);
+        State.Execution.LocalStringStacks.Push(strScope);
         // Push lifetime tracker for sprites created in this scope
-        State.SpriteLifetimeStacks.Push(new HashSet<int>());
+        State.Execution.SpriteLifetimeStacks.Push(new HashSet<int>());
         // Create scope frame and link to current local dictionaries
         var frame = new ScopeFrame
         {
@@ -83,18 +83,18 @@ namespace AriaEngine.Core;
             frame.Defer.Clear();
 
             // Remove sprites created in this scope
-            if (State.SpriteLifetimeStacks.Count > 0)
+            if (State.Execution.SpriteLifetimeStacks.Count > 0)
             {
-                var lifetimeSet = State.SpriteLifetimeStacks.Pop();
+                var lifetimeSet = State.Execution.SpriteLifetimeStacks.Pop();
                 foreach (var sid in lifetimeSet)
                 {
-                    State.Sprites.Remove(sid);
+                    State.Render.Sprites.Remove(sid);
                 }
             }
 
             // Pop local scope dictionaries
-            if (State.LocalIntStacks.Count > 0) State.LocalIntStacks.Pop();
-            if (State.LocalStringStacks.Count > 0) State.LocalStringStacks.Pop();
+            if (State.Execution.LocalIntStacks.Count > 0) State.Execution.LocalIntStacks.Pop();
+            if (State.Execution.LocalStringStacks.Count > 0) State.Execution.LocalStringStacks.Pop();
         }
     }
 
@@ -168,18 +168,18 @@ namespace AriaEngine.Core;
         }
 
         // Load initial config into GameState
-        State.TextSpeedMs = Config.Config.GlobalTextSpeedMs;
-        State.BgmVolume = Config.Config.BgmVolume;
-        State.SeVolume = Config.Config.SeVolume;
-        State.AutoModeWaitTimeMs = Config.Config.AutoModeWaitTimeMs;
+        State.TextRuntime.TextSpeedMs = Config.Config.GlobalTextSpeedMs;
+        State.Audio.BgmVolume = Config.Config.BgmVolume;
+        State.Audio.SeVolume = Config.Config.SeVolume;
+        State.Playback.AutoModeWaitTimeMs = Config.Config.AutoModeWaitTimeMs;
         var persistent = Config.LoadPersistentGameData();
-        State.SkipUnread = persistent.SkipUnread;
-        State.Registers = new Dictionary<string, int>(persistent.Registers, StringComparer.OrdinalIgnoreCase);
-        State.Flags = new Dictionary<string, bool>(persistent.Flags, StringComparer.OrdinalIgnoreCase);
-        State.SaveFlags = new Dictionary<string, bool>(persistent.SaveFlags, StringComparer.OrdinalIgnoreCase);
-        State.Counters = new Dictionary<string, int>(persistent.Counters, StringComparer.OrdinalIgnoreCase);
-        State.ReadKeys = new HashSet<string>(persistent.ReadKeys, StringComparer.OrdinalIgnoreCase);
-        State.UnlockedCgs = new HashSet<string>(persistent.UnlockedCgs, StringComparer.OrdinalIgnoreCase);
+        State.Playback.SkipUnread = persistent.SkipUnread;
+        State.RegisterState.Registers = new Dictionary<string, int>(persistent.Registers, StringComparer.OrdinalIgnoreCase);
+        State.FlagRuntime.Flags = new Dictionary<string, bool>(persistent.Flags, StringComparer.OrdinalIgnoreCase);
+        State.FlagRuntime.SaveFlags = new Dictionary<string, bool>(persistent.SaveFlags, StringComparer.OrdinalIgnoreCase);
+        State.FlagRuntime.Counters = new Dictionary<string, int>(persistent.Counters, StringComparer.OrdinalIgnoreCase);
+        State.TextRuntime.ReadKeys = new HashSet<string>(persistent.ReadKeys, StringComparer.OrdinalIgnoreCase);
+        State.FlagRuntime.UnlockedCgs = new HashSet<string>(persistent.UnlockedCgs, StringComparer.OrdinalIgnoreCase);
 
         // Initialize new managers
         ChapterManager = new ChapterManager(reporter);
@@ -218,9 +218,9 @@ namespace AriaEngine.Core;
         _labelAddresses = new HashSet<int>(_labels.Values);
         _currentScriptFile = file;
         _currentReadKeyPrefix = file + ":";
-        State.ProgramCounter = 0;
-        State.State = VmState.Running;
-        State.TotalScriptLines = result.SourceLines.Length;
+        State.Execution.ProgramCounter = 0;
+        State.Execution.State = VmState.Running;
+        State.FlagRuntime.TotalScriptLines = result.SourceLines.Length;
         
         // Register functions and structs from parse result
         foreach (var func in result.Functions)
@@ -299,26 +299,26 @@ namespace AriaEngine.Core;
         _labels = labels;
         _currentScriptFile = file;
         _currentReadKeyPrefix = file + ":";
-        State.ProgramCounter = 0;
-        State.State = VmState.Running;
+        State.Execution.ProgramCounter = 0;
+        State.Execution.State = VmState.Running;
     }
 
     public void ResumeFromClick()
     {
-        if (State.State == VmState.WaitingForClick)
+        if (State.Execution.State == VmState.WaitingForClick)
         {
-            State.State = VmState.Running;
+            State.Execution.State = VmState.Running;
         }
     }
 
     public void ResumeFromButton(int buttonId)
     {
-        if (State.State == VmState.WaitingForButton)
+        if (State.Execution.State == VmState.WaitingForButton)
         {
-            int resultValue = State.SpriteButtonMap.TryGetValue(buttonId, out int mappedValue) ? mappedValue : buttonId;
+            int resultValue = State.Interaction.SpriteButtonMap.TryGetValue(buttonId, out int mappedValue) ? mappedValue : buttonId;
 
             // Set explicit target register + compatibility registers
-            string targetReg = State.ButtonResultRegister.TrimStart('%').ToLowerInvariant();
+            string targetReg = State.Interaction.ButtonResultRegister.TrimStart('%').ToLowerInvariant();
             if (string.IsNullOrWhiteSpace(targetReg)) targetReg = "0";
             SetReg(targetReg, resultValue);
             SetReg("0", resultValue);
@@ -326,71 +326,72 @@ namespace AriaEngine.Core;
 
             ClearCompatUiSprites();
 
-            State.State = VmState.Running;
+            State.Execution.State = VmState.Running;
             AutoSaveGame();
-            if (State.UiEvents.TryGetValue($"{buttonId}:click", out string? label) ||
-                State.UiEvents.TryGetValue($"{resultValue}:click", out label))
+            if (State.UiComposition.Events.TryGetValue($"{buttonId}:click", out string? label) ||
+                State.UiComposition.Events.TryGetValue($"{resultValue}:click", out label))
             {
                 JumpTo(label);
             }
-            State.ButtonTimeoutMs = 0;
-            State.ButtonTimer = 0f;
-            State.ButtonResultRegister = "0";
-            State.FocusedButtonId = -1;
-            State.UiHoverActive.Clear();
+            State.Interaction.ButtonTimeoutMs = 0;
+            State.Interaction.ButtonTimer = 0f;
+            State.Interaction.ButtonResultRegister = "0";
+            State.Interaction.FocusedButtonId = -1;
+            State.UiComposition.HoverActive.Clear();
         }
     }
 
     public void SignalTimeout()
     {
-        if (State.State == VmState.WaitingForButton)
+        if (State.Execution.State == VmState.WaitingForButton)
         {
-            string targetReg = State.ButtonResultRegister.TrimStart('%').ToLowerInvariant();
+            string targetReg = State.Interaction.ButtonResultRegister.TrimStart('%').ToLowerInvariant();
             if (string.IsNullOrWhiteSpace(targetReg)) targetReg = "0";
             SetReg(targetReg, -1);
             SetReg("0", -1);
             SetReg("r0", -1);
-            State.State = VmState.Running;
-            State.ButtonTimeoutMs = 0;
-            State.ButtonTimer = 0f;
-            State.ButtonResultRegister = "0";
-            State.FocusedButtonId = -1;
-            State.UiHoverActive.Clear();
+            State.Execution.State = VmState.Running;
+            State.Interaction.ButtonTimeoutMs = 0;
+            State.Interaction.ButtonTimer = 0f;
+            State.Interaction.ButtonResultRegister = "0";
+            State.Interaction.FocusedButtonId = -1;
+            State.UiComposition.HoverActive.Clear();
         }
     }
 
     public void FinishFade()
     {
-        if (State.State == VmState.FadingIn || State.State == VmState.FadingOut)
+        if (State.Execution.State == VmState.FadingIn || State.Execution.State == VmState.FadingOut)
         {
-            State.IsFading = false;
-            State.State = VmState.Running;
+            State.Render.IsFading = false;
+            State.Render.TransitionStyle = TransitionType.Fade;
+            State.Execution.State = VmState.Running;
         }
     }
 
     public void Step()
     {
         var state = State; // ローカルキャッシュ
-        int maxSteps = (state.SkipMode || state.ForceSkipMode) ? int.MaxValue : MaxInstructionsPerFrame;
+        int maxSteps = (state.Playback.SkipMode || state.Playback.ForceSkipMode) ? int.MaxValue : MaxInstructionsPerFrame;
         int executed = 0;
         
-        while (state.State == VmState.Running && executed < maxSteps)
+        while (state.Execution.State == VmState.Running && executed < maxSteps)
         {
-            if (state.ProgramCounter < 0 || state.ProgramCounter > _instructions.Count)
+            if (state.Execution.ProgramCounter < 0 || state.Execution.ProgramCounter > _instructions.Count)
             {
-                string scriptFile = (state.ProgramCounter >= 0 && state.ProgramCounter < _instructions.Count)
-                    ? _instructions[state.ProgramCounter].ScriptFile
+                string scriptFile = (state.Execution.ProgramCounter >= 0 && state.Execution.ProgramCounter < _instructions.Count)
+                    ? _instructions[state.Execution.ProgramCounter].ScriptFile
                     : _currentScriptFile;
                 _reporter.Report(new AriaError(
-                    $"プログラムカウンタが範囲外です (PC={state.ProgramCounter}, 命令数={_instructions.Count})。スクリプト実行を終了します。",
+                    $"プログラムカウンタが範囲外です (PC={state.Execution.ProgramCounter}, 命令数={_instructions.Count})。スクリプト実行を終了します。",
                     0, scriptFile, AriaErrorLevel.Error, "VM_PC_OUT_OF_BOUNDS"));
-                state.State = VmState.Ended;
+                state.Execution.State = VmState.Ended;
                 break;
             }
-            if (state.ProgramCounter >= _instructions.Count) break;
+            if (state.Execution.ProgramCounter >= _instructions.Count) break;
 
             // T20: Autosave at chapter label start
-            if (_labelAddresses.Contains(state.ProgramCounter))
+            if (_labelAddresses.Contains(state.Execution.ProgramCounter))
             {
                 if (TryGetCurrentLabelAndOffset(out string labelName, out int offset) && offset == 0 &&
                     labelName.StartsWith("chapter", StringComparison.OrdinalIgnoreCase))
@@ -399,9 +400,9 @@ namespace AriaEngine.Core;
                 }
             }
 
-            var inst = _instructions[state.ProgramCounter];
-            state.ProgramCounter++;
-            state.CurrentInstructionWasRead = IsInstructionRead(inst);
+            var inst = _instructions[state.Execution.ProgramCounter];
+            state.Execution.ProgramCounter++;
+            state.TextRuntime.CurrentInstructionWasRead = IsInstructionRead(inst);
             MarkInstructionRead(inst);
 
             try
@@ -420,83 +421,83 @@ namespace AriaEngine.Core;
             executed++;
         }
 
-        if (state.State == VmState.Running && state.ProgramCounter >= _instructions.Count)
+        if (state.Execution.State == VmState.Running && state.Execution.ProgramCounter >= _instructions.Count)
         {
-            state.State = VmState.Ended;
+            state.Execution.State = VmState.Ended;
         }
     }
 
     public void Update(float deltaTimeMs)
     {
-        if (State.QuakeTimerMs > 0f)
+        if (State.Render.QuakeTimerMs > 0f)
         {
-            State.QuakeTimerMs = Math.Max(0f, State.QuakeTimerMs - deltaTimeMs);
-            if (State.QuakeTimerMs <= 0f) State.QuakeAmplitude = 0;
+            State.Render.QuakeTimerMs = Math.Max(0f, State.Render.QuakeTimerMs - deltaTimeMs);
+            if (State.Render.QuakeTimerMs <= 0f) State.Render.QuakeAmplitude = 0;
         }
 
-        if (State.ScreenTintTimerMs > 0f)
+        if (State.Render.ScreenTintTimerMs > 0f)
         {
-            State.ScreenTintTimerMs = Math.Max(0f, State.ScreenTintTimerMs - deltaTimeMs);
-            if (State.ScreenTintTimerMs <= 0f && State.ScreenTintOpacity > 0f)
+            State.Render.ScreenTintTimerMs = Math.Max(0f, State.Render.ScreenTintTimerMs - deltaTimeMs);
+            if (State.Render.ScreenTintTimerMs <= 0f && State.Render.ScreenTintOpacity > 0f)
             {
-                State.ScreenTintOpacity = 0f;
-                State.ActiveEffects.RemoveAll(e => e.StartsWith("screen:", StringComparison.OrdinalIgnoreCase));
+                State.Render.ScreenTintOpacity = 0f;
+                State.Render.ActiveEffects.RemoveAll(e => e.StartsWith("screen:", StringComparison.OrdinalIgnoreCase));
             }
         }
 
         // Typewriter effect tracking
-        if (State.TextSpeedMs > 0 && State.DisplayedTextLength < State.CurrentTextBuffer.Length)
+        if (State.TextRuntime.TextSpeedMs > 0 && State.TextRuntime.DisplayedTextLength < State.TextRuntime.CurrentTextBuffer.Length)
         {
-            State.TextTimerMs += deltaTimeMs;
-            while (State.TextTimerMs >= State.TextSpeedMs && State.DisplayedTextLength < State.CurrentTextBuffer.Length)
+            State.TextRuntime.TextTimerMs += deltaTimeMs;
+            while (State.TextRuntime.TextTimerMs >= State.TextRuntime.TextSpeedMs && State.TextRuntime.DisplayedTextLength < State.TextRuntime.CurrentTextBuffer.Length)
             {
-                State.TextTimerMs -= State.TextSpeedMs;
-                State.DisplayedTextLength++;
+                State.TextRuntime.TextTimerMs -= State.TextRuntime.TextSpeedMs;
+                State.TextRuntime.DisplayedTextLength++;
             }
 
-            if (State.Sprites.TryGetValue(State.TextTargetSpriteId, out var txtSprite))
+            if (State.Render.Sprites.TryGetValue(State.TextWindow.TextTargetSpriteId, out var txtSprite))
             {
-                int length = Math.Clamp(State.DisplayedTextLength, 0, State.CurrentTextBuffer.Length);
-                txtSprite.Text = State.CurrentTextBuffer.Substring(0, length);
+                int length = Math.Clamp(State.TextRuntime.DisplayedTextLength, 0, State.TextRuntime.CurrentTextBuffer.Length);
+                txtSprite.Text = State.TextRuntime.CurrentTextBuffer.Substring(0, length);
             }
 
-            if (State.DisplayedTextLength >= State.CurrentTextBuffer.Length && State.State == VmState.WaitingForAnimation)
+            if (State.TextRuntime.DisplayedTextLength >= State.TextRuntime.CurrentTextBuffer.Length && State.Execution.State == VmState.WaitingForAnimation)
             {
                 if (!HasBlockingEffect())
                 {
-                    State.State = VmState.Running; // Resume script
+                    State.Execution.State = VmState.Running; // Resume script
                 }
             }
         }
 
-        if (State.State == VmState.WaitingForDelay)
+        if (State.Execution.State == VmState.WaitingForDelay)
         {
-            State.DelayTimerMs -= deltaTimeMs;
-            if (State.DelayTimerMs <= 0) State.State = VmState.Running;
+            State.Execution.DelayTimerMs -= deltaTimeMs;
+            if (State.Execution.DelayTimerMs <= 0) State.Execution.State = VmState.Running;
         }
 
-        if (State.State == VmState.WaitingForClick && State.AutoMode)
+        if (State.Execution.State == VmState.WaitingForClick && State.Playback.AutoMode)
         {
-            State.AutoModeTimerMs += deltaTimeMs;
-            if (State.AutoModeTimerMs >= State.AutoModeWaitTimeMs)
+            State.Playback.AutoModeTimerMs += deltaTimeMs;
+            if (State.Playback.AutoModeTimerMs >= State.Playback.AutoModeWaitTimeMs)
             {
-                State.AutoModeTimerMs = 0;
+                State.Playback.AutoModeTimerMs = 0;
                 ResumeFromClick();
             }
         }
 
         // Tween/画面効果完了チェック: awaitで止まっているとき、効果が終わったらRunningに戻す
-        if (State.State == VmState.WaitingForAnimation && !HasBlockingEffect())
+        if (State.Execution.State == VmState.WaitingForAnimation && !HasBlockingEffect())
         {
             // タイプライター中でもなければ復帰
-            bool typewriterActive = State.TextSpeedMs > 0 && State.DisplayedTextLength < State.CurrentTextBuffer.Length;
+            bool typewriterActive = State.TextRuntime.TextSpeedMs > 0 && State.TextRuntime.DisplayedTextLength < State.TextRuntime.CurrentTextBuffer.Length;
             if (!typewriterActive)
             {
-                State.State = VmState.Running;
+                State.Execution.State = VmState.Running;
             }
         }
         
-        State.ScriptTimerMs += deltaTimeMs;
+        State.Execution.ScriptTimerMs += deltaTimeMs;
         if (_persistentDirty)
         {
             _persistentSaveTimerMs += deltaTimeMs;
@@ -573,8 +574,8 @@ namespace AriaEngine.Core;
     }
     private void MarkInstructionRead(Instruction inst)
     {
-        if (!State.KidokuMode) return;
-        if (State.ReadKeys.Add(_currentReadKeyPrefix + inst.SourceLine))
+        if (!State.TextRuntime.KidokuMode) return;
+        if (State.TextRuntime.ReadKeys.Add(_currentReadKeyPrefix + inst.SourceLine))
         {
             MarkPersistentDirty();
         }
@@ -582,7 +583,7 @@ namespace AriaEngine.Core;
 
     private bool IsInstructionRead(Instruction inst)
     {
-        return State.ReadKeys.Contains(_currentReadKeyPrefix + inst.SourceLine);
+        return State.TextRuntime.ReadKeys.Contains(_currentReadKeyPrefix + inst.SourceLine);
     }
 
     internal void MarkPersistentDirty()
@@ -592,22 +593,22 @@ namespace AriaEngine.Core;
 
     public void SavePersistentState()
     {
-        Config.Config.GlobalTextSpeedMs = State.TextSpeedMs;
-        Config.Config.BgmVolume = State.BgmVolume;
-        Config.Config.SeVolume = State.SeVolume;
-        Config.Config.SkipUnread = State.SkipUnread;
-        Config.Config.AutoModeWaitTimeMs = State.AutoModeWaitTimeMs;
+        Config.Config.GlobalTextSpeedMs = State.TextRuntime.TextSpeedMs;
+        Config.Config.BgmVolume = State.Audio.BgmVolume;
+        Config.Config.SeVolume = State.Audio.SeVolume;
+        Config.Config.SkipUnread = State.Playback.SkipUnread;
+        Config.Config.AutoModeWaitTimeMs = State.Playback.AutoModeWaitTimeMs;
         Config.SavePersistentGameData(new PersistentGameData
         {
-            SkipUnread = State.SkipUnread,
-            Registers = State.Registers
+            SkipUnread = State.Playback.SkipUnread,
+            Registers = State.RegisterState.Registers
                 .Where(pair => RegisterStoragePolicy.IsPersistent(pair.Key))
                 .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
-            Flags = new Dictionary<string, bool>(State.Flags, StringComparer.OrdinalIgnoreCase),
-            SaveFlags = new Dictionary<string, bool>(State.SaveFlags, StringComparer.OrdinalIgnoreCase),
-            Counters = new Dictionary<string, int>(State.Counters, StringComparer.OrdinalIgnoreCase),
-            ReadKeys = State.ReadKeys.ToList(),
-            UnlockedCgs = State.UnlockedCgs.ToList()
+            Flags = new Dictionary<string, bool>(State.FlagRuntime.Flags, StringComparer.OrdinalIgnoreCase),
+            SaveFlags = new Dictionary<string, bool>(State.FlagRuntime.SaveFlags, StringComparer.OrdinalIgnoreCase),
+            Counters = new Dictionary<string, int>(State.FlagRuntime.Counters, StringComparer.OrdinalIgnoreCase),
+            ReadKeys = State.TextRuntime.ReadKeys.ToList(),
+            UnlockedCgs = State.FlagRuntime.UnlockedCgs.ToList()
         });
         Config.Save();
         _persistentDirty = false;
@@ -616,28 +617,28 @@ namespace AriaEngine.Core;
 
     internal void AddBacklogEntry()
     {
-        if (!State.BacklogEnabled) return;
-        string text = State.CurrentTextBuffer.Trim();
+        if (!State.TextRuntime.BacklogEnabled) return;
+        string text = State.TextRuntime.CurrentTextBuffer.Trim();
         if (string.IsNullOrWhiteSpace(text)) return;
-        if (State.TextHistory.Count == 0 || State.TextHistory[^1].Text != text)
+        if (State.TextRuntime.TextHistory.Count == 0 || State.TextRuntime.TextHistory[^1].Text != text)
         {
             var entry = new BacklogEntry
             {
                 Text = text,
-                VoicePath = string.IsNullOrEmpty(State.LastVoicePath) ? null : State.LastVoicePath,
-                ProgramCounter = State.ProgramCounter,
+                VoicePath = string.IsNullOrEmpty(State.Audio.LastVoicePath) ? null : State.Audio.LastVoicePath,
+                ProgramCounter = State.Execution.ProgramCounter,
                 IsRead = false,
                 Timestamp = DateTime.Now,
                 StateSnapshot = CaptureBacklogSnapshot()
             };
-            State.TextHistory.Add(entry);
-            State.LastVoicePath = "";
+            State.TextRuntime.TextHistory.Add(entry);
+            State.Audio.LastVoicePath = "";
             const int maxTextHistory = 300;
-            if (State.TextHistory.Count > maxTextHistory)
+            if (State.TextRuntime.TextHistory.Count > maxTextHistory)
             {
-                int removeCount = State.TextHistory.Count - maxTextHistory;
-                State.TextHistory.RemoveRange(0, removeCount);
-                State.TextHistoryStartNumber += removeCount;
+                int removeCount = State.TextRuntime.TextHistory.Count - maxTextHistory;
+                State.TextRuntime.TextHistory.RemoveRange(0, removeCount);
+                State.TextRuntime.TextHistoryStartNumber += removeCount;
             }
         }
     }
@@ -645,7 +646,7 @@ namespace AriaEngine.Core;
     private BacklogStateSnapshot CaptureBacklogSnapshot()
     {
         var sprites = new FastSpriteDictionary();
-        foreach (var kvp in State.Sprites)
+        foreach (var kvp in State.Render.Sprites)
         {
             sprites[kvp.Key] = new Sprite
             {
@@ -703,15 +704,15 @@ namespace AriaEngine.Core;
 
         return new BacklogStateSnapshot
         {
-            Registers = new Dictionary<string, int>(State.Registers, StringComparer.OrdinalIgnoreCase),
-            StringRegisters = new Dictionary<string, string>(State.StringRegisters, StringComparer.OrdinalIgnoreCase),
-            Flags = new Dictionary<string, bool>(State.Flags),
-            SaveFlags = new Dictionary<string, bool>(State.SaveFlags),
-            Counters = new Dictionary<string, int>(State.Counters, StringComparer.OrdinalIgnoreCase),
+            Registers = new Dictionary<string, int>(State.RegisterState.Registers, StringComparer.OrdinalIgnoreCase),
+            StringRegisters = new Dictionary<string, string>(State.RegisterState.StringRegisters, StringComparer.OrdinalIgnoreCase),
+            Flags = new Dictionary<string, bool>(State.FlagRuntime.Flags),
+            SaveFlags = new Dictionary<string, bool>(State.FlagRuntime.SaveFlags),
+            Counters = new Dictionary<string, int>(State.FlagRuntime.Counters, StringComparer.OrdinalIgnoreCase),
             Sprites = sprites,
-            CurrentBgm = State.CurrentBgm,
-            BgmVolume = State.BgmVolume,
-            SeVolume = State.SeVolume
+            CurrentBgm = State.Audio.CurrentBgm,
+            BgmVolume = State.Audio.BgmVolume,
+            SeVolume = State.Audio.SeVolume
         };
     }
 
@@ -763,7 +764,7 @@ namespace AriaEngine.Core;
         string name = RegisterStoragePolicy.Normalize(reg);
         
         // ref マッピングを解決
-        if (State.CurrentRefMap.TryGetValue(name, out string? originalReg))
+        if (State.Execution.CurrentRefMap.TryGetValue(name, out string? originalReg))
         {
             name = RegisterStoragePolicy.Normalize(originalReg);
             SetGlobalReg(name, val);
@@ -771,9 +772,9 @@ namespace AriaEngine.Core;
         }
         
         // ローカルスコープ優先
-        if (State.LocalIntStacks.Count > 0)
+        if (State.Execution.LocalIntStacks.Count > 0)
         {
-            State.LocalIntStacks.Peek()[name] = val;
+            State.Execution.LocalIntStacks.Peek()[name] = val;
             return;
         }
         
@@ -783,7 +784,7 @@ namespace AriaEngine.Core;
             _fastRegisters[name[0] - '0'] = val;
         }
         
-        State.Registers[name] = val;
+        State.RegisterState.Registers[name] = val;
         if (RegisterStoragePolicy.IsPersistent(name))
         {
             MarkPersistentDirty();
@@ -797,7 +798,7 @@ namespace AriaEngine.Core;
             _fastRegisters[name[0] - '0'] = val;
         }
 
-        State.Registers[name] = val;
+        State.RegisterState.Registers[name] = val;
         if (RegisterStoragePolicy.IsPersistent(name))
         {
             MarkPersistentDirty();
@@ -814,13 +815,13 @@ namespace AriaEngine.Core;
         string normalized = reg.TrimStart('%');
         
         // ref マッピングを解決
-        if (State.CurrentRefMap.TryGetValue(normalized, out string? originalReg))
+        if (State.Execution.CurrentRefMap.TryGetValue(normalized, out string? originalReg))
         {
             normalized = RegisterStoragePolicy.Normalize(originalReg);
         }
         
         // ローカルスコープ優先
-        if (State.LocalIntStacks.Count > 0 && State.LocalIntStacks.Peek().TryGetValue(normalized, out int localVal))
+        if (State.Execution.LocalIntStacks.Count > 0 && State.Execution.LocalIntStacks.Peek().TryGetValue(normalized, out int localVal))
         {
             return localVal;
         }
@@ -831,7 +832,7 @@ namespace AriaEngine.Core;
             return _fastRegisters[normalized[0] - '0'];
         }
         
-        return State.Registers.TryGetValue(normalized, out int v) ? v : 0;
+        return State.RegisterState.Registers.TryGetValue(normalized, out int v) ? v : 0;
     }
     
     internal int GetVal(string valStr)
@@ -885,7 +886,7 @@ namespace AriaEngine.Core;
 
     private bool HasBlockingEffect()
     {
-        return Tweens.IsAnimating || State.ScreenTintTimerMs > 0f || State.QuakeTimerMs > 0f;
+        return Tweens.IsAnimating || State.Render.ScreenTintTimerMs > 0f || State.Render.QuakeTimerMs > 0f;
     }
 
     internal float GetFloat(string valStr, Instruction? inst = null, float fallback = 0f)
@@ -901,7 +902,7 @@ namespace AriaEngine.Core;
         }
 
         int regValue = GetReg(valStr);
-        if (regValue != 0 || State.Registers.ContainsKey(RegisterStoragePolicy.Normalize(valStr)))
+        if (regValue != 0 || State.RegisterState.Registers.ContainsKey(RegisterStoragePolicy.Normalize(valStr)))
         {
             return regValue;
         }
@@ -922,12 +923,12 @@ namespace AriaEngine.Core;
     internal void SetStr(string reg, string val)
     {
         string key = reg.TrimStart('$');
-        if (State.LocalStringStacks.Count > 0)
+        if (State.Execution.LocalStringStacks.Count > 0)
         {
-            State.LocalStringStacks.Peek()[key] = val;
+            State.Execution.LocalStringStacks.Peek()[key] = val;
             return;
         }
-        State.StringRegisters[key] = val;
+        State.RegisterState.StringRegisters[key] = val;
     }
 
     // Public API to set a global (bypass local scopes) integer register
@@ -935,12 +936,12 @@ namespace AriaEngine.Core;
     {
         string name = RegisterStoragePolicy.Normalize(reg);
         // Respect ref aliasing similar to SetReg
-        if (State.CurrentRefMap.TryGetValue(name, out string? originalReg))
+        if (State.Execution.CurrentRefMap.TryGetValue(name, out string? originalReg))
         {
             name = RegisterStoragePolicy.Normalize(originalReg);
         }
         // Write directly to global registers (bypass LocalIntStacks)
-        State.Registers[name] = value;
+        State.RegisterState.Registers[name] = value;
         if (RegisterStoragePolicy.IsPersistent(name))
         {
             MarkPersistentDirty();
@@ -951,12 +952,12 @@ namespace AriaEngine.Core;
     public void SetGlobalString(string reg, string value)
     {
         string key = reg.TrimStart('$');
-        if (State.LocalStringStacks.Count > 0)
+        if (State.Execution.LocalStringStacks.Count > 0)
         {
-            State.LocalStringStacks.Peek()[key] = value;
+            State.Execution.LocalStringStacks.Peek()[key] = value;
             return;
         }
-        State.StringRegisters[key] = value;
+        State.RegisterState.StringRegisters[key] = value;
     }
 
     /// <summary>
@@ -967,11 +968,11 @@ namespace AriaEngine.Core;
         if (valStr.StartsWith("$"))
         {
             string key = valStr.TrimStart('$');
-            if (State.LocalStringStacks.Count > 0 && State.LocalStringStacks.Peek().TryGetValue(key, out string? localVal))
+            if (State.Execution.LocalStringStacks.Count > 0 && State.Execution.LocalStringStacks.Peek().TryGetValue(key, out string? localVal))
             {
                 return localVal ?? "";
             }
-            return State.StringRegisters.TryGetValue(key, out string? v) ? (v ?? "") : "";
+            return State.RegisterState.StringRegisters.TryGetValue(key, out string? v) ? (v ?? "") : "";
         }
 
         // 文字列補間 ${...} の処理
@@ -985,11 +986,11 @@ namespace AriaEngine.Core;
                 if (inner.StartsWith("$"))
                 {
                     string key = inner.TrimStart('$');
-                    if (State.LocalStringStacks.Count > 0 && State.LocalStringStacks.Peek().TryGetValue(key, out string? localValue))
+                    if (State.Execution.LocalStringStacks.Count > 0 && State.Execution.LocalStringStacks.Peek().TryGetValue(key, out string? localValue))
                     {
                         return localValue ?? "";
                     }
-                    return State.StringRegisters.TryGetValue(key, out string? sv) ? (sv ?? "") : "";
+                    return State.RegisterState.StringRegisters.TryGetValue(key, out string? sv) ? (sv ?? "") : "";
                 }
 
                 // ${%name} または ${%0} → 整数レジスタを文字列化
@@ -1093,19 +1094,19 @@ namespace AriaEngine.Core;
         {
             case "close":
             case "end":
-                State.ShowSystemCloseButton = visible;
+                State.MenuRuntime.ShowSystemCloseButton = visible;
                 break;
             case "reset":
-                State.ShowSystemResetButton = visible;
+                State.MenuRuntime.ShowSystemResetButton = visible;
                 break;
             case "skip":
-                State.ShowSystemSkipButton = visible;
+                State.MenuRuntime.ShowSystemSkipButton = visible;
                 break;
             case "save":
-                State.ShowSystemSaveButton = visible;
+                State.MenuRuntime.ShowSystemSaveButton = visible;
                 break;
             case "load":
-                State.ShowSystemLoadButton = visible;
+                State.MenuRuntime.ShowSystemLoadButton = visible;
                 break;
         }
     }
@@ -1115,7 +1116,7 @@ namespace AriaEngine.Core;
     /// </summary>
     public bool TryGetCurrentLabelAndOffset(out string labelName, out int offset)
     {
-        int pc = State.ProgramCounter;
+        int pc = State.Execution.ProgramCounter;
         labelName = "";
         offset = 0;
         int bestPc = -1;
@@ -1137,7 +1138,7 @@ namespace AriaEngine.Core;
     public void JumpTo(string labelNameArg)
     {
         string label = labelNameArg.TrimStart('*');
-        if (_labels.TryGetValue(label, out int pc)) State.ProgramCounter = pc;
+        if (_labels.TryGetValue(label, out int pc)) State.Execution.ProgramCounter = pc;
         else
         {
             _reporter.Report(new AriaError(
@@ -1157,34 +1158,34 @@ namespace AriaEngine.Core;
     {
         if (entry.StateSnapshot != null)
         {
-            State.Registers = new Dictionary<string, int>(entry.StateSnapshot.Registers, StringComparer.OrdinalIgnoreCase);
-            State.StringRegisters = new Dictionary<string, string>(entry.StateSnapshot.StringRegisters, StringComparer.OrdinalIgnoreCase);
-            State.Flags = new Dictionary<string, bool>(entry.StateSnapshot.Flags);
-            State.SaveFlags = new Dictionary<string, bool>(entry.StateSnapshot.SaveFlags);
-            State.Counters = new Dictionary<string, int>(entry.StateSnapshot.Counters, StringComparer.OrdinalIgnoreCase);
-            State.Sprites = entry.StateSnapshot.Sprites;
-            State.CurrentBgm = entry.StateSnapshot.CurrentBgm;
-            State.BgmVolume = entry.StateSnapshot.BgmVolume;
-            State.SeVolume = entry.StateSnapshot.SeVolume;
+            State.RegisterState.Registers = new Dictionary<string, int>(entry.StateSnapshot.Registers, StringComparer.OrdinalIgnoreCase);
+            State.RegisterState.StringRegisters = new Dictionary<string, string>(entry.StateSnapshot.StringRegisters, StringComparer.OrdinalIgnoreCase);
+            State.FlagRuntime.Flags = new Dictionary<string, bool>(entry.StateSnapshot.Flags);
+            State.FlagRuntime.SaveFlags = new Dictionary<string, bool>(entry.StateSnapshot.SaveFlags);
+            State.FlagRuntime.Counters = new Dictionary<string, int>(entry.StateSnapshot.Counters, StringComparer.OrdinalIgnoreCase);
+            State.Render.Sprites = entry.StateSnapshot.Sprites;
+            State.Audio.CurrentBgm = entry.StateSnapshot.CurrentBgm;
+            State.Audio.BgmVolume = entry.StateSnapshot.BgmVolume;
+            State.Audio.SeVolume = entry.StateSnapshot.SeVolume;
         }
 
-        State.ProgramCounter = entry.ProgramCounter;
-        State.CurrentTextBuffer = entry.Text;
-        State.DisplayedTextLength = entry.Text.Length;
-        State.IsWaitingPageClear = false;
-        State.State = VmState.Running;
+        State.Execution.ProgramCounter = entry.ProgramCounter;
+        State.TextRuntime.CurrentTextBuffer = entry.Text;
+        State.TextRuntime.DisplayedTextLength = entry.Text.Length;
+        State.TextRuntime.IsWaitingPageClear = false;
+        State.Execution.State = VmState.Running;
         Menu.CloseMenu();
     }
 
     internal void ReturnFromSubroutine()
     {
-        if (State.CallStack.Count > 0)
+        if (State.Execution.CallStack.Count > 0)
         {
-            State.ProgramCounter = State.CallStack.Pop();
+            State.Execution.ProgramCounter = State.Execution.CallStack.Pop();
         }
-        else if (State.ProgramCounter >= _instructions.Count)
+        else if (State.Execution.ProgramCounter >= _instructions.Count)
         {
-            State.State = VmState.Ended;
+            State.Execution.State = VmState.Ended;
         }
     }
 
@@ -1193,9 +1194,9 @@ namespace AriaEngine.Core;
     /// </summary>
     internal void PushFunctionScope()
     {
-        State.LocalIntStacks.Push(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
-        State.LocalStringStacks.Push(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
-        State.SpriteLifetimeStacks.Push(new HashSet<int>());
+        State.Execution.LocalIntStacks.Push(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+        State.Execution.LocalStringStacks.Push(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+        State.Execution.SpriteLifetimeStacks.Push(new HashSet<int>());
     }
 
     /// <summary>
@@ -1203,18 +1204,18 @@ namespace AriaEngine.Core;
     /// </summary>
     internal void PopFunctionScope()
     {
-        if (State.SpriteLifetimeStacks.Count > 0)
+        if (State.Execution.SpriteLifetimeStacks.Count > 0)
         {
-            var spritesToRemove = State.SpriteLifetimeStacks.Pop();
+            var spritesToRemove = State.Execution.SpriteLifetimeStacks.Pop();
             foreach (int spriteId in spritesToRemove)
             {
-                State.Sprites.Remove(spriteId);
+                State.Render.Sprites.Remove(spriteId);
             }
         }
-        if (State.LocalStringStacks.Count > 0)
-            State.LocalStringStacks.Pop();
-        if (State.LocalIntStacks.Count > 0)
-            State.LocalIntStacks.Pop();
+        if (State.Execution.LocalStringStacks.Count > 0)
+            State.Execution.LocalStringStacks.Pop();
+        if (State.Execution.LocalIntStacks.Count > 0)
+            State.Execution.LocalIntStacks.Pop();
     }
 
     /// <summary>
@@ -1225,9 +1226,9 @@ namespace AriaEngine.Core;
         string label = labelName.TrimStart('*');
         if (_labels.TryGetValue(label, out int pc))
         {
-            State.CallStack.Push(State.ProgramCounter);
-            State.ProgramCounter = pc;
-            State.State = VmState.Running;
+            State.Execution.CallStack.Push(State.Execution.ProgramCounter);
+            State.Execution.ProgramCounter = pc;
+            State.Execution.State = VmState.Running;
         }
         else
         {
@@ -1246,27 +1247,27 @@ namespace AriaEngine.Core;
     /// </summary>
     public void QuitGame()
     {
-        State.State = VmState.Ended;
-        State.RequestClose = true;
+        State.Execution.State = VmState.Ended;
+        State.UiRuntime.RequestClose = true;
     }
 
     public void ResetGame()
     {
-        State.Sprites.Clear();
-        State.SpriteButtonMap.Clear();
-        State.FocusedButtonId = -1;
-        State.CurrentTextBuffer = "";
-        State.DisplayedTextLength = 0;
-        State.State = VmState.Running;
+        State.Render.Sprites.Clear();
+        State.Interaction.SpriteButtonMap.Clear();
+        State.Interaction.FocusedButtonId = -1;
+        State.TextRuntime.CurrentTextBuffer = "";
+        State.TextRuntime.DisplayedTextLength = 0;
+        State.Execution.State = VmState.Running;
 
         if (_labels.ContainsKey("start")) JumpTo("*start");
         else if (_labels.ContainsKey("title_start")) JumpTo("*title_start");
-        else State.ProgramCounter = 0;
+        else State.Execution.ProgramCounter = 0;
     }
 
     public void ToggleSkip()
     {
-        State.SkipMode = !State.SkipMode;
+        State.Playback.SkipMode = !State.Playback.SkipMode;
     }
 
     public void ToggleFullscreen()
@@ -1294,8 +1295,8 @@ namespace AriaEngine.Core;
 
     public void StopSkip()
     {
-        State.SkipMode = false;
-        State.ForceSkipMode = false;
+        State.Playback.SkipMode = false;
+        State.Playback.ForceSkipMode = false;
     }
 
     public void FinishAllTweens()
@@ -1338,12 +1339,12 @@ namespace AriaEngine.Core;
 
     private void CompleteCurrentText()
     {
-        State.DisplayedTextLength = State.CurrentTextBuffer.Length;
-        if (State.TextTargetSpriteId >= 0 &&
-            State.Sprites.TryGetValue(State.TextTargetSpriteId, out var textSprite) &&
+        State.TextRuntime.DisplayedTextLength = State.TextRuntime.CurrentTextBuffer.Length;
+        if (State.TextWindow.TextTargetSpriteId >= 0 &&
+            State.Render.Sprites.TryGetValue(State.TextWindow.TextTargetSpriteId, out var textSprite) &&
             textSprite.Type == SpriteType.Text)
         {
-            textSprite.Text = State.CurrentTextBuffer;
+            textSprite.Text = State.TextRuntime.CurrentTextBuffer;
         }
     }
 
@@ -1421,23 +1422,23 @@ namespace AriaEngine.Core;
 
     private void NormalizeLoadedUiState()
     {
-        if (State.TextboxBackgroundSpriteId >= 0 && !State.Sprites.ContainsKey(State.TextboxBackgroundSpriteId))
+        if (State.TextWindow.TextboxBackgroundSpriteId >= 0 && !State.Render.Sprites.ContainsKey(State.TextWindow.TextboxBackgroundSpriteId))
         {
-            State.TextboxBackgroundSpriteId = -1;
+            State.TextWindow.TextboxBackgroundSpriteId = -1;
         }
 
-        if (State.TextTargetSpriteId >= 0 && !State.Sprites.ContainsKey(State.TextTargetSpriteId))
+        if (State.TextWindow.TextTargetSpriteId >= 0 && !State.Render.Sprites.ContainsKey(State.TextWindow.TextTargetSpriteId))
         {
-            State.TextTargetSpriteId = -1;
+            State.TextWindow.TextTargetSpriteId = -1;
         }
 
-        foreach (var sprite in State.Sprites.Values)
+        foreach (var sprite in State.Render.Sprites.Values)
         {
             sprite.IsHovered = false;
         }
 
-        State.SpriteButtonMap = State.SpriteButtonMap
-            .Where(pair => State.Sprites.TryGetValue(pair.Key, out var sprite) && sprite.IsButton)
+        State.Interaction.SpriteButtonMap = State.Interaction.SpriteButtonMap
+            .Where(pair => State.Render.Sprites.TryGetValue(pair.Key, out var sprite) && sprite.IsButton)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
         NormalizeRuntimeTextSprites();
@@ -1452,52 +1453,52 @@ namespace AriaEngine.Core;
 
     private void NormalizeRuntimeTextSprites()
     {
-        if (!State.CompatAutoUi || State.UseManualTextLayout) return;
+        if (!State.TextWindow.CompatAutoUi || State.TextWindow.UseManualTextLayout) return;
 
-        if (State.TextboxBackgroundSpriteId >= 0 &&
-            State.Sprites.TryGetValue(State.TextboxBackgroundSpriteId, out var bg) &&
+        if (State.TextWindow.TextboxBackgroundSpriteId >= 0 &&
+            State.Render.Sprites.TryGetValue(State.TextWindow.TextboxBackgroundSpriteId, out var bg) &&
             bg.Type == SpriteType.Rect)
         {
-            bg.X = State.DefaultTextboxX;
-            bg.Y = State.DefaultTextboxY;
-            bg.Width = State.DefaultTextboxW;
-            bg.Height = State.DefaultTextboxH;
-            bg.FillColor = State.DefaultTextboxBgColor;
-            bg.FillAlpha = State.DefaultTextboxBgAlpha;
-            bg.CornerRadius = State.DefaultTextboxCornerRadius;
-            bg.BorderColor = State.DefaultTextboxBorderColor;
-            bg.BorderWidth = State.DefaultTextboxBorderWidth;
-            bg.BorderOpacity = State.DefaultTextboxBorderOpacity;
-            bg.ShadowColor = State.DefaultTextboxShadowColor;
-            bg.ShadowOffsetX = State.DefaultTextboxShadowOffsetX;
-            bg.ShadowOffsetY = State.DefaultTextboxShadowOffsetY;
-            bg.ShadowAlpha = State.DefaultTextboxShadowAlpha;
-            bg.Visible = State.TextboxVisible;
+            bg.X = State.TextWindow.DefaultTextboxX;
+            bg.Y = State.TextWindow.DefaultTextboxY;
+            bg.Width = State.TextWindow.DefaultTextboxW;
+            bg.Height = State.TextWindow.DefaultTextboxH;
+            bg.FillColor = State.TextWindow.DefaultTextboxBgColor;
+            bg.FillAlpha = State.TextWindow.DefaultTextboxBgAlpha;
+            bg.CornerRadius = State.TextWindow.DefaultTextboxCornerRadius;
+            bg.BorderColor = State.TextWindow.DefaultTextboxBorderColor;
+            bg.BorderWidth = State.TextWindow.DefaultTextboxBorderWidth;
+            bg.BorderOpacity = State.TextWindow.DefaultTextboxBorderOpacity;
+            bg.ShadowColor = State.TextWindow.DefaultTextboxShadowColor;
+            bg.ShadowOffsetX = State.TextWindow.DefaultTextboxShadowOffsetX;
+            bg.ShadowOffsetY = State.TextWindow.DefaultTextboxShadowOffsetY;
+            bg.ShadowAlpha = State.TextWindow.DefaultTextboxShadowAlpha;
+            bg.Visible = State.TextWindow.TextboxVisible;
             bg.Z = 9000;
         }
 
-        if (State.TextTargetSpriteId >= 0 &&
-            State.Sprites.TryGetValue(State.TextTargetSpriteId, out var text) &&
+        if (State.TextWindow.TextTargetSpriteId >= 0 &&
+            State.Render.Sprites.TryGetValue(State.TextWindow.TextTargetSpriteId, out var text) &&
             text.Type == SpriteType.Text)
         {
-            text.X = State.DefaultTextboxX + State.DefaultTextboxPaddingX;
-            text.Y = State.DefaultTextboxY + State.DefaultTextboxPaddingY;
-            text.Width = Math.Max(0, State.DefaultTextboxW - (State.DefaultTextboxPaddingX * 2));
-            text.Height = Math.Max(0, State.DefaultTextboxH - (State.DefaultTextboxPaddingY * 2));
-            text.FontSize = State.DefaultFontSize;
-            text.Color = State.DefaultTextColor;
-            text.TextShadowColor = State.DefaultTextShadowColor;
-            text.TextShadowX = State.DefaultTextShadowX;
-            text.TextShadowY = State.DefaultTextShadowY;
-            text.TextOutlineColor = State.DefaultTextOutlineColor;
-            text.TextOutlineSize = State.DefaultTextOutlineSize;
-            text.TextEffect = State.DefaultTextEffect;
-            text.TextEffectStrength = State.DefaultTextEffectStrength;
-            text.TextEffectSpeed = State.DefaultTextEffectSpeed;
-            text.Visible = State.TextboxVisible;
+            text.X = State.TextWindow.DefaultTextboxX + State.TextWindow.DefaultTextboxPaddingX;
+            text.Y = State.TextWindow.DefaultTextboxY + State.TextWindow.DefaultTextboxPaddingY;
+            text.Width = Math.Max(0, State.TextWindow.DefaultTextboxW - (State.TextWindow.DefaultTextboxPaddingX * 2));
+            text.Height = Math.Max(0, State.TextWindow.DefaultTextboxH - (State.TextWindow.DefaultTextboxPaddingY * 2));
+            text.FontSize = State.TextWindow.DefaultFontSize;
+            text.Color = State.TextWindow.DefaultTextColor;
+            text.TextShadowColor = State.TextRuntime.DefaultTextShadowColor;
+            text.TextShadowX = State.TextRuntime.DefaultTextShadowX;
+            text.TextShadowY = State.TextRuntime.DefaultTextShadowY;
+            text.TextOutlineColor = State.TextRuntime.DefaultTextOutlineColor;
+            text.TextOutlineSize = State.TextRuntime.DefaultTextOutlineSize;
+            text.TextEffect = State.TextRuntime.DefaultTextEffect;
+            text.TextEffectStrength = State.TextRuntime.DefaultTextEffectStrength;
+            text.TextEffectSpeed = State.TextRuntime.DefaultTextEffectSpeed;
+            text.Visible = State.TextWindow.TextboxVisible;
             text.Z = 9001;
-            int length = Math.Clamp(State.DisplayedTextLength, 0, State.CurrentTextBuffer.Length);
-            text.Text = State.CurrentTextBuffer.Substring(0, length);
+            int length = Math.Clamp(State.TextRuntime.DisplayedTextLength, 0, State.TextRuntime.CurrentTextBuffer.Length);
+            text.Text = State.TextRuntime.CurrentTextBuffer.Substring(0, length);
         }
     }
 }

@@ -2,6 +2,10 @@ namespace AriaEngine.Core;
 
 public enum SpriteType { Image, Text, Rect }
 
+public enum TextAlignment { Left, Center, Right }
+
+public enum TextVerticalAlignment { Top = 0, Center = 1, Middle = 1, Bottom = 2 }
+
 public class Sprite
 {
     public int Id { get; set; }
@@ -31,8 +35,8 @@ public class Sprite
     public string Text { get; set; } = "";
     public int FontSize { get; set; } = 26;
     public string Color { get; set; } = "#ffffff";
-    public string TextAlign { get; set; } = "left"; // "left", "center", "right"
-    public string TextVAlign { get; set; } = "top"; // "top", "center", "bottom"
+    public TextAlignment TextAlign { get; set; } = TextAlignment.Left;
+    public TextVerticalAlignment TextVAlign { get; set; } = TextVerticalAlignment.Top;
     
     // Text decoration
     public string TextShadowColor { get; set; } = "";
