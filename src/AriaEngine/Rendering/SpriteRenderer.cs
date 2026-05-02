@@ -407,17 +407,47 @@ public class SpriteRenderer
 
             if (state.EngineSettings.DebugMode)
             {
+#if DEBUG
                 DrawDebugInfo(state);
+#endif
             }
         }
     }
 
     private void DrawScreenEffects(GameState state)
     {
-        if (state.Render.ScreenTintOpacity <= 0f) return;
-        byte alpha = (byte)(Math.Clamp(state.Render.ScreenTintOpacity, 0f, 1f) * 255);
-        Raylib.DrawRectangle(0, 0, state.EngineSettings.WindowWidth, state.EngineSettings.WindowHeight, ParseColor(state.Render.ScreenTintColor, alpha));
-        TotalDrawCalls++;
+        // Screen tint
+        if (state.Render.ScreenTintOpacity > 0f)
+        {
+            byte alpha = (byte)(Math.Clamp(state.Render.ScreenTintOpacity, 0f, 1f) * 255);
+            Raylib.DrawRectangle(0, 0, state.EngineSettings.WindowWidth, state.EngineSettings.WindowHeight, ParseColor(state.Render.ScreenTintColor, alpha));
+            TotalDrawCalls++;
+        }
+
+        // Vignette (darken screen edges)
+        if (state.Render.VignetteStrength > 0f)
+        {
+            int sw = state.EngineSettings.WindowWidth;
+            int sh = state.EngineSettings.WindowHeight;
+            int edgeW = (int)(sw * 0.18f);
+            int edgeH = (int)(sh * 0.14f);
+            byte maxAlpha = (byte)(state.Render.VignetteStrength * 255);
+            Color edgeColor = new(0, 0, 0, (int)maxAlpha);
+            Color clearColor = new(0, 0, 0, 0);
+
+            // Top edge: fade from top downward
+            Raylib.DrawRectangleGradientV(0, 0, sw, edgeH, edgeColor, clearColor);
+            TotalDrawCalls++;
+            // Bottom edge: fade from bottom upward
+            Raylib.DrawRectangleGradientV(0, sh - edgeH, sw, edgeH, clearColor, edgeColor);
+            TotalDrawCalls++;
+            // Left edge: fade from left rightward
+            Raylib.DrawRectangleGradientH(0, 0, edgeW, sh, edgeColor, clearColor);
+            TotalDrawCalls++;
+            // Right edge: fade from right leftward
+            Raylib.DrawRectangleGradientH(sw - edgeW, 0, edgeW, sh, clearColor, edgeColor);
+            TotalDrawCalls++;
+        }
     }
 
     private void DrawImageSprite(Sprite sp, Color baseColor, int qx, int qy)
@@ -1602,6 +1632,7 @@ public class SpriteRenderer
         }
     }
 
+#if DEBUG
     private void DrawDebugInfo(GameState state)
     {
         Raylib.DrawFPS(10, 10);
@@ -1666,6 +1697,7 @@ public class SpriteRenderer
             Raylib.DrawText($"Text: {preview}", 10, y, 14, Color.Lime);
         }
     }
+#endif
 
     /// <summary>
     /// 指定した画像パスのテクスチャキャッシュを無効化する（live reload用）

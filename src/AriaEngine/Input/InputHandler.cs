@@ -7,7 +7,9 @@ public class InputHandler
 {
     public void Update(VirtualMachine vm)
     {
+#if DEBUG
         if (!vm.State.EngineSettings.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F3)) vm.State.EngineSettings.DebugMode = !vm.State.EngineSettings.DebugMode;
+#endif
         if (!vm.State.EngineSettings.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F5))
         {
             vm.SaveGame(0);

@@ -458,6 +458,11 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                 State.Render.ScreenTintTimerMs = 0f;
                 State.Render.ActiveEffects.RemoveAll(e => e.StartsWith("screen:", StringComparison.OrdinalIgnoreCase));
                 break;
+            case "vignette":
+                State.Render.VignetteStrength = inst.Arguments.Count > 1
+                    ? Math.Clamp(GetVal(inst.Arguments[1]) / 255f, 0f, 1f)
+                    : 0.5f;
+                break;
         }
     }
 
