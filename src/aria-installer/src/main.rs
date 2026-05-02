@@ -152,7 +152,7 @@ fn main() {
         RegisterClassExW(&wc);
 
         let title = to_wide(&format!("{} {} セットアップ", PRODUCT, VERSION));
-        HWND_MAIN = CreateWindowExW(0, cn.as_ptr(), title.as_ptr(), WS_OVERLAPPEDWINDOW, 200, 150, 620, 460, 0, 0, HINST, 0);
+        HWND_MAIN = CreateWindowExW(0, cn.as_ptr(), title.as_ptr(), WS_OVERLAPPEDWINDOW, 200, 120, 620, 500, 0, 0, HINST, 0);
 
         let icc = INITCOMMONCONTROLSEX { dwSize: 8, dwICC: 0x20 | 0x40 }; // progress + listview
         InitCommonControlsEx(&icc);
@@ -346,7 +346,7 @@ unsafe fn start_install() {
         log_line("インストールが完了しました。");
 
         // Create shortcuts
-        let engine_exe = dest.join("engine").join("AriaEngine.exe");
+        let engine_exe = dest.join("AriaEngine.exe");
         let engine_exe_str = engine_exe.to_string_lossy().to_string();
         let work_dir = dest.to_string_lossy().to_string();
 
@@ -367,9 +367,11 @@ unsafe fn start_install() {
         }
 
         set_text(HWND_TITLE, &format!("{} - インストール完了", PRODUCT));
-        set_text(HWND_INFO, &format!("{} のインストールが完了しました。\nデスクトップまたはスタートメニューから起動できます。", PRODUCT));
+        set_text(HWND_INFO, &format!("インストール先: {}\nデスクトップまたはスタートメニューから起動できます。", INSTALL_PATH));
         set_text(HWND_INSTALL, "完了");
         set_text(HWND_CANCEL, "閉じる");
+
+        log_line(&format!("インストール先: {}", INSTALL_PATH));
     } else {
         log_line("インストールが中断されました。");
         set_text(HWND_INSTALL, "再試行");
@@ -427,11 +429,35 @@ unsafe fn draw_animation(hdc: HDC) {
 }
 
 fn create_shortcut(link_path: &str, target: &str, working_dir: &str) {
-    let ps = format!(
-        "$ws=New-Object -ComObject WScript.Shell;$s=$ws.CreateShortcut('{}');$s.TargetPath='{}';$s.WorkingDirectory='{}';$s.Save()",
-        link_path.replace("'", "''"), target.replace("'", "''"), working_dir.replace("'", "''")
+    let vbs = format!(
+        "Set ws = CreateObject(\"WScript.Shell\")\r\n\
+         Set sc = ws.CreateShortcut(\"{}\")\r\n\
+         sc.TargetPath = \"{}\"\r\n\
+         sc.WorkingDirectory = \"{}\"\r\n\
+         sc.Arguments = \"--run-mode release --pak data.pak --compiled scripts/scripts.ariac\"\r\n\
+         sc.Save()\r\n",
+        link_path, target, working_dir
     );
-    std::process::Command::new("powershell")
-        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", &ps])
-        .output().ok();
+
+    let tmp = std::env::temp_dir().join(format!("aria_inst_{}.vbs", std::process::id()));
+    // Write as UTF-16LE (BOM + encoded)
+    let mut utf16: Vec<u16> = vec![0xFEFF]; // BOM
+    utf16.extend(vbs.encode_utf16());
+    let bytes: Vec<u8> = utf16.iter().flat_map(|&c| vec![c as u8, (c >> 8) as u8]).collect();
+    std::fs::write(&tmp, &bytes).ok();
+
+    let result = std::process::Command::new("cscript.exe")
+        .args(&["//NoLogo", tmp.to_str().unwrap_or("")])
+        .output();
+
+    // Log result
+    if let Ok(ref out) = result {
+        if !out.status.success() {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            if !stderr.is_empty() {
+                unsafe { log_line(&format!("ショートカットエラー: {}", stderr.trim())); }
+            }
+        }
+    }
+    std::fs::remove_file(&tmp).ok();
 }
