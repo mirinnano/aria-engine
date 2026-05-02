@@ -2,14 +2,18 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
+    <UseWindowsForms>false</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>umikaze.ico</ApplicationIcon>
-    <!-- Release: self-contained (installer must work without .NET pre-installed) -->
+    <!-- Pure Win32 P/Invoke - no WinForms dependency -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Release: self-contained + trimmed (installer must work without .NET pre-installed) -->
     <PublishSingleFile Condition="'$(Configuration)' == 'Release'">true</PublishSingleFile>
     <SelfContained Condition="'$(Configuration)' == 'Release'">true</SelfContained>
+    <PublishTrimmed Condition="'$(Configuration)' == 'Release'">true</PublishTrimmed>
+    <_SuppressWinFormsTrimError Condition="'$(Configuration)' == 'Release'">true</_SuppressWinFormsTrimError>
   </PropertyGroup>
 
   <PropertyGroup>

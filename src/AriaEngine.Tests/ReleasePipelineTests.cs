@@ -48,8 +48,8 @@ public class ReleasePipelineTests
         string source = File.ReadAllText(Path.Combine(RepoRoot, "src", "AriaInstaller", "Program.cs"));
 
         source.Should().Contain("umikaze Installer");
-        source.Should().Contain("manifest.json");
-        source.Should().Contain("Version=");
-        source.Should().Contain("InstalledFiles=");
+        source.Should().Contain("Arguments = \"--list-runtimes\"");
+        source.Should().Contain("NativeInstallerWindow");
+        source.Should().Contain("CreateShortcut");
     }
 }
