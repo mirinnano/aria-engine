@@ -90,7 +90,7 @@ if (-not $SkipPublish) {
         if (-not $SkipRestore) {
             Invoke-Checked dotnet @("restore", $Project, "/p:NuGetAudit=false")
         }
-        Invoke-Checked dotnet @("publish", $Project, "-c", $Configuration, "--no-restore", "-o", $publishDir, "/p:AriaCompileOnPublish=false", "/p:NuGetAudit=false", "/p:PublishSingleFile=$($SingleFile.ToString().ToLowerInvariant())", "/p:IncludeNativeLibrariesForSelfExtract=true", "/p:DebugType=none", "/p:DebugSymbols=false")
+        Invoke-Checked dotnet @("publish", $Project, "-c", $Configuration, "--no-restore", "-o", $publishDir, "/p:AriaCompileOnPublish=false", "/p:NuGetAudit=false", "/p:DebugType=none", "/p:DebugSymbols=false")
     } else {
         $selfContainedValue = $SelfContained.ToString().ToLowerInvariant()
         if (-not $SkipRestore) {
@@ -151,8 +151,18 @@ if ($engineExe.EndsWith(".dll", [StringComparison]::OrdinalIgnoreCase)) {
     Invoke-Checked dotnet $dotnetCompileArgs $publishDir
     Invoke-Checked dotnet $dotnetPackArgs $publishDir
 } else {
-    Invoke-Checked $engineExe $compileArgs $publishDir
-    Invoke-Checked $engineExe $packArgs $publishDir
+    # Use dotnet exec + DLL for CLI (Release exe is WinExe, no console)
+    $engineDll = Join-Path $publishDir "AriaEngine.dll"
+    if (Test-Path $engineDll) {
+        $engineDll = (Resolve-Path $engineDll).Path
+        $compileCmd = "dotnet `"$engineDll`" " + ($compileArgs -join ' ')
+        $packCmd = "dotnet `"$engineDll`" " + ($packArgs -join ' ')
+        Invoke-Checked cmd @("/c", $compileCmd) $publishDir
+        Invoke-Checked cmd @("/c", $packCmd) $publishDir
+    } else {
+        Invoke-Checked $engineExe $compileArgs $publishDir
+        Invoke-Checked $engineExe $packArgs $publishDir
+    }
 }
 
 if (-not (Test-Path $compiledOut)) {
@@ -164,9 +174,11 @@ if (-not (Test-Path $pakOut)) {
 
 if (-not $KeepRawAssets) {
     $assetsOut = Join-Path $publishDir "assets"
-    $initOut = Join-Path $publishDir $InitScript
     if (Test-Path $assetsOut) { Remove-Item -LiteralPath $assetsOut -Recurse -Force }
-    if (Test-Path $initOut) { Remove-Item -LiteralPath $initOut -Force }
+    # Keep init.aria in published output (required for engine startup)
+    if (Test-Path (Join-Path $publishDir $InitScript)) {
+        # init.aria stays - engine reads it on startup
+    }
 }
 
 # ---- Build Rust installer and place at release root ----

@@ -91,6 +91,21 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             RunOptions runOptions = ParseRunOptions(args, reporter);
             StartupTrace("options");
 
+            // Auto-detect: if data.pak exists next to exe, use Release mode automatically
+            if (runOptions.Mode == RunMode.Dev && string.IsNullOrWhiteSpace(runOptions.PakPath))
+            {
+                string exeDir = AppDomain.CurrentDomain.BaseDirectory;
+                string autoPak = Path.Combine(exeDir, "data.pak");
+                string autoCompiled = Path.Combine(exeDir, "scripts", "scripts.ariac");
+                if (File.Exists(autoPak))
+                {
+                    runOptions.Mode = RunMode.Release;
+                    runOptions.PakPath = "data.pak";
+                    if (File.Exists(autoCompiled)) runOptions.CompiledPath = "scripts/scripts.ariac";
+                    StartupTrace("auto-release: data.pak detected");
+                }
+            }
+
             // StringBuilderプールの初期化（パフォーマンス最適化）
             StringHelper.InitializeStringBuilderPool(32, 256);
 
