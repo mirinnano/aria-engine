@@ -18,6 +18,16 @@ public enum GameScene
     Gallery
 }
 
+public enum TransitionType
+{
+    Fade,
+    SlideLeft,
+    SlideRight,
+    SlideUp,
+    SlideDown,
+    WipeCircle
+}
+
 public enum VmState
 {
     Running,
@@ -107,6 +117,7 @@ public sealed class RenderState
     public Dictionary<string, BackgroundTimeMapping> BackgroundTimeMap { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public float FadeProgress { get; set; } = 1.0f;
     public bool IsFading { get; set; }
+    public TransitionType TransitionStyle { get; set; } = TransitionType.Fade;
     public int FadeDurationMs { get; set; } = 1000;
     public int QuakeAmplitude { get; set; }
     public float QuakeTimerMs { get; set; }
@@ -425,207 +436,23 @@ public class GalleryEntry
 
 public class GameState
 {
-    [JsonIgnore] public RegisterState RegisterState { get; } = new();
-    [JsonIgnore] public VmExecutionState Execution { get; } = new();
-    [JsonIgnore] public InteractionState Interaction { get; } = new();
-    [JsonIgnore] public RenderState Render { get; } = new();
-    [JsonIgnore] public AudioState Audio { get; } = new();
-    [JsonIgnore] public TextWindowState TextWindow { get; } = new();
-    [JsonIgnore] public ChoiceStyleState ChoiceStyle { get; } = new();
-    [JsonIgnore] public TextRuntimeState TextRuntime { get; } = new();
-    [JsonIgnore] public PlaybackControlState Playback { get; } = new();
-    [JsonIgnore] public MenuRuntimeState MenuRuntime { get; } = new();
-    [JsonIgnore] public UiRuntimeState UiRuntime { get; } = new();
-    [JsonIgnore] public UiCompositionState UiComposition { get; } = new();
-    [JsonIgnore] public EngineSettingsState EngineSettings { get; } = new();
-    [JsonIgnore] public UiQualityState UiQuality { get; } = new();
-    [JsonIgnore] public SceneRuntimeState SceneRuntime { get; } = new();
-    [JsonIgnore] public SaveRuntimeState SaveRuntime { get; } = new();
-    [JsonIgnore] public FlagRuntimeState FlagRuntime { get; } = new();
-
-    public int ProgramCounter { get => Execution.ProgramCounter; set => Execution.ProgramCounter = value; }
-    public Dictionary<string, int> Registers { get => RegisterState.Registers; set => RegisterState.Registers = value; }
-    public Dictionary<string, string> StringRegisters { get => RegisterState.StringRegisters; set => RegisterState.StringRegisters = value; }
-    public Dictionary<string, int[]> Arrays { get => RegisterState.Arrays; set => RegisterState.Arrays = value; }
-    public int CompareFlag { get => Execution.CompareFlag; set => Execution.CompareFlag = value; }
-    public int LastReturnValue { get => Execution.LastReturnValue; set => Execution.LastReturnValue = value; }
-    public Stack<Dictionary<string, int>> LocalIntStacks { get => Execution.LocalIntStacks; set => Execution.LocalIntStacks = value; }
-    public Stack<Dictionary<string, string>> LocalStringStacks { get => Execution.LocalStringStacks; set => Execution.LocalStringStacks = value; }
-    public Stack<HashSet<int>> SpriteLifetimeStacks { get => Execution.SpriteLifetimeStacks; set => Execution.SpriteLifetimeStacks = value; }
-    public Stack<int> CallStack { get => Execution.CallStack; set => Execution.CallStack = value; }
-    public Stack<string> ParamStack { get => Execution.ParamStack; set => Execution.ParamStack = value; }
-    public Stack<Dictionary<string, string>> RefStack { get => Execution.RefStack; set => Execution.RefStack = value; }
-    public Dictionary<string, string> CurrentRefMap { get => Execution.CurrentRefMap; set => Execution.CurrentRefMap = value; }
-    public Stack<LoopState> LoopStack { get => Execution.LoopStack; set => Execution.LoopStack = value; }
-    public Stack<int> TryStack { get => Execution.TryStack; set => Execution.TryStack = value; }
-    public int ButtonTimeoutMs { get => Interaction.ButtonTimeoutMs; set => Interaction.ButtonTimeoutMs = value; }
-    public float ButtonTimer { get => Interaction.ButtonTimer; set => Interaction.ButtonTimer = value; }
-    public string ButtonResultRegister { get => Interaction.ButtonResultRegister; set => Interaction.ButtonResultRegister = value; }
-    public FastSpriteDictionary Sprites { get => Render.Sprites; set => Render.Sprites = value; }
-    public int BackgroundTimeOfDay { get => Render.BackgroundTimeOfDay; set => Render.BackgroundTimeOfDay = value; }
-    public string BackgroundTimePreset { get => Render.BackgroundTimePreset; set => Render.BackgroundTimePreset = value; }
-    public Dictionary<string, BackgroundTimeMapping> BackgroundTimeMap { get => Render.BackgroundTimeMap; set => Render.BackgroundTimeMap = value; }
-    public Dictionary<int, int> SpriteButtonMap { get => Interaction.SpriteButtonMap; set => Interaction.SpriteButtonMap = value; }
-    public int FocusedButtonId { get => Interaction.FocusedButtonId; set => Interaction.FocusedButtonId = value; }
-    public VmState State { get => Execution.State; set => Execution.State = value; }
-    public string CurrentBgm { get => Audio.CurrentBgm; set => Audio.CurrentBgm = value; }
-    public List<string> PendingSe { get => Audio.PendingSe; set => Audio.PendingSe = value; }
-    public int BgmVolume { get => Audio.BgmVolume; set => Audio.BgmVolume = value; }
-    public int SeVolume { get => Audio.SeVolume; set => Audio.SeVolume = value; }
-    public float BgmFadeOutDurationMs { get => Audio.BgmFadeOutDurationMs; set => Audio.BgmFadeOutDurationMs = value; }
-    public float BgmFadeOutTimerMs { get => Audio.BgmFadeOutTimerMs; set => Audio.BgmFadeOutTimerMs = value; }
-    public string LastVoicePath { get => Audio.LastVoicePath; set => Audio.LastVoicePath = value; }
-    public float FadeProgress { get => Render.FadeProgress; set => Render.FadeProgress = value; }
-    public bool IsFading { get => Render.IsFading; set => Render.IsFading = value; }
-    public int FadeDurationMs { get => Render.FadeDurationMs; set => Render.FadeDurationMs = value; }
-    public int QuakeAmplitude { get => Render.QuakeAmplitude; set => Render.QuakeAmplitude = value; }
-    public float QuakeTimerMs { get => Render.QuakeTimerMs; set => Render.QuakeTimerMs = value; }
-    public string ScreenTintColor { get => Render.ScreenTintColor; set => Render.ScreenTintColor = value; }
-    public float ScreenTintOpacity { get => Render.ScreenTintOpacity; set => Render.ScreenTintOpacity = value; }
-    public float ScreenTintTimerMs { get => Render.ScreenTintTimerMs; set => Render.ScreenTintTimerMs = value; }
-    public float CameraZoom { get => Render.CameraZoom; set => Render.CameraZoom = value; }
-    public float CameraOffsetX { get => Render.CameraOffsetX; set => Render.CameraOffsetX = value; }
-    public float CameraOffsetY { get => Render.CameraOffsetY; set => Render.CameraOffsetY = value; }
-    public string FxProfile { get => Render.FxProfile; set => Render.FxProfile = value; }
-    public string FxSkipPolicy { get => Render.FxSkipPolicy; set => Render.FxSkipPolicy = value; }
-    public List<string> ActiveEffects { get => Render.ActiveEffects; set => Render.ActiveEffects = value; }
-    public int DefaultTextboxX { get => TextWindow.DefaultTextboxX; set => TextWindow.DefaultTextboxX = value; }
-    public int DefaultTextboxY { get => TextWindow.DefaultTextboxY; set => TextWindow.DefaultTextboxY = value; }
-    public int DefaultTextboxW { get => TextWindow.DefaultTextboxW; set => TextWindow.DefaultTextboxW = value; }
-    public int DefaultTextboxH { get => TextWindow.DefaultTextboxH; set => TextWindow.DefaultTextboxH = value; }
-    public int DefaultFontSize { get => TextWindow.DefaultFontSize; set => TextWindow.DefaultFontSize = value; }
-    public string DefaultTextColor { get => TextWindow.DefaultTextColor; set => TextWindow.DefaultTextColor = value; }
-    public string DefaultTextboxBgColor { get => TextWindow.DefaultTextboxBgColor; set => TextWindow.DefaultTextboxBgColor = value; }
-    public int DefaultTextboxBgAlpha { get => TextWindow.DefaultTextboxBgAlpha; set => TextWindow.DefaultTextboxBgAlpha = value; }
-    public bool TextboxVisible { get => TextWindow.TextboxVisible; set => TextWindow.TextboxVisible = value; }
-    public bool UseManualTextLayout { get => TextWindow.UseManualTextLayout; set => TextWindow.UseManualTextLayout = value; }
-    public int TextTargetSpriteId { get => TextWindow.TextTargetSpriteId; set => TextWindow.TextTargetSpriteId = value; }
-    public int TextboxBackgroundSpriteId { get => TextWindow.TextboxBackgroundSpriteId; set => TextWindow.TextboxBackgroundSpriteId = value; }
-    public bool CompatAutoUi { get => TextWindow.CompatAutoUi; set => TextWindow.CompatAutoUi = value; }
-    public int DefaultTextboxPaddingX { get => TextWindow.DefaultTextboxPaddingX; set => TextWindow.DefaultTextboxPaddingX = value; }
-    public int DefaultTextboxPaddingY { get => TextWindow.DefaultTextboxPaddingY; set => TextWindow.DefaultTextboxPaddingY = value; }
-    public int DefaultTextboxCornerRadius { get => TextWindow.DefaultTextboxCornerRadius; set => TextWindow.DefaultTextboxCornerRadius = value; }
-    public string DefaultTextboxBorderColor { get => TextWindow.DefaultTextboxBorderColor; set => TextWindow.DefaultTextboxBorderColor = value; }
-    public int DefaultTextboxBorderWidth { get => TextWindow.DefaultTextboxBorderWidth; set => TextWindow.DefaultTextboxBorderWidth = value; }
-    public int DefaultTextboxBorderOpacity { get => TextWindow.DefaultTextboxBorderOpacity; set => TextWindow.DefaultTextboxBorderOpacity = value; }
-    public string DefaultTextboxShadowColor { get => TextWindow.DefaultTextboxShadowColor; set => TextWindow.DefaultTextboxShadowColor = value; }
-    public int DefaultTextboxShadowOffsetX { get => TextWindow.DefaultTextboxShadowOffsetX; set => TextWindow.DefaultTextboxShadowOffsetX = value; }
-    public int DefaultTextboxShadowOffsetY { get => TextWindow.DefaultTextboxShadowOffsetY; set => TextWindow.DefaultTextboxShadowOffsetY = value; }
-    public int DefaultTextboxShadowAlpha { get => TextWindow.DefaultTextboxShadowAlpha; set => TextWindow.DefaultTextboxShadowAlpha = value; }
-    public int ChoiceWidth { get => ChoiceStyle.ChoiceWidth; set => ChoiceStyle.ChoiceWidth = value; }
-    public int ChoiceHeight { get => ChoiceStyle.ChoiceHeight; set => ChoiceStyle.ChoiceHeight = value; }
-    public int ChoiceSpacing { get => ChoiceStyle.ChoiceSpacing; set => ChoiceStyle.ChoiceSpacing = value; }
-    public int ChoiceFontSize { get => ChoiceStyle.ChoiceFontSize; set => ChoiceStyle.ChoiceFontSize = value; }
-    public string ChoiceTextColor { get => ChoiceStyle.ChoiceTextColor; set => ChoiceStyle.ChoiceTextColor = value; }
-    public string ChoiceBgColor { get => ChoiceStyle.ChoiceBgColor; set => ChoiceStyle.ChoiceBgColor = value; }
-    public int ChoiceBgAlpha { get => ChoiceStyle.ChoiceBgAlpha; set => ChoiceStyle.ChoiceBgAlpha = value; }
-    public string ChoiceHoverColor { get => ChoiceStyle.ChoiceHoverColor; set => ChoiceStyle.ChoiceHoverColor = value; }
-    public int ChoiceCornerRadius { get => ChoiceStyle.ChoiceCornerRadius; set => ChoiceStyle.ChoiceCornerRadius = value; }
-    public string ChoiceBorderColor { get => ChoiceStyle.ChoiceBorderColor; set => ChoiceStyle.ChoiceBorderColor = value; }
-    public int ChoiceBorderWidth { get => ChoiceStyle.ChoiceBorderWidth; set => ChoiceStyle.ChoiceBorderWidth = value; }
-    public int ChoiceBorderOpacity { get => ChoiceStyle.ChoiceBorderOpacity; set => ChoiceStyle.ChoiceBorderOpacity = value; }
-    public int ChoicePaddingX { get => ChoiceStyle.ChoicePaddingX; set => ChoiceStyle.ChoicePaddingX = value; }
-    public int TextSpeedMs { get => TextRuntime.TextSpeedMs; set => TextRuntime.TextSpeedMs = value; }
-    public string CurrentTextBuffer { get => TextRuntime.CurrentTextBuffer; set => TextRuntime.CurrentTextBuffer = value; }
-    public List<TextSegment>? CurrentTextSegments { get => TextRuntime.CurrentTextSegments; set => TextRuntime.CurrentTextSegments = value; }
-    public int DisplayedTextLength { get => TextRuntime.DisplayedTextLength; set => TextRuntime.DisplayedTextLength = value; }
-    public string TextAdvanceMode { get => TextRuntime.TextAdvanceMode; set => TextRuntime.TextAdvanceMode = value; }
-    public float TextAdvanceRatio { get => TextRuntime.TextAdvanceRatio; set => TextRuntime.TextAdvanceRatio = value; }
-    public float TextTimerMs { get => TextRuntime.TextTimerMs; set => TextRuntime.TextTimerMs = value; }
-    public bool IsWaitingPageClear { get => TextRuntime.IsWaitingPageClear; set => TextRuntime.IsWaitingPageClear = value; }
-    public List<BacklogEntry> TextHistory { get => TextRuntime.TextHistory; set => TextRuntime.TextHistory = value; }
-    public int TextHistoryStartNumber { get => TextRuntime.TextHistoryStartNumber; set => TextRuntime.TextHistoryStartNumber = value; }
-    public bool AutoMode { get => Playback.AutoMode; set => Playback.AutoMode = value; }
-    public int AutoModeWaitTimeMs { get => Playback.AutoModeWaitTimeMs; set => Playback.AutoModeWaitTimeMs = value; }
-    public float AutoModeTimerMs { get => Playback.AutoModeTimerMs; set => Playback.AutoModeTimerMs = value; }
-    public bool SkipMode { get => Playback.SkipMode; set => Playback.SkipMode = value; }
-    public bool ForceSkipMode { get => Playback.ForceSkipMode; set => Playback.ForceSkipMode = value; }
-    public int SkipAdvancePerFrame { get => Playback.SkipAdvancePerFrame; set => Playback.SkipAdvancePerFrame = value; }
-    public int ForceSkipAdvancePerFrame { get => Playback.ForceSkipAdvancePerFrame; set => Playback.ForceSkipAdvancePerFrame = value; }
-    public bool SkipUnread { get => Playback.SkipUnread; set => Playback.SkipUnread = value; }
-    public float SkipTimerMs { get => Playback.SkipTimerMs; set => Playback.SkipTimerMs = value; }
-    public int SkipRateMs { get => Playback.SkipRateMs; set => Playback.SkipRateMs = value; }
-    public bool BacklogEnabled { get => TextRuntime.BacklogEnabled; set => TextRuntime.BacklogEnabled = value; }
-    public bool KidokuMode { get => TextRuntime.KidokuMode; set => TextRuntime.KidokuMode = value; }
-    public HashSet<string> ReadKeys { get => TextRuntime.ReadKeys; set => TextRuntime.ReadKeys = value; }
-    public bool CurrentInstructionWasRead { get => TextRuntime.CurrentInstructionWasRead; set => TextRuntime.CurrentInstructionWasRead = value; }
-    public string DefaultTextShadowColor { get => TextRuntime.DefaultTextShadowColor; set => TextRuntime.DefaultTextShadowColor = value; }
-    public int DefaultTextShadowX { get => TextRuntime.DefaultTextShadowX; set => TextRuntime.DefaultTextShadowX = value; }
-    public int DefaultTextShadowY { get => TextRuntime.DefaultTextShadowY; set => TextRuntime.DefaultTextShadowY = value; }
-    public string DefaultTextOutlineColor { get => TextRuntime.DefaultTextOutlineColor; set => TextRuntime.DefaultTextOutlineColor = value; }
-    public int DefaultTextOutlineSize { get => TextRuntime.DefaultTextOutlineSize; set => TextRuntime.DefaultTextOutlineSize = value; }
-    public string DefaultTextEffect { get => TextRuntime.DefaultTextEffect; set => TextRuntime.DefaultTextEffect = value; }
-    public float DefaultTextEffectStrength { get => TextRuntime.DefaultTextEffectStrength; set => TextRuntime.DefaultTextEffectStrength = value; }
-    public float DefaultTextEffectSpeed { get => TextRuntime.DefaultTextEffectSpeed; set => TextRuntime.DefaultTextEffectSpeed = value; }
-    public string RightMenuLabel { get => MenuRuntime.RightMenuLabel; set => MenuRuntime.RightMenuLabel = value; }
-    public List<RightMenuEntry> RightMenuEntries { get => MenuRuntime.RightMenuEntries; set => MenuRuntime.RightMenuEntries = value; }
-    public bool SaveMode { get => MenuRuntime.SaveMode; set => MenuRuntime.SaveMode = value; }
-    public Dictionary<string, string> MenuActionOverrides { get => MenuRuntime.MenuActionOverrides; set => MenuRuntime.MenuActionOverrides = value; }
-    public bool RequestClose { get => UiRuntime.RequestClose; set => UiRuntime.RequestClose = value; }
-    public bool RequestReset { get => UiRuntime.RequestReset; set => UiRuntime.RequestReset = value; }
-    public bool ShowClickCursor { get => UiRuntime.ShowClickCursor; set => UiRuntime.ShowClickCursor = value; }
-    public string ClickCursorMode { get => UiRuntime.ClickCursorMode; set => UiRuntime.ClickCursorMode = value; }
-    public string ClickCursorPath { get => UiRuntime.ClickCursorPath; set => UiRuntime.ClickCursorPath = value; }
-    public int ClickCursorOffsetX { get => UiRuntime.ClickCursorOffsetX; set => UiRuntime.ClickCursorOffsetX = value; }
-    public int ClickCursorOffsetY { get => UiRuntime.ClickCursorOffsetY; set => UiRuntime.ClickCursorOffsetY = value; }
-    public float ClickCursorSize { get => UiRuntime.ClickCursorSize; set => UiRuntime.ClickCursorSize = value; }
-    public string ClickCursorColor { get => UiRuntime.ClickCursorColor; set => UiRuntime.ClickCursorColor = value; }
-    public bool ShowSystemCloseButton { get => MenuRuntime.ShowSystemCloseButton; set => MenuRuntime.ShowSystemCloseButton = value; }
-    public bool ShowSystemResetButton { get => MenuRuntime.ShowSystemResetButton; set => MenuRuntime.ShowSystemResetButton = value; }
-    public bool ShowSystemSkipButton { get => MenuRuntime.ShowSystemSkipButton; set => MenuRuntime.ShowSystemSkipButton = value; }
-    public bool ShowSystemSaveButton { get => MenuRuntime.ShowSystemSaveButton; set => MenuRuntime.ShowSystemSaveButton = value; }
-    public bool ShowSystemLoadButton { get => MenuRuntime.ShowSystemLoadButton; set => MenuRuntime.ShowSystemLoadButton = value; }
-    public int RightMenuWidth { get => MenuRuntime.RightMenuWidth; set => MenuRuntime.RightMenuWidth = value; }
-    public string RightMenuAlign { get => MenuRuntime.RightMenuAlign; set => MenuRuntime.RightMenuAlign = value; }
-    public int SaveLoadColumns { get => MenuRuntime.SaveLoadColumns; set => MenuRuntime.SaveLoadColumns = value; }
-    public int SaveLoadWidth { get => MenuRuntime.SaveLoadWidth; set => MenuRuntime.SaveLoadWidth = value; }
-    public int BacklogWidth { get => MenuRuntime.BacklogWidth; set => MenuRuntime.BacklogWidth = value; }
-    public int SettingsWidth { get => MenuRuntime.SettingsWidth; set => MenuRuntime.SettingsWidth = value; }
-    public string MenuFillColor { get => MenuRuntime.MenuFillColor; set => MenuRuntime.MenuFillColor = value; }
-    public int MenuFillAlpha { get => MenuRuntime.MenuFillAlpha; set => MenuRuntime.MenuFillAlpha = value; }
-    public string MenuTextColor { get => MenuRuntime.MenuTextColor; set => MenuRuntime.MenuTextColor = value; }
-    public string MenuLineColor { get => MenuRuntime.MenuLineColor; set => MenuRuntime.MenuLineColor = value; }
-    public int MenuCornerRadius { get => MenuRuntime.MenuCornerRadius; set => MenuRuntime.MenuCornerRadius = value; }
-    public Dictionary<int, List<int>> UiGroups { get => UiComposition.Groups; set => UiComposition.Groups = value; }
-    public Dictionary<int, string> UiLayouts { get => UiComposition.Layouts; set => UiComposition.Layouts = value; }
-    public Dictionary<int, string> UiAnchors { get => UiComposition.Anchors; set => UiComposition.Anchors = value; }
-    public Dictionary<string, string> UiEvents { get => UiComposition.Events; set => UiComposition.Events = value; }
-    public Dictionary<string, string> UiHotkeys { get => UiComposition.Hotkeys; set => UiComposition.Hotkeys = value; }
-    public HashSet<int> UiHoverActive { get => UiComposition.HoverActive; set => UiComposition.HoverActive = value; }
-    public bool UseMsaa { get => UiRuntime.UseMsaa; set => UiRuntime.UseMsaa = value; }
-    public bool UseAnisotropicFiltering { get => UiRuntime.UseAnisotropicFiltering; set => UiRuntime.UseAnisotropicFiltering = value; }
-    public string UiQualityMode { get => UiQuality.Quality; set => UiQuality.Quality = value; }
-    public bool SmoothUiMotion { get => UiQuality.SmoothMotion; set => UiQuality.SmoothMotion = value; }
-    public bool SubpixelUiRendering { get => UiQuality.SubpixelRendering; set => UiQuality.SubpixelRendering = value; }
-    public bool HighQualityUiTextures { get => UiQuality.HighQualityTextures; set => UiQuality.HighQualityTextures = value; }
-    public int RoundedRectSegments { get => UiQuality.RoundedRectSegments; set => UiQuality.RoundedRectSegments = value; }
-    public float UiMotionResponse { get => UiQuality.MotionResponse; set => UiQuality.MotionResponse = value; }
-    public float DelayTimerMs { get => Execution.DelayTimerMs; set => Execution.DelayTimerMs = value; }
-    public float ScriptTimerMs { get => Execution.ScriptTimerMs; set => Execution.ScriptTimerMs = value; }
-    public int WindowWidth { get => EngineSettings.WindowWidth; set => EngineSettings.WindowWidth = value; }
-    public int WindowHeight { get => EngineSettings.WindowHeight; set => EngineSettings.WindowHeight = value; }
-    public string Title { get => EngineSettings.Title; set => EngineSettings.Title = value; }
-    public string FontPath { get => EngineSettings.FontPath; set => EngineSettings.FontPath = value; }
-    public int FontAtlasSize { get => EngineSettings.FontAtlasSize; set => EngineSettings.FontAtlasSize = value; }
-    public string MainScript { get => EngineSettings.MainScript; set => EngineSettings.MainScript = value; }
-    public bool DebugMode { get => EngineSettings.DebugMode; set => EngineSettings.DebugMode = value; }
-    public bool ProductionMode { get => EngineSettings.ProductionMode; set => EngineSettings.ProductionMode = value; }
-    public GameScene CurrentScene { get => SceneRuntime.CurrentScene; set => SceneRuntime.CurrentScene = value; }
-    public Dictionary<string, object> SceneData { get => SceneRuntime.SceneData; set => SceneRuntime.SceneData = value; }
-    public bool IsTransitioning { get => SceneRuntime.IsTransitioning; set => SceneRuntime.IsTransitioning = value; }
-    public TimeSpan TotalPlayTime { get => SaveRuntime.TotalPlayTime; set => SaveRuntime.TotalPlayTime = value; }
-    public DateTime SessionStartTime { get => SaveRuntime.SessionStartTime; set => SaveRuntime.SessionStartTime = value; }
-    public string CurrentChapter { get => SaveRuntime.CurrentChapter; set => SaveRuntime.CurrentChapter = value; }
-    public int CurrentProgress { get => SaveRuntime.CurrentProgress; set => SaveRuntime.CurrentProgress = value; }
-    public TextureFilter FontFilter { get => EngineSettings.FontFilter; set => EngineSettings.FontFilter = value; }
-    public Dictionary<string, bool> Flags { get => FlagRuntime.Flags; set => FlagRuntime.Flags = value; }
-    public Dictionary<string, bool> SaveFlags { get => FlagRuntime.SaveFlags; set => FlagRuntime.SaveFlags = value; }
-    public Dictionary<string, bool> VolatileFlags { get => FlagRuntime.VolatileFlags; set => FlagRuntime.VolatileFlags = value; }
-    public Dictionary<string, int> Counters { get => FlagRuntime.Counters; set => FlagRuntime.Counters = value; }
-    public ChapterInfo? CurrentChapterDefinition { get => FlagRuntime.CurrentChapterDefinition; set => FlagRuntime.CurrentChapterDefinition = value; }
-    public HashSet<string> UnlockedCgs { get => FlagRuntime.UnlockedCgs; set => FlagRuntime.UnlockedCgs = value; }
-    public Dictionary<string, GalleryEntry> GalleryEntries { get => FlagRuntime.GalleryEntries; set => FlagRuntime.GalleryEntries = value; }
-    public int TotalScriptLines { get => FlagRuntime.TotalScriptLines; set => FlagRuntime.TotalScriptLines = value; }
+    public RegisterState RegisterState { get; set; } = new();
+    public VmExecutionState Execution { get; set; } = new();
+    public InteractionState Interaction { get; set; } = new();
+    public RenderState Render { get; set; } = new();
+    public AudioState Audio { get; set; } = new();
+    public TextWindowState TextWindow { get; set; } = new();
+    public ChoiceStyleState ChoiceStyle { get; set; } = new();
+    public TextRuntimeState TextRuntime { get; set; } = new();
+    public PlaybackControlState Playback { get; set; } = new();
+    public MenuRuntimeState MenuRuntime { get; set; } = new();
+    public UiRuntimeState UiRuntime { get; set; } = new();
+    public UiCompositionState UiComposition { get; set; } = new();
+    public EngineSettingsState EngineSettings { get; set; } = new();
+    public UiQualityState UiQuality { get; set; } = new();
+    public SceneRuntimeState SceneRuntime { get; set; } = new();
+    public SaveRuntimeState SaveRuntime { get; set; } = new();
+    public FlagRuntimeState FlagRuntime { get; set; } = new();
 
     // T22: Read rate calculation
     /// <summary>
@@ -633,8 +460,8 @@ public class GameState
     /// </summary>
     public int GetReadRate()
     {
-        if (TotalScriptLines <= 0) return 0;
-        return (int)Math.Round((double)ReadKeys.Count / TotalScriptLines * 100);
+        if (FlagRuntime.TotalScriptLines <= 0) return 0;
+        return (int)Math.Round((double)TextRuntime.ReadKeys.Count / FlagRuntime.TotalScriptLines * 100);
     }
 
     // T22: CG unlock tracking methods
@@ -645,7 +472,7 @@ public class GameState
     {
         if (!string.IsNullOrWhiteSpace(cgId))
         {
-            UnlockedCgs.Add(cgId);
+            FlagRuntime.UnlockedCgs.Add(cgId);
         }
     }
 
@@ -654,7 +481,7 @@ public class GameState
     /// </summary>
     public bool IsCgUnlocked(string cgId)
     {
-        return UnlockedCgs.Contains(cgId);
+        return FlagRuntime.UnlockedCgs.Contains(cgId);
     }
 
     /// <summary>
@@ -663,7 +490,7 @@ public class GameState
     public int GetCgUnlockRate(int totalCgs)
     {
         if (totalCgs <= 0) return 0;
-        return (int)Math.Round((double)UnlockedCgs.Count / totalCgs * 100);
+        return (int)Math.Round((double)FlagRuntime.UnlockedCgs.Count / totalCgs * 100);
     }
 
     // Variable declarations from ParseResult (T9: save format versioning)
