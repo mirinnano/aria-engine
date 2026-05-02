@@ -463,6 +463,21 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                     ? Math.Clamp(GetVal(inst.Arguments[1]) / 255f, 0f, 1f)
                     : 0.5f;
                 break;
+            case "particle":
+                Vm.Particles.Start(AriaEngine.Rendering.ParticleSystem.ParticleType.Rain,
+                    State.EngineSettings.WindowWidth, State.EngineSettings.WindowHeight);
+                break;
+            case "particle_snow":
+                Vm.Particles.Start(AriaEngine.Rendering.ParticleSystem.ParticleType.Snow,
+                    State.EngineSettings.WindowWidth, State.EngineSettings.WindowHeight);
+                break;
+            case "particle_sakura":
+                Vm.Particles.Start(AriaEngine.Rendering.ParticleSystem.ParticleType.Sakura,
+                    State.EngineSettings.WindowWidth, State.EngineSettings.WindowHeight);
+                break;
+            case "particle_stop":
+                Vm.Particles.Stop();
+                break;
         }
     }
 

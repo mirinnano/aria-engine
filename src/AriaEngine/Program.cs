@@ -221,6 +221,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                 SafeFrame("menu.update", vm.Menu.Update, reporter);
                 if (audioReady && audio is not null) SafeFrame("audio.update", () => audio.Update(vm.State), reporter);
                 SafeFrame("transition.update", () => transition.Update(vm, dt), reporter);
+                SafeFrame("particles.update", () => vm.Particles.Update(dt), reporter);
                 SafeFrame("tweens.update", () => tweens.Update(vm.State, dtMs), reporter);
 
                 if (!vm.Menu.IsOpen)
@@ -243,6 +244,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                     SafeFrame("renderer.draw", () => renderer.Draw(vm.State, transition), reporter);
                     SafeFrame("renderer.click_cursor", () => renderer.DrawClickCursor(vm.State), reporter);
                     SafeFrame("menu.draw", () => vm.Menu.Draw(renderer), reporter);
+                    SafeFrame("particles.draw", vm.Particles.Draw, reporter);
                 }
                 catch (Exception ex)
                 {
