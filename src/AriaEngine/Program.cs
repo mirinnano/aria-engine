@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Numerics;
 using Raylib_cs;
 using AriaEngine.Core;
 using AriaEngine.Rendering;
@@ -18,6 +19,11 @@ namespace AriaEngine;
 class Program
 {
     private static readonly Dictionary<string, int> FrameErrorCounts = new(StringComparer.Ordinal);
+    private const string StartupSplashLogoPath = "assets/branding/ponkotu-splash.png";
+    private const double StartupSplashSeconds = 2.8;
+    private const double StartupSplashFadeInSeconds = 0.55;
+    private const double StartupSplashHoldSeconds = 1.35;
+    private const double StartupSplashFadeOutSeconds = 0.65;
 
     private sealed class RunOptions
     {
@@ -81,7 +87,9 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
 
         try
         {
+            StartupTrace("start");
             RunOptions runOptions = ParseRunOptions(args, reporter);
+            StartupTrace("options");
 
             // StringBuilderプールの初期化（パフォーマンス最適化）
             StringHelper.InitializeStringBuilderPool(32, 256);
@@ -92,9 +100,11 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             SafeStartup("CONFIG_LOAD", () => configParams.Load(), reporter, "config.jsonの読み込みに失敗しました。既定値で続行します。");
 
             IAssetProvider assetProvider = CreateAssetProvider(runOptions, reporter);
+            StartupTrace("asset-provider");
 
             CompiledScriptBundle? compiledBundle = TryLoadCompiledBundle(assetProvider, runOptions, reporter);
             RunMode effectiveMode = runOptions.Mode == RunMode.Release && compiledBundle is not null ? RunMode.Release : RunMode.Dev;
+            StartupTrace("compiled-bundle");
             if (runOptions.Mode == RunMode.Release && effectiveMode == RunMode.Dev)
             {
                 reporter.Report(new AriaError(
@@ -116,26 +126,37 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             if (initLoaded.Instructions.Count > 0)
             {
                 vm.LoadScript(initLoaded, initScriptPath);
+                StartupTrace("init-loaded");
 
                 while (vm.State.State == VmState.Running && vm.State.ProgramCounter < initLoaded.Instructions.Count)
                 {
                     SafeStartup("VM_INIT_STEP", vm.Step, reporter, "init.aria実行中にエラーが発生しました。可能な範囲で続行します。");
                 }
+                StartupTrace("init-executed");
             }
 
-            Raylib.SetConfigFlags(ConfigFlags.VSyncHint);
-            Raylib.InitWindow(vm.State.WindowWidth, vm.State.WindowHeight, vm.State.Title);
+            NormalizeWindowSettings(vm.State, reporter);
+            StartupTrace($"before-window {vm.State.WindowWidth}x{vm.State.WindowHeight} title={vm.State.Title}");
+            Raylib.InitWindow(vm.State.WindowWidth, vm.State.WindowHeight, "AriaEngine");
             Raylib.SetExitKey((KeyboardKey)0);
             windowReady = true;
+            StartupTrace("after-window");
             string currentWindowTitle = vm.State.Title;
+            Raylib.SetWindowTitle(currentWindowTitle);
             Raylib.SetTargetFPS(120);
+            ShowStartupSplash(assetProvider, reporter);
+            StartupTrace("startup-splash");
+            StartupTrace("before-audio");
             SafeStartup("AUDIO_INIT", () => { Raylib.InitAudioDevice(); audioReady = true; }, reporter, "音声デバイスの初期化に失敗しました。無音で続行します。");
+            StartupTrace("after-audio");
 
             renderer = new SpriteRenderer(assetProvider, reporter);
+            StartupTrace("renderer");
             var input = new InputHandler();
             audio = new AudioManager(assetProvider, reporter);
             vm.Audio = audio;
             var transition = new TransitionManager();
+            StartupTrace("managers");
 
             var loaded = TryLoadScript(
                 scriptLoader,
@@ -148,16 +169,21 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
 
             if (!string.IsNullOrEmpty(vm.State.FontPath))
             {
+                StartupTrace("before-font");
                 renderer.LoadFont(vm.State.FontPath, vm.State.FontAtlasSize, loaded.SourceLines, vm.State.FontFilter);
+                StartupTrace("after-font");
             }
             else
             {
                 reporter.Report(new AriaError("フォントパスが未設定です。既定フォントで続行します。", -1, initScriptPath, AriaErrorLevel.Warning, "BOOT_FONT_MISSING"));
             }
 
+            StartupTrace("before-ui-font");
             renderer.LoadUiFont("assets/fonts/JosefinSans-Thin.ttf");
+            StartupTrace("after-ui-font");
 
             vm.LoadScript(loaded, vm.State.MainScript);
+            StartupTrace("main-loaded");
 
             // 動的 include 用のリゾルバを登録（スクリプト内で include "path" を使えるように）
             vm.SetIncludeResolver(path =>
@@ -172,7 +198,9 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                 liveReload = new LiveReloadManager(vm, scriptLoader, reporter, renderer, diskProvider.Root);
             }
 
+            StartupTrace("before-initial-step");
             SafeFrame("vm.step.initial", vm.Step, reporter);
+            StartupTrace("initial-step");
 
             while (!Raylib.WindowShouldClose())
             {
@@ -431,6 +459,187 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                     $"{key} でフレーム例外が発生しました。処理をスキップして続行します。発生回数: {count + 1}",
                     AriaErrorLevel.Error);
             }
+        }
+    }
+
+    private static void NormalizeWindowSettings(GameState state, ErrorReporter reporter)
+    {
+        const int fallbackWidth = 1280;
+        const int fallbackHeight = 720;
+        if (state.WindowWidth < 320 || state.WindowHeight < 240 || state.WindowWidth > 7680 || state.WindowHeight > 4320)
+        {
+            reporter.Report(new AriaError(
+                $"window指定が不正です: {state.WindowWidth}x{state.WindowHeight}。{fallbackWidth}x{fallbackHeight}で起動します。",
+                level: AriaErrorLevel.Warning,
+                code: "BOOT_WINDOW_SIZE_INVALID"));
+            state.WindowWidth = fallbackWidth;
+            state.WindowHeight = fallbackHeight;
+        }
+    }
+
+    private static void ShowStartupSplash(IAssetProvider assetProvider, ErrorReporter reporter)
+    {
+        Texture2D logo = default;
+        try
+        {
+            if (!assetProvider.Exists(StartupSplashLogoPath))
+            {
+                reporter.Report(new AriaError(
+                    $"起動ロゴ '{StartupSplashLogoPath}' が見つかりません。",
+                    level: AriaErrorLevel.Warning,
+                    code: "BOOT_SPLASH_LOGO_MISSING"));
+                return;
+            }
+
+            string logoPath = assetProvider.MaterializeToFile(StartupSplashLogoPath);
+            logo = Raylib.LoadTexture(logoPath);
+            if (logo.Id == 0 || logo.Width <= 0 || logo.Height <= 0)
+            {
+                reporter.Report(new AriaError(
+                    $"起動ロゴ '{StartupSplashLogoPath}' の読み込み結果が無効です。",
+                    level: AriaErrorLevel.Warning,
+                    code: "BOOT_SPLASH_LOGO_INVALID"));
+                return;
+            }
+            Raylib.GenTextureMipmaps(ref logo);
+            Raylib.SetTextureFilter(logo, TextureFilter.Trilinear);
+
+            double startedAt = Raylib.GetTime();
+            while (!Raylib.WindowShouldClose() && Raylib.GetTime() - startedAt < StartupSplashSeconds)
+            {
+                if (Raylib.IsMouseButtonPressed(MouseButton.Left) ||
+                    Raylib.IsKeyPressed(KeyboardKey.Enter) ||
+                    Raylib.IsKeyPressed(KeyboardKey.Space))
+                {
+                    break;
+                }
+
+                double elapsed = Raylib.GetTime() - startedAt;
+                float alpha = GetStartupSplashAlpha(elapsed);
+                float reveal = EaseOutCubic(Math.Clamp((float)(elapsed / StartupSplashFadeInSeconds), 0f, 1f));
+                int screenWidth = Raylib.GetScreenWidth();
+                int screenHeight = Raylib.GetScreenHeight();
+                float maxWidth = screenWidth * 0.34f;
+                float maxHeight = screenHeight * 0.18f;
+                float baseScale = MathF.Min(maxWidth / logo.Width, maxHeight / logo.Height);
+                baseScale = MathF.Min(baseScale, 0.68f);
+                float scale = baseScale * (0.96f + (0.04f * reveal));
+                float width = logo.Width * scale;
+                float height = logo.Height * scale;
+                float x = (screenWidth - width) / 2f;
+                float y = (screenHeight - height) / 2f;
+                var source = new Rectangle(0, 0, logo.Width, logo.Height);
+                var dest = new Rectangle(x, y, width, height);
+                byte logoAlpha = (byte)Math.Clamp((int)(alpha * 255f), 0, 255);
+                Color logoTint = Rgba(255, 255, 255, logoAlpha);
+
+                Raylib.BeginDrawing();
+                try
+                {
+                    Raylib.ClearBackground(Rgba(250, 250, 248, 255));
+                    DrawStartupSplashBackdrop(screenWidth, screenHeight, x, y, width, height, alpha);
+                    Raylib.DrawTexturePro(logo, source, dest, Vector2.Zero, 0f, logoTint);
+                }
+                finally
+                {
+                    Raylib.EndDrawing();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            reporter.ReportException(
+                "BOOT_SPLASH",
+                ex,
+                "起動スプラッシュの表示に失敗しました。通常起動へ進みます。",
+                AriaErrorLevel.Warning);
+        }
+        finally
+        {
+            if (logo.Id != 0)
+            {
+                Raylib.UnloadTexture(logo);
+            }
+        }
+    }
+
+    private static float GetStartupSplashAlpha(double elapsed)
+    {
+        if (elapsed < StartupSplashFadeInSeconds)
+        {
+            return EaseOutCubic((float)(elapsed / StartupSplashFadeInSeconds));
+        }
+
+        double fadeOutStart = StartupSplashFadeInSeconds + StartupSplashHoldSeconds;
+        if (elapsed < fadeOutStart)
+        {
+            return 1f;
+        }
+
+        float t = Math.Clamp((float)((elapsed - fadeOutStart) / StartupSplashFadeOutSeconds), 0f, 1f);
+        return 1f - EaseInOutCubic(t);
+    }
+
+    private static void DrawStartupSplashBackdrop(int screenWidth, int screenHeight, float logoX, float logoY, float logoWidth, float logoHeight, float alpha)
+    {
+        float centerX = screenWidth / 2f;
+        float centerY = screenHeight / 2f;
+        float glowWidth = MathF.Max(logoWidth * 1.35f, screenWidth * 0.28f);
+        float glowHeight = MathF.Max(logoHeight * 2.0f, screenHeight * 0.18f);
+        byte glowAlpha = (byte)Math.Clamp((int)(22f * alpha), 0, 22);
+        byte lineAlpha = (byte)Math.Clamp((int)(26f * alpha), 0, 26);
+
+        Raylib.DrawRectangleGradientV(
+            (int)(centerX - glowWidth / 2f),
+            (int)(centerY - glowHeight / 2f),
+            (int)glowWidth,
+            (int)glowHeight,
+            Rgba(255, 255, 255, glowAlpha),
+            Rgba(232, 232, 228, glowAlpha));
+
+        float lineY = logoY + logoHeight + MathF.Max(14f, screenHeight * 0.018f);
+        float lineWidth = MathF.Min(screenWidth * 0.28f, logoWidth * 0.52f);
+        Raylib.DrawRectangleRec(
+            new Rectangle(centerX - lineWidth / 2f, lineY, lineWidth, 1f),
+            Rgba(38, 38, 38, lineAlpha));
+    }
+
+    private static float EaseOutCubic(float t)
+    {
+        t = Math.Clamp(t, 0f, 1f);
+        float inv = 1f - t;
+        return 1f - (inv * inv * inv);
+    }
+
+    private static Color Rgba(byte r, byte g, byte b, byte a)
+    {
+        return new Color(r, g, b, a);
+    }
+
+    private static float EaseInOutCubic(float t)
+    {
+        t = Math.Clamp(t, 0f, 1f);
+        return t < 0.5f
+            ? 4f * t * t * t
+            : 1f - MathF.Pow(-2f * t + 2f, 3f) / 2f;
+    }
+
+    private static void StartupTrace(string marker)
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable("ARIA_STARTUP_TRACE"), "1", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        try
+        {
+            File.AppendAllText(
+                Path.Combine(AppContext.BaseDirectory, "startup_trace.log"),
+                $"{DateTime.UtcNow:O} {marker}{Environment.NewLine}");
+        }
+        catch
+        {
+            // 起動診断は失敗しても本処理を止めない。
         }
     }
 

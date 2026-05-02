@@ -43,8 +43,10 @@ public sealed class ScriptLoader
             {
                 Instructions = instructions,
                 Labels = new Dictionary<string, int>(compiled.Labels, StringComparer.OrdinalIgnoreCase),
-                Functions = new List<FunctionInfo>(),
-                Structs = new List<StructDefinition>(),
+                Functions = compiled.Functions,
+                Structs = compiled.Structs,
+                Enums = compiled.Enums,
+                OwnedSprites = new HashSet<string>(compiled.OwnedSprites, StringComparer.OrdinalIgnoreCase),
                 SourceLines = compiled.SourceLines
             };
         }

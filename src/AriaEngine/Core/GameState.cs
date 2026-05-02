@@ -102,11 +102,29 @@ public sealed class InteractionState
 public sealed class RenderState
 {
     public FastSpriteDictionary Sprites { get; set; } = new();
+    public int BackgroundTimeOfDay { get; set; }
+    public string BackgroundTimePreset { get; set; } = "";
+    public Dictionary<string, BackgroundTimeMapping> BackgroundTimeMap { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public float FadeProgress { get; set; } = 1.0f;
     public bool IsFading { get; set; }
     public int FadeDurationMs { get; set; } = 1000;
     public int QuakeAmplitude { get; set; }
     public float QuakeTimerMs { get; set; }
+    public string ScreenTintColor { get; set; } = "#000000";
+    public float ScreenTintOpacity { get; set; }
+    public float ScreenTintTimerMs { get; set; }
+    public float CameraZoom { get; set; } = 1f;
+    public float CameraOffsetX { get; set; }
+    public float CameraOffsetY { get; set; }
+    public string FxProfile { get; set; } = "normal";
+    public string FxSkipPolicy { get; set; } = "finish";
+    public List<string> ActiveEffects { get; set; } = new();
+}
+
+public sealed class BackgroundTimeMapping
+{
+    public int TimeOfDay { get; set; }
+    public string Preset { get; set; } = "";
 }
 
 public sealed class AudioState
@@ -118,6 +136,7 @@ public sealed class AudioState
     public float BgmFadeOutDurationMs { get; set; }
     public float BgmFadeOutTimerMs { get; set; }
     public string LastVoicePath { get; set; } = "";
+    public bool VoiceWaitRequested { get; set; }
 }
 
 public sealed class TextWindowState
@@ -225,7 +244,26 @@ public class BacklogEntryListConverter : JsonConverter<List<BacklogEntry>>
 
     public override void Write(Utf8JsonWriter writer, List<BacklogEntry> value, JsonSerializerOptions options)
     {
-        JsonSerializer.Serialize(writer, value, options);
+        writer.WriteStartArray();
+        foreach (var entry in value)
+        {
+            writer.WriteStartObject();
+            writer.WriteString(nameof(BacklogEntry.Text), entry.Text);
+            if (!string.IsNullOrEmpty(entry.VoicePath))
+            {
+                writer.WriteString(nameof(BacklogEntry.VoicePath), entry.VoicePath);
+            }
+            writer.WriteNumber(nameof(BacklogEntry.ProgramCounter), entry.ProgramCounter);
+            writer.WriteBoolean(nameof(BacklogEntry.IsRead), entry.IsRead);
+            writer.WriteString(nameof(BacklogEntry.Timestamp), entry.Timestamp);
+            if (entry.StateSnapshot != null)
+            {
+                writer.WritePropertyName(nameof(BacklogEntry.StateSnapshot));
+                JsonSerializer.Serialize(writer, entry.StateSnapshot, options);
+            }
+            writer.WriteEndObject();
+        }
+        writer.WriteEndArray();
     }
 }
 
@@ -424,6 +462,9 @@ public class GameState
     public float ButtonTimer { get => Interaction.ButtonTimer; set => Interaction.ButtonTimer = value; }
     public string ButtonResultRegister { get => Interaction.ButtonResultRegister; set => Interaction.ButtonResultRegister = value; }
     public FastSpriteDictionary Sprites { get => Render.Sprites; set => Render.Sprites = value; }
+    public int BackgroundTimeOfDay { get => Render.BackgroundTimeOfDay; set => Render.BackgroundTimeOfDay = value; }
+    public string BackgroundTimePreset { get => Render.BackgroundTimePreset; set => Render.BackgroundTimePreset = value; }
+    public Dictionary<string, BackgroundTimeMapping> BackgroundTimeMap { get => Render.BackgroundTimeMap; set => Render.BackgroundTimeMap = value; }
     public Dictionary<int, int> SpriteButtonMap { get => Interaction.SpriteButtonMap; set => Interaction.SpriteButtonMap = value; }
     public int FocusedButtonId { get => Interaction.FocusedButtonId; set => Interaction.FocusedButtonId = value; }
     public VmState State { get => Execution.State; set => Execution.State = value; }
@@ -439,6 +480,15 @@ public class GameState
     public int FadeDurationMs { get => Render.FadeDurationMs; set => Render.FadeDurationMs = value; }
     public int QuakeAmplitude { get => Render.QuakeAmplitude; set => Render.QuakeAmplitude = value; }
     public float QuakeTimerMs { get => Render.QuakeTimerMs; set => Render.QuakeTimerMs = value; }
+    public string ScreenTintColor { get => Render.ScreenTintColor; set => Render.ScreenTintColor = value; }
+    public float ScreenTintOpacity { get => Render.ScreenTintOpacity; set => Render.ScreenTintOpacity = value; }
+    public float ScreenTintTimerMs { get => Render.ScreenTintTimerMs; set => Render.ScreenTintTimerMs = value; }
+    public float CameraZoom { get => Render.CameraZoom; set => Render.CameraZoom = value; }
+    public float CameraOffsetX { get => Render.CameraOffsetX; set => Render.CameraOffsetX = value; }
+    public float CameraOffsetY { get => Render.CameraOffsetY; set => Render.CameraOffsetY = value; }
+    public string FxProfile { get => Render.FxProfile; set => Render.FxProfile = value; }
+    public string FxSkipPolicy { get => Render.FxSkipPolicy; set => Render.FxSkipPolicy = value; }
+    public List<string> ActiveEffects { get => Render.ActiveEffects; set => Render.ActiveEffects = value; }
     public int DefaultTextboxX { get => TextWindow.DefaultTextboxX; set => TextWindow.DefaultTextboxX = value; }
     public int DefaultTextboxY { get => TextWindow.DefaultTextboxY; set => TextWindow.DefaultTextboxY = value; }
     public int DefaultTextboxW { get => TextWindow.DefaultTextboxW; set => TextWindow.DefaultTextboxW = value; }

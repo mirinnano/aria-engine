@@ -2026,7 +2026,7 @@ namespace AriaEngine.Core;
                         {
                             // ラベル参照 (*label) の一部
                             i++;
-                            while (i < line.Length && (char.IsLetterOrDigit(line[i]) || line[i] == '_'))
+                            while (i < line.Length && (char.IsLetterOrDigit(line[i]) || line[i] == '_' || line[i] == '.'))
                             {
                                 i++;
                             }

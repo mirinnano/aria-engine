@@ -4,7 +4,7 @@ font "assets/fonts/NotoSansJP-Regular.ttf"
 font_atlas_size 256
 font_filter "bilinear"
 script "assets/scripts/main.aria"
-debug on
+debug off
 
 textbox 50, 500, 1180, 200
 fontsize 32

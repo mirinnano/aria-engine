@@ -3,6 +3,8 @@ param(
     [string]$EngineDir = "src/AriaEngine",
     [string]$InitScript = "init.aria",
     [string]$MainScript = "assets/scripts/main.aria",
+    [string]$SaveDir = ".tmp/release-save-validation",
+    [switch]$Strict,
     [switch]$SkipLint,
     [switch]$SkipSaveValidate
 )
@@ -27,14 +29,19 @@ function Initialize-AriaHostEnvironment {
 
 function Add-Issue([string]$Message) { $script:issues.Add($Message) | Out-Null }
 function Add-Warning([string]$Message) { $script:warnings.Add($Message) | Out-Null }
+function Add-GateWarning([string]$Message) {
+    if ($Strict) { Add-Issue $Message } else { Add-Warning $Message }
+}
 
 function Invoke-Checked {
-    param([string]$File, [string[]]$Arguments, [switch]$WarningOnly)
+    param([string]$File, [string[]]$Arguments, [switch]$WarningOnly, [switch]$AdvisoryOnly)
     Write-Host ("$File " + ($Arguments -join " "))
     & $File @Arguments
     if ($LASTEXITCODE -ne 0) {
-        if ($WarningOnly) {
-            Add-Warning "Command returned ${LASTEXITCODE}: $File $($Arguments -join ' ')"
+        if ($AdvisoryOnly) {
+            Add-Warning "Advisory command returned ${LASTEXITCODE}: $File $($Arguments -join ' ')"
+        } elseif ($WarningOnly) {
+            Add-GateWarning "Command returned ${LASTEXITCODE}: $File $($Arguments -join ' ')"
         } else {
             Add-Issue "Command returned ${LASTEXITCODE}: $File $($Arguments -join ' ')"
         }
@@ -62,12 +69,15 @@ try {
     if (-not $SkipLint) {
         $scripts = Get-ChildItem -Path "assets/scripts" -Filter "*.aria" -Recurse -File | ForEach-Object { $_.FullName }
         if ($scripts.Count -gt 0) {
-            Invoke-Checked dotnet (@("run", "-c", "Release", "--no-build", "--project", "AriaEngine.csproj", "--", "aria-lint") + $scripts) -WarningOnly
+            Write-Host "aria-lint is advisory for include-based projects; aria-compile is the blocking script gate."
+            Invoke-Checked dotnet (@("run", "-c", "Release", "--no-build", "--project", "AriaEngine.csproj", "--", "aria-lint") + $scripts) -AdvisoryOnly
         }
     }
 
     if (-not $SkipSaveValidate) {
-        Invoke-Checked dotnet @("run", "-c", "Release", "--no-build", "--project", "AriaEngine.csproj", "--", "aria-save", "validate") -WarningOnly
+        New-Item -ItemType Directory -Force -Path $SaveDir | Out-Null
+        Invoke-Checked dotnet @("run", "-c", "Release", "--no-build", "--project", "AriaEngine.csproj", "--", "aria-save", "--dir", $SaveDir, "migrate")
+        Invoke-Checked dotnet @("run", "-c", "Release", "--no-build", "--project", "AriaEngine.csproj", "--", "aria-save", "--dir", $SaveDir, "validate")
     }
 
     $scriptText = Get-ChildItem -Path "assets/scripts" -Filter "*.aria" -Recurse -File | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }
@@ -75,7 +85,7 @@ try {
     foreach ($match in $assetMatches) {
         $assetPath = $match.Groups[1].Value
         if (-not (Test-Path $assetPath)) {
-            Add-Warning "Referenced asset not found: $assetPath"
+            Add-GateWarning "Referenced asset not found: $assetPath"
         }
     }
 }

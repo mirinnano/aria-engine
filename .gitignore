@@ -153,6 +153,9 @@ src/AriaEngine/saves/
 src/AriaEngine/aria_error.log
 src/AriaEngine/aria_error_ai.*
 *.png
+!src/AriaEngine/assets/bg/ui_title_menu_ocean.png
+!src/AriaEngine/assets/bg/ui_save_load_ocean.png
+!src/AriaEngine/assets/bg/ui_chapter_select_ocean.png
 *.jpg
 *.jpeg
 

@@ -24,6 +24,7 @@ public class SpriteRenderer
     private readonly IAssetProvider _assetProvider;
     private readonly ErrorReporter? _reporter;
     private readonly HashSet<string> _failedTextures = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _failedToneTextures = new(StringComparer.OrdinalIgnoreCase);
 
     // UI用フォント（メニュー等の英字表示用）
     private string? _uiFontPath;
@@ -371,7 +372,8 @@ public class SpriteRenderer
             }
             sortedSprites.Sort((a, b) => a.Z.CompareTo(b.Z));
 
-            int qx = 0, qy = 0;
+            int qx = (int)state.CameraOffsetX;
+            int qy = (int)state.CameraOffsetY;
             if (state.QuakeTimerMs > 0)
             {
                 if ((int)(Raylib.GetTime() * 60) % 2 == 0)
@@ -401,6 +403,7 @@ public class SpriteRenderer
             }
 
             transition.Draw(state);
+            DrawScreenEffects(state);
 
             if (state.DebugMode)
             {
@@ -409,13 +412,22 @@ public class SpriteRenderer
         }
     }
 
+    private void DrawScreenEffects(GameState state)
+    {
+        if (state.ScreenTintOpacity <= 0f) return;
+        byte alpha = (byte)(Math.Clamp(state.ScreenTintOpacity, 0f, 1f) * 255);
+        Raylib.DrawRectangle(0, 0, state.WindowWidth, state.WindowHeight, ParseColor(state.ScreenTintColor, alpha));
+        TotalDrawCalls++;
+    }
+
     private void DrawImageSprite(Sprite sp, Color baseColor, int qx, int qy)
     {
         Texture2D tex;
+        string cacheKey = TextureCacheKey(sp);
 
-        if (_failedTextures.Contains(sp.ImagePath)) return;
+        if (_failedTextures.Contains(sp.ImagePath) || _failedToneTextures.Contains(cacheKey)) return;
 
-        if (_textureCache.TryGetValue(sp.ImagePath, out tex))
+        if (_textureCache.TryGetValue(cacheKey, out tex))
         {
             // キャッシュヒット
         }
@@ -424,7 +436,7 @@ public class SpriteRenderer
             string resolvedImagePath;
             try
             {
-                resolvedImagePath = _assetProvider.MaterializeToFile(sp.ImagePath);
+                resolvedImagePath = ResolveImageForSprite(sp);
             }
             catch (Exception ex)
             {
@@ -440,7 +452,9 @@ public class SpriteRenderer
 
             try
             {
-                tex = Raylib.LoadTexture(resolvedImagePath);
+                tex = ShouldApplyBackgroundTone(sp)
+                    ? LoadBackgroundToneTexture(sp, resolvedImagePath, cacheKey)
+                    : Raylib.LoadTexture(resolvedImagePath);
                 if (tex.Id != 0) ApplyTextureFilter(ref tex, CurrentTextureFilter());
             }
             catch (Exception ex)
@@ -457,7 +471,7 @@ public class SpriteRenderer
 
             if (tex.Id != 0)
             {
-                _textureCache.AddOrUpdate(sp.ImagePath, tex, tex.Width * tex.Height * 4);
+                _textureCache.AddOrUpdate(cacheKey, tex, tex.Width * tex.Height * 4);
                 TotalTextureLoads++;
             }
             else
@@ -508,6 +522,333 @@ public class SpriteRenderer
                 ex,
                 $"スプライト '{sp.ImagePath}' の描画中にエラーが発生しました。",
                 AriaErrorLevel.Warning);
+        }
+    }
+
+    private static bool ShouldApplyBackgroundTone(Sprite sp)
+    {
+        return sp.Id == 0 && sp.Type == SpriteType.Image && sp.BackgroundTimeOfDay > 1;
+    }
+
+    private static string TextureCacheKey(Sprite sp)
+    {
+        return ShouldApplyBackgroundTone(sp)
+            ? $"{sp.ImagePath}::bgtime={sp.BackgroundTimeOfDay}:{sp.BackgroundTimePreset}"
+            : sp.ImagePath;
+    }
+
+    private string ResolveImageForSprite(Sprite sp)
+    {
+        try
+        {
+            return _assetProvider.MaterializeToFile(sp.ImagePath);
+        }
+        catch when (sp.Id == 0)
+        {
+            foreach (string candidate in BuildBackgroundFallbackCandidates(sp.ImagePath))
+            {
+                try
+                {
+                    if (_assetProvider.Exists(candidate))
+                    {
+                        return _assetProvider.MaterializeToFile(candidate);
+                    }
+                }
+                catch
+                {
+                    // 次候補へ進む。
+                }
+            }
+            throw;
+        }
+    }
+
+    private static IEnumerable<string> BuildBackgroundFallbackCandidates(string imagePath)
+    {
+        string normalized = imagePath.Replace('\\', '/');
+        string dir = "";
+        string file = normalized;
+        int slash = normalized.LastIndexOf('/');
+        if (slash >= 0)
+        {
+            dir = normalized[..(slash + 1)];
+            file = normalized[(slash + 1)..];
+        }
+
+        string ext = Path.GetExtension(file);
+        string stem = string.IsNullOrEmpty(ext) ? file : file[..^ext.Length];
+        if (stem.Length <= 1) yield break;
+
+        char suffix = char.ToLowerInvariant(stem[^1]);
+        if (suffix is not ('a' or 'b' or 'c' or 'd' or 'e')) yield break;
+
+        string baseStem = stem[..^1];
+        if (!string.IsNullOrEmpty(ext))
+        {
+            yield return $"{dir}{baseStem}{ext}";
+        }
+        else
+        {
+            yield return $"{dir}{baseStem}.png";
+            yield return $"{dir}{baseStem}.bmp";
+            yield return $"{dir}{baseStem}.jpg";
+            yield return $"assets/bg/{baseStem}.png";
+            yield return $"assets/bg/{baseStem}.bmp";
+            yield return $"assets/bg/{baseStem}.jpg";
+        }
+    }
+
+    private Texture2D LoadBackgroundToneTexture(Sprite sp, string resolvedImagePath, string cacheKey)
+    {
+        Image image = default;
+        bool imageLoaded = false;
+        try
+        {
+            image = Raylib.LoadImage(resolvedImagePath);
+            if (image.Width <= 0 || image.Height <= 0) return default;
+            imageLoaded = true;
+            ApplyBackgroundToneToImage(ref image, sp.BackgroundTimeOfDay, sp.BackgroundTimePreset);
+            Texture2D texture = Raylib.LoadTextureFromImage(image);
+            return texture;
+        }
+        catch (Exception ex)
+        {
+            _failedToneTextures.Add(cacheKey);
+            _reporter?.ReportException(
+                "RENDER_BGTIME_TEXTURE",
+                ex,
+                $"背景時間帯フィルタ '{sp.BackgroundTimeOfDay}:{sp.BackgroundTimePreset}' の生成に失敗しました。",
+                AriaErrorLevel.Warning);
+            return default;
+        }
+        finally
+        {
+            if (imageLoaded)
+            {
+                Raylib.UnloadImage(image);
+            }
+        }
+    }
+
+    private static void ApplyBackgroundToneToImage(ref Image image, int timeOfDay, string presetName)
+    {
+        BackgroundTonePreset preset = BackgroundTonePreset.Resolve(timeOfDay, presetName);
+        int width = image.Width;
+        int height = image.Height;
+        float invW = width > 1 ? 1f / (width - 1) : 0f;
+        float invH = height > 1 ? 1f / (height - 1) : 0f;
+
+        for (int y = 0; y < height; y++)
+        {
+            float v = y * invH;
+            for (int x = 0; x < width; x++)
+            {
+                float u = x * invW;
+                Color c = Raylib.GetImageColor(image, x, y);
+                Color adjusted = ApplyBackgroundTonePixel(c, u, v, preset);
+                Raylib.ImageDrawPixel(ref image, x, y, adjusted);
+            }
+        }
+    }
+
+    private static Color ApplyBackgroundTonePixel(Color src, float u, float v, BackgroundTonePreset p)
+    {
+        float r = src.R / 255f;
+        float g = src.G / 255f;
+        float b = src.B / 255f;
+        float lum = (r * 0.299f) + (g * 0.587f) + (b * 0.114f);
+        float shadow = 1f - lum;
+        float highlight = SmoothStep(0.55f, 1f, lum);
+
+        r = Lerp(lum, r, p.Saturation);
+        g = Lerp(lum, g, p.Saturation);
+        b = Lerp(lum, b, p.Saturation);
+
+        r = ApplyContrastGammaBrightness(r, p);
+        g = ApplyContrastGammaBrightness(g, p);
+        b = ApplyContrastGammaBrightness(b, p);
+
+        r = Lerp(r, p.TintR, p.TintPower);
+        g = Lerp(g, p.TintG, p.TintPower);
+        b = Lerp(b, p.TintB, p.TintPower);
+
+        r = Lerp(r, p.ShadowR, shadow * p.ShadowTintPower);
+        g = Lerp(g, p.ShadowG, shadow * p.ShadowTintPower);
+        b = Lerp(b, p.ShadowB, shadow * p.ShadowTintPower);
+
+        r = Lerp(r, p.HighlightR, highlight * p.HighlightTintPower);
+        g = Lerp(g, p.HighlightG, highlight * p.HighlightTintPower);
+        b = Lerp(b, p.HighlightB, highlight * p.HighlightTintPower);
+
+        float horizon = MathF.Pow(1f - Math.Clamp(v, 0f, 1f), 2.2f) * p.HorizonGlowPower;
+        r += p.HorizonR * horizon;
+        g += p.HorizonG * horizon;
+        b += p.HorizonB * horizon;
+
+        float dx = u - 0.5f;
+        float dy = v - 0.5f;
+        float vignette = SmoothStep(0.34f, 0.78f, MathF.Sqrt((dx * dx) + (dy * dy)));
+        float edge = 1f - (vignette * p.VignettePower);
+        r *= edge;
+        g *= edge;
+        b *= edge;
+
+        float grain = (HashNoise(u, v) - 0.5f) * p.GrainPower;
+        float dither = (HashNoise(u + 0.37f, v + 0.61f) - 0.5f) * p.DitherPower;
+        r += grain + dither + p.BlackLift;
+        g += grain + dither + p.BlackLift;
+        b += grain + dither + p.BlackLift;
+
+        return new Color(
+            (byte)Math.Clamp((int)MathF.Round(r * 255f), 0, 255),
+            (byte)Math.Clamp((int)MathF.Round(g * 255f), 0, 255),
+            (byte)Math.Clamp((int)MathF.Round(b * 255f), 0, 255),
+            src.A);
+    }
+
+    private static float ApplyContrastGammaBrightness(float value, BackgroundTonePreset p)
+    {
+        value = ((value - 0.5f) * p.Contrast) + 0.5f;
+        value = MathF.Pow(Math.Clamp(value, 0f, 1f), p.Gamma);
+        return value * p.Brightness;
+    }
+
+    private static float Lerp(float a, float b, float t) => a + ((b - a) * Math.Clamp(t, 0f, 1f));
+
+    private static float SmoothStep(float edge0, float edge1, float x)
+    {
+        float t = Math.Clamp((x - edge0) / (edge1 - edge0), 0f, 1f);
+        return t * t * (3f - (2f * t));
+    }
+
+    private static float HashNoise(float x, float y)
+    {
+        float n = MathF.Sin((x * 127.1f) + (y * 311.7f)) * 43758.5453f;
+        return n - MathF.Floor(n);
+    }
+
+    private sealed class BackgroundTonePreset
+    {
+        public float Brightness { get; init; } = 1f;
+        public float Contrast { get; init; } = 1f;
+        public float Saturation { get; init; } = 1f;
+        public float Gamma { get; init; } = 1f;
+        public float TintR { get; init; } = 1f;
+        public float TintG { get; init; } = 1f;
+        public float TintB { get; init; } = 1f;
+        public float TintPower { get; init; }
+        public float ShadowR { get; init; }
+        public float ShadowG { get; init; }
+        public float ShadowB { get; init; }
+        public float ShadowTintPower { get; init; }
+        public float HighlightR { get; init; } = 1f;
+        public float HighlightG { get; init; } = 1f;
+        public float HighlightB { get; init; } = 1f;
+        public float HighlightTintPower { get; init; }
+        public float HorizonR { get; init; }
+        public float HorizonG { get; init; }
+        public float HorizonB { get; init; }
+        public float HorizonGlowPower { get; init; }
+        public float VignettePower { get; init; }
+        public float GrainPower { get; init; }
+        public float DitherPower { get; init; }
+        public float BlackLift { get; init; }
+
+        public static BackgroundTonePreset Resolve(int timeOfDay, string presetName)
+        {
+            string key = string.IsNullOrWhiteSpace(presetName)
+                ? timeOfDay switch
+                {
+                    2 => "evening_cinematic",
+                    3 => "night_moon",
+                    4 => "midnight_room",
+                    _ => "day"
+                }
+                : presetName.Trim().ToLowerInvariant();
+
+            return key switch
+            {
+                "evening" or "evening_cinematic" => new BackgroundTonePreset
+                {
+                    Brightness = 0.92f,
+                    Contrast = 1.10f,
+                    Saturation = 1.12f,
+                    Gamma = 0.96f,
+                    TintR = 1.00f,
+                    TintG = 0.60f,
+                    TintB = 0.32f,
+                    TintPower = 0.16f,
+                    ShadowR = 0.19f,
+                    ShadowG = 0.25f,
+                    ShadowB = 0.37f,
+                    ShadowTintPower = 0.12f,
+                    HighlightR = 1.00f,
+                    HighlightG = 0.82f,
+                    HighlightB = 0.60f,
+                    HighlightTintPower = 0.18f,
+                    HorizonR = 1.00f,
+                    HorizonG = 0.70f,
+                    HorizonB = 0.42f,
+                    HorizonGlowPower = 0.12f,
+                    VignettePower = 0.10f,
+                    GrainPower = 0.012f,
+                    DitherPower = 0.004f
+                },
+                "night" or "night_moon" => new BackgroundTonePreset
+                {
+                    Brightness = 0.54f,
+                    Contrast = 0.96f,
+                    Saturation = 0.58f,
+                    Gamma = 1.08f,
+                    TintR = 0.18f,
+                    TintG = 0.31f,
+                    TintB = 0.53f,
+                    TintPower = 0.28f,
+                    ShadowR = 0.05f,
+                    ShadowG = 0.10f,
+                    ShadowB = 0.21f,
+                    ShadowTintPower = 0.26f,
+                    HighlightR = 0.61f,
+                    HighlightG = 0.75f,
+                    HighlightB = 1.00f,
+                    HighlightTintPower = 0.08f,
+                    HorizonR = 0.20f,
+                    HorizonG = 0.32f,
+                    HorizonB = 0.58f,
+                    HorizonGlowPower = 0.04f,
+                    VignettePower = 0.20f,
+                    GrainPower = 0.018f,
+                    DitherPower = 0.006f
+                },
+                "midnight" or "midnight_room" => new BackgroundTonePreset
+                {
+                    Brightness = 0.40f,
+                    Contrast = 0.84f,
+                    Saturation = 0.42f,
+                    Gamma = 1.14f,
+                    TintR = 0.09f,
+                    TintG = 0.16f,
+                    TintB = 0.30f,
+                    TintPower = 0.34f,
+                    ShadowR = 0.02f,
+                    ShadowG = 0.04f,
+                    ShadowB = 0.09f,
+                    ShadowTintPower = 0.30f,
+                    HighlightR = 0.42f,
+                    HighlightG = 0.51f,
+                    HighlightB = 0.72f,
+                    HighlightTintPower = 0.05f,
+                    HorizonR = 0.08f,
+                    HorizonG = 0.14f,
+                    HorizonB = 0.26f,
+                    HorizonGlowPower = 0.03f,
+                    VignettePower = 0.30f,
+                    GrainPower = 0.022f,
+                    DitherPower = 0.010f,
+                    BlackLift = 0.035f
+                },
+                _ => new BackgroundTonePreset()
+            };
         }
     }
 

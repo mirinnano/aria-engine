@@ -6,6 +6,8 @@ set_vflag in_scene, 1
 set_sflag scenario_04_started, 1
 set_pflag chapter_04, 1
 
+chapter_card_fx("DAY 3", "岡山の朝")
+scenechange("bg/bg_hotel_room.bmp", 2)
 nvl
 9月23日 (日曜日) 岡山のお高いホテル 10:00\
 adv
@@ -715,5 +717,6 @@ adv
 set_pflag chapter_04, 1
 set_pflag chapter_05, 1
 clear_vflag in_scene
+fx_reset()
 cls()
 goto *chapter_select

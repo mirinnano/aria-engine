@@ -47,6 +47,10 @@ public sealed class ScriptCompiler
             {
                 Path = scriptPath,
                 Labels = new Dictionary<string, int>(parsed.Labels, StringComparer.OrdinalIgnoreCase),
+                Functions = parsed.Functions,
+                Structs = parsed.Structs,
+                Enums = parsed.Enums,
+                OwnedSprites = new HashSet<string>(parsed.OwnedSprites, StringComparer.OrdinalIgnoreCase),
                 SourceLines = expanded.Lines,
                 Instructions = parsed.Instructions.Select(i => new CompiledInstruction
                 {

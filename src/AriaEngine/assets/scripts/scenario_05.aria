@@ -5,6 +5,8 @@ cls()
 set_vflag in_scene, 1
 set_sflag scenario_05_started, 1
 set_pflag chapter_05, 1
+chapter_card_fx("DAY 4", "松江の朝")
+scenechange("bg/bg_hotel_room.bmp", 2)
 nvl
 9月24日 (月曜日) 松江のビジネスホテル 7:00\
 adv
@@ -956,6 +958,7 @@ adv
 
 さっきまで風呂上がりで血色が良かったはずの顔も、いつの間にか元の青白さに戻っている。\
 あいつはただ、必死に自分の体温を保とうとしているだけなんだ。\
+fx_focus()
 『食うのが遅い』んじゃない。もう、喉を通らないんだ。\
 
 俺はそのことに気付かないふりをした。\
@@ -969,5 +972,6 @@ adv
 set_pflag chapter_05, 1
 set_pflag chapter_06, 1
 clear_vflag in_scene
+fx_reset()
 cls()
 goto *chapter_select

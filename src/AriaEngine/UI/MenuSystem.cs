@@ -21,6 +21,7 @@ public class MenuSystem
     }
 
     private const int SaveSlotCount = 10;
+    private const string SaveLoadOceanBackground = "bg/ui_save_load_ocean.png";
     private readonly VirtualMachine _vm;
     private MenuState _currentState = MenuState.Closed;
     private MenuState _returnState = MenuState.Main;
@@ -620,14 +621,16 @@ public class MenuSystem
     private void DrawSaveLoadMenu(SpriteRenderer renderer, bool isSave)
     {
         var panel = CenterPanel(Math.Min(_vm.State.SaveLoadWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
-        DrawPanel(renderer, panel, isSave ? "SAVE" : "LOAD");
+        DrawOceanBackdrop(renderer);
+        DrawOceanPanel(renderer, panel, isSave ? "SAVE" : "LOAD", isSave ? "WRITE THE CURRENT TIDE" : "RETURN TO A SAVED TIDE");
 
         var mouse = Raylib.GetMousePosition();
         for (int i = 0; i < SaveSlotCount; i++)
         {
-            DrawSaveSlot(renderer, i, GetSaveSlotRect(i), Raylib.CheckCollisionPointRec(mouse, GetSaveSlotRect(i)), isSave);
+            var slotRect = GetSaveSlotRect(i);
+            DrawSaveSlot(renderer, i, slotRect, Raylib.CheckCollisionPointRec(mouse, slotRect), isSave);
         }
-        DrawFooter(renderer, panel, "CLICK SLOT / ESC  BACK");
+        DrawText(renderer, "CLICK SLOT / ESC  BACK", (int)panel.X + 24, (int)(panel.Y + panel.Height - 28), 12, new Color(128, 180, 190, 210));
     }
 
     private void DrawBacklog(SpriteRenderer renderer)
@@ -859,7 +862,11 @@ public class MenuSystem
     {
         bool hasSave = _vm.Saves.HasSaveData(index);
         var saveData = _vm.Saves.GetSaveData(index);
-        DrawRect(rect, hover);
+        var fill = hover ? new Color(18, 58, 70, 224) : new Color(5, 24, 34, 184);
+        var line = hover ? new Color(136, 217, 230, 230) : new Color(89, 154, 170, 132);
+        Raylib.DrawRectangleRounded(rect, 0.025f, 8, fill);
+        Raylib.DrawRectangleRoundedLinesEx(rect, 0.025f, 8, hover ? 2 : 1, line);
+        Raylib.DrawRectangle((int)rect.X, (int)rect.Y + 8, 3, (int)rect.Height - 16, hover ? new Color(172, 237, 242, 230) : new Color(77, 143, 160, 150));
 
         float textX = rect.X + 18;
         float thumbW = 0;
@@ -872,32 +879,33 @@ public class MenuSystem
                 float thumbH = rect.Height - 16;
                 float thumbX = rect.X + 8;
                 float thumbY = rect.Y + 8;
+                Raylib.DrawRectangleRounded(new Rectangle(thumbX - 2, thumbY - 2, thumbW + 4, thumbH + 4), 0.04f, 6, new Color(4, 15, 22, 230));
                 Raylib.DrawTexturePro(thumb, new Rectangle(0, 0, thumb.Width, thumb.Height),
-                    new Rectangle(thumbX, thumbY, thumbW, thumbH), new System.Numerics.Vector2(0, 0), 0, Color.White);
+                    new Rectangle(thumbX, thumbY, thumbW, thumbH), new System.Numerics.Vector2(0, 0), 0, new Color(218, 244, 246, 255));
                 textX += thumbW + 8;
             }
         }
 
-        DrawText(renderer, $"SLOT {(index + 1):00}", (int)textX, (int)rect.Y + 14, 18, White);
+        DrawText(renderer, $"SLOT {(index + 1):00}", (int)textX, (int)rect.Y + 14, 18, hover ? new Color(238, 255, 255, 255) : new Color(218, 239, 239, 245));
         string status = hasSave ? "SAVED" : isSave ? "EMPTY" : "NO DATA";
         int sw = Raylib.MeasureText(status, 14);
-        DrawText(renderer, status, (int)(rect.X + rect.Width - sw - 18), (int)rect.Y + 18, 14, hasSave ? White : Gray);
+        DrawText(renderer, status, (int)(rect.X + rect.Width - sw - 18), (int)rect.Y + 18, 14, hasSave ? new Color(165, 226, 226, 245) : new Color(98, 137, 144, 210));
 
         if (hasSave && saveData != null && !string.IsNullOrWhiteSpace(saveData.ChapterTitle))
         {
             string chapter = saveData.ChapterTitle.Length > 28 ? saveData.ChapterTitle[..28] + "..." : saveData.ChapterTitle;
-            DrawText(renderer, chapter, (int)textX, (int)rect.Y + 32, 14, Gray);
+            DrawText(renderer, chapter, (int)textX, (int)rect.Y + 32, 14, new Color(137, 190, 199, 220));
         }
 
         string preview = hasSave && saveData != null && !string.IsNullOrWhiteSpace(saveData.PreviewText)
             ? saveData.PreviewText
             : "----";
         if (preview.Length > 36) preview = preview[..36] + "...";
-        DrawText(renderer, preview, (int)textX, (int)rect.Y + 50, 16, Gray);
+        DrawText(renderer, preview, (int)textX, (int)rect.Y + 50, 16, hasSave ? new Color(195, 226, 226, 230) : new Color(91, 120, 126, 200));
 
         if (hasSave && saveData != null)
         {
-            DrawText(renderer, saveData.SaveTime.ToString("yyyy/MM/dd HH:mm"), (int)textX, (int)rect.Y + 70, 14, Gray);
+            DrawText(renderer, saveData.SaveTime.ToString("yyyy/MM/dd HH:mm"), (int)textX, (int)rect.Y + 70, 14, new Color(118, 166, 176, 215));
         }
     }
 
@@ -1033,6 +1041,41 @@ public class MenuSystem
         Raylib.DrawRectangle((int)rect.X + 24, (int)rect.Y + 22, 4, 20, accent);
         DrawText(renderer, title, (int)rect.X + 66, (int)rect.Y + 18, 20, ColorFromHex(_vm.State.MenuTextColor, 255));
         Raylib.DrawLine((int)rect.X + 24, (int)rect.Y + 52, (int)(rect.X + rect.Width - 24), (int)rect.Y + 52, line);
+    }
+
+    private static void DrawOceanBackdrop(SpriteRenderer renderer)
+    {
+        int sw = Raylib.GetScreenWidth();
+        int sh = Raylib.GetScreenHeight();
+        Raylib.ClearBackground(new Color(3, 14, 22, 255));
+
+        var tex = renderer.GetOrLoadTexture(SaveLoadOceanBackground);
+        if (tex.Id != 0 && tex.Width > 0 && tex.Height > 0)
+        {
+            float scale = Math.Max((float)sw / tex.Width, (float)sh / tex.Height);
+            float w = tex.Width * scale;
+            float h = tex.Height * scale;
+            var dst = new Rectangle((sw - w) / 2f, (sh - h) / 2f, w, h);
+            Raylib.DrawTexturePro(tex, new Rectangle(0, 0, tex.Width, tex.Height), dst, System.Numerics.Vector2.Zero, 0f, Color.White);
+        }
+
+        Raylib.DrawRectangle(0, 0, sw, sh, new Color(1, 10, 18, 126));
+        Raylib.DrawRectangleGradientV(0, 0, sw, sh, new Color(4, 23, 34, 28), new Color(1, 8, 14, 216));
+        Raylib.DrawLine(0, (int)(sh * 0.18f), sw, (int)(sh * 0.18f), new Color(126, 207, 218, 42));
+        Raylib.DrawLine(0, (int)(sh * 0.82f), sw, (int)(sh * 0.82f), new Color(126, 207, 218, 34));
+    }
+
+    private static void DrawOceanPanel(SpriteRenderer renderer, Rectangle rect, string title, string subtitle)
+    {
+        var shadow = new Rectangle(rect.X + 8, rect.Y + 10, rect.Width, rect.Height);
+        Raylib.DrawRectangleRounded(shadow, 0.018f, 10, new Color(0, 0, 0, 138));
+        Raylib.DrawRectangleRounded(rect, 0.018f, 10, new Color(2, 18, 28, 196));
+        Raylib.DrawRectangleRoundedLinesEx(rect, 0.018f, 10, 1, new Color(112, 201, 216, 148));
+        Raylib.DrawRectangle((int)rect.X + 24, (int)rect.Y + 20, 48, 2, new Color(158, 231, 236, 220));
+        Raylib.DrawRectangle((int)rect.X + 24, (int)rect.Y + 25, 5, 22, new Color(158, 231, 236, 188));
+        DrawText(renderer, title, (int)rect.X + 84, (int)rect.Y + 16, 22, new Color(232, 250, 250, 255));
+        DrawText(renderer, subtitle, (int)rect.X + 84, (int)rect.Y + 40, 11, new Color(127, 183, 195, 210));
+        Raylib.DrawLine((int)rect.X + 24, (int)rect.Y + 58, (int)(rect.X + rect.Width - 24), (int)rect.Y + 58, new Color(112, 201, 216, 96));
     }
 
     private void DrawTextRow(SpriteRenderer renderer, Rectangle rect, string left, string right, bool hover)

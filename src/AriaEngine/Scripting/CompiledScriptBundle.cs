@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AriaEngine.Core;
 
 namespace AriaEngine.Scripting;
 
@@ -17,6 +18,10 @@ public sealed class CompiledScript
     public string Path { get; set; } = "";
     public List<CompiledInstruction> Instructions { get; set; } = new();
     public Dictionary<string, int> Labels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<FunctionInfo> Functions { get; set; } = new();
+    public List<StructDefinition> Structs { get; set; } = new();
+    public List<EnumDefinition> Enums { get; set; } = new();
+    public HashSet<string> OwnedSprites { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string[] SourceLines { get; set; } = Array.Empty<string>();
 }
 

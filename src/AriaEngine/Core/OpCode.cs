@@ -22,7 +22,7 @@ public enum OpCode
 
     // 旧NScripter描画互換・エフェクト
     LoadBg, LoadCh, ShowCh, HideCh, Clr,
-    Bg, Print, Effect, Quake,
+    Bg, BgFade, BgTime, BgTimeMap, Transition, Camera, Screen, TextFx, Fx, Sync, Voice, VoiceWait, VoiceStop, Print, Effect, Quake,
 
     // UI・テキストウィンドウ・文字表示
     Textbox, Fontsize, Textcolor, TextboxColor, TextboxHide, TextboxShow,

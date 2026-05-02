@@ -17,10 +17,8 @@ artifacts/installer/AriaEngine-<version>-installer.zip
 
 The zip contains:
 
+- `AriaInstaller.exe`
 - `app/`
-- `gui/AriaInstaller.exe`
-- `install.ps1`
-- `uninstall.ps1`
 
 ## GUI Installer
 
@@ -48,6 +46,8 @@ The target can be changed before starting, but it is locked while install/update
 The bundled `app/` payload excludes development-only files such as PDBs, logs, temporary scripts, save data, diagnostics, and build folders.
 
 After install or update completes, the GUI enables `Launch umikaze`.
+
+The GUI reads `app/manifest.json` when present and shows the package version in the window title/source line. The install receipt records version, installed file count, pak encryption state, and signature state.
 
 ## Patch Flow
 

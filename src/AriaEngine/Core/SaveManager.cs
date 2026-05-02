@@ -18,11 +18,12 @@ public class SaveManager
     private static readonly byte[] SaveMagic = Encoding.ASCII.GetBytes("ARIASAVE3");
     private static readonly byte[] SaveMagicV2 = Encoding.ASCII.GetBytes("ARIASAVE2");
     private readonly ErrorReporter _reporter;
-    private readonly string _saveDir = "saves";
+    private readonly string _saveDir;
 
-    public SaveManager(ErrorReporter reporter)
+    public SaveManager(ErrorReporter reporter, string saveDir = "saves")
     {
         _reporter = reporter;
+        _saveDir = string.IsNullOrWhiteSpace(saveDir) ? "saves" : saveDir;
         Directory.CreateDirectory(_saveDir);
     }
 
