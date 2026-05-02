@@ -37,6 +37,10 @@
     <InternalsVisibleTo Include="AriaEngine.Tests" />
   </ItemGroup>
 
+  <Target Name="WritePackKeyFile" AfterTargets="Publish" Condition="'$(AriaPackKey)'!=''">
+    <WriteLinesToFile File="$(PublishDir)aria.key" Lines="$(AriaPackKey)" Overwrite="true" />
+  </Target>
+
 
 
   <!-- パッケージングターゲット -->

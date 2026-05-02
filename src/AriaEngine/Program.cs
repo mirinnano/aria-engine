@@ -97,11 +97,16 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                 string exeDir = AppDomain.CurrentDomain.BaseDirectory;
                 string autoPak = Path.Combine(exeDir, "data.pak");
                 string autoCompiled = Path.Combine(exeDir, "scripts", "scripts.ariac");
+                string keyFile = Path.Combine(exeDir, "aria.key");
                 if (File.Exists(autoPak))
                 {
                     runOptions.Mode = RunMode.Release;
                     runOptions.PakPath = "data.pak";
                     if (File.Exists(autoCompiled)) runOptions.CompiledPath = "scripts/scripts.ariac";
+                    if (File.Exists(keyFile) && string.IsNullOrEmpty(runOptions.Key))
+                    {
+                        runOptions.Key = File.ReadAllText(keyFile).Trim();
+                    }
                     StartupTrace("auto-release: data.pak detected");
                 }
             }

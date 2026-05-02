@@ -68,6 +68,41 @@ function Copy-IfExists {
     }
 }
 
+function Resolve-AriaCliAssembly {
+    param(
+        [string]$EngineDirectory,
+        [string]$Configuration,
+        [string]$Runtime
+    )
+
+    $binDir = Join-Path $EngineDirectory "bin"
+    if (-not (Test-Path $binDir)) {
+        return ""
+    }
+
+    $candidates = Get-ChildItem -Path $binDir -Filter "AriaEngine.dll" -Recurse -File |
+        Where-Object {
+            $_.FullName -like "*\bin\$Configuration\*" -and
+            ([string]::IsNullOrWhiteSpace($Runtime) -or $_.FullName -like "*\$Runtime\*")
+        } |
+        Sort-Object LastWriteTimeUtc -Descending
+
+    if ($candidates.Count -eq 0) {
+        return ""
+    }
+    return $candidates[0].FullName
+}
+
+function Get-AriaRelativePath {
+    param([string]$BasePath, [string]$Path)
+
+    $baseFull = [IO.Path]::GetFullPath($BasePath).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    $pathFull = [IO.Path]::GetFullPath($Path)
+    $baseUri = [Uri]::new($baseFull)
+    $pathUri = [Uri]::new($pathFull)
+    return [Uri]::UnescapeDataString($baseUri.MakeRelativeUri($pathUri).ToString()).Replace("/", "\")
+}
+
 Initialize-AriaHostEnvironment
 
 $repoRoot = (Resolve-Path ".").Path
@@ -124,14 +159,14 @@ if (Test-Path $configSource) {
     Copy-Item -LiteralPath $configSource -Destination (Join-Path $publishDir "config.template.json") -Force
 }
 
-$engineExe = Join-Path $publishDir "AriaEngine.exe"
-if (-not (Test-Path $engineExe)) {
-    $engineExe = Join-Path $publishDir "AriaEngine.dll"
+$engineExecutable = Join-Path $publishDir "AriaEngine.exe"
+if (-not (Test-Path $engineExecutable)) {
+    $engineExecutable = Join-Path $publishDir "AriaEngine.dll"
 }
-if (-not (Test-Path $engineExe)) {
+if (-not (Test-Path $engineExecutable)) {
     throw "Published engine executable was not found."
 }
-$engineExe = (Resolve-Path $engineExe).Path
+$engineExecutable = (Resolve-Path $engineExecutable).Path
 
 $compiledDir = Join-Path $publishDir "scripts"
 $compiledOut = Join-Path $compiledDir "scripts.ariac"
@@ -145,25 +180,20 @@ if ($pakEncrypted) {
     $compileArgs += @("--key", $env:ARIA_PACK_KEY)
     $packArgs += @("--key", $env:ARIA_PACK_KEY)
 }
-if ($engineExe.EndsWith(".dll", [StringComparison]::OrdinalIgnoreCase)) {
-    $dotnetCompileArgs = @($engineExe) + $compileArgs
-    $dotnetPackArgs = @($engineExe) + $packArgs
-    Invoke-Checked dotnet $dotnetCompileArgs $publishDir
-    Invoke-Checked dotnet $dotnetPackArgs $publishDir
-} else {
-    # Use dotnet exec + DLL for CLI (Release exe is WinExe, no console)
-    $engineDll = Join-Path $publishDir "AriaEngine.dll"
-    if (Test-Path $engineDll) {
-        $engineDll = (Resolve-Path $engineDll).Path
-        $compileCmd = "dotnet `"$engineDll`" " + ($compileArgs -join ' ')
-        $packCmd = "dotnet `"$engineDll`" " + ($packArgs -join ' ')
-        Invoke-Checked cmd @("/c", $compileCmd) $publishDir
-        Invoke-Checked cmd @("/c", $packCmd) $publishDir
-    } else {
-        Invoke-Checked $engineExe $compileArgs $publishDir
-        Invoke-Checked $engineExe $packArgs $publishDir
+$cliAssembly = Resolve-AriaCliAssembly $engineDir $Configuration $Runtime
+if ([string]::IsNullOrWhiteSpace($cliAssembly)) {
+    $publishedDll = Join-Path $publishDir "AriaEngine.dll"
+    if (Test-Path $publishedDll) {
+        $cliAssembly = (Resolve-Path $publishedDll).Path
     }
 }
+if ([string]::IsNullOrWhiteSpace($cliAssembly)) {
+    throw "AriaEngine.dll for CLI packaging was not found. Disable SingleFile or run restore/publish before packaging."
+}
+$dotnetCompileArgs = @($cliAssembly) + $compileArgs
+$dotnetPackArgs = @($cliAssembly) + $packArgs
+Invoke-Checked dotnet $dotnetCompileArgs $publishDir
+Invoke-Checked dotnet $dotnetPackArgs $publishDir
 
 if (-not (Test-Path $compiledOut)) {
     throw "Compiled script bundle was not generated."
@@ -217,7 +247,7 @@ $signatureStatus = @()
 foreach ($file in $signatureFiles) {
     $sig = Get-AuthenticodeSignature -FilePath $file.FullName
     $signatureStatus += [ordered]@{
-        path = [IO.Path]::GetRelativePath($publishDir, $file.FullName).Replace("\", "/")
+        path = (Get-AriaRelativePath $publishDir $file.FullName).Replace("\", "/")
         status = $sig.Status.ToString()
         signer = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { "" }
     }
@@ -258,7 +288,7 @@ $manifest = [ordered]@{
 
 $files = Get-ChildItem -Path $publishDir -Recurse -File | Sort-Object FullName
 foreach ($file in $files) {
-    $relative = [IO.Path]::GetRelativePath($publishDir, $file.FullName).Replace("\", "/")
+    $relative = (Get-AriaRelativePath $publishDir $file.FullName).Replace("\", "/")
     $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName
     $manifest.files += [ordered]@{
         path = $relative
@@ -274,7 +304,7 @@ $checksumPath = Join-Path $publishDir "checksums.txt"
 Get-ChildItem -Path $publishDir -Recurse -File |
     Sort-Object FullName |
     ForEach-Object {
-        $relative = [IO.Path]::GetRelativePath($publishDir, $_.FullName).Replace("\", "/")
+        $relative = (Get-AriaRelativePath $publishDir $_.FullName).Replace("\", "/")
         $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName
         "$($hash.Hash.ToLowerInvariant())  $relative"
     } | Set-Content -Path $checksumPath -Encoding ASCII
