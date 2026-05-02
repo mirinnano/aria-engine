@@ -41,6 +41,15 @@ public class TextStyle
     /// <summary>タイプライター速度（ms/文字。null=デフォルト）</summary>
     public int? TypeSpeed { get; set; }
 
+    /// <summary>文字送りSEのパス（1文字表示ごとに再生。null=無効）</summary>
+    public string? VoiceSePath { get; set; }
+
+    /// <summary>文字送りSEの音量（0-100。デフォルト=100）</summary>
+    public int VoiceSeVolume { get; set; } = 100;
+
+    /// <summary>ルビテキスト（ふりがな。null=無効）</summary>
+    public string? RubyText { get; set; }
+
     /// <summary>
     /// 現在のスタイルをベースに、上書きスタイルを適用した新しいスタイルを作成
     /// </summary>
@@ -61,7 +70,10 @@ public class TextStyle
             WaitTime = other.WaitTime ?? this.WaitTime,
             FadeDuration = other.FadeDuration ?? this.FadeDuration,
             ShakeIntensity = other.ShakeIntensity ?? this.ShakeIntensity,
-            TypeSpeed = other.TypeSpeed ?? this.TypeSpeed
+            TypeSpeed = other.TypeSpeed ?? this.TypeSpeed,
+            VoiceSePath = other.VoiceSePath ?? this.VoiceSePath,
+            VoiceSeVolume = other.VoiceSeVolume != 100 ? other.VoiceSeVolume : this.VoiceSeVolume,
+            RubyText = other.RubyText ?? this.RubyText
         };
     }
 

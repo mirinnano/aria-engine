@@ -1100,6 +1100,20 @@ public class SpriteRenderer
 
             // テキスト描画
             Raylib.DrawTextEx(segFont, displayText, new Vector2(drawX, drawY), segFontSize, segSpacing, segColor);
+
+            // ルビ（ふりがな）描画
+            if (!string.IsNullOrEmpty(seg.RubyText) && displayText.Length > 0)
+            {
+                float rubySize = segFontSize * 0.45f;
+                float rubySpacing = rubySize / 10f;
+                float baseTextWidth = Raylib.MeasureTextEx(segFont, displayText, segFontSize, segSpacing).X;
+                float rubyTextWidth = Raylib.MeasureTextEx(segFont, seg.RubyText, rubySize, rubySpacing).X;
+                float rubyX = drawX + (baseTextWidth - rubyTextWidth) / 2f;
+                float rubyY = drawY - rubySize - 2f;
+                Color rubyColor = segColor;
+                rubyColor.A = (byte)(rubyColor.A * 0.8f);
+                Raylib.DrawTextEx(segFont, seg.RubyText, new Vector2(rubyX, rubyY), rubySize, rubySpacing, rubyColor);
+            }
             
             // Underline: 下線
             if (seg.Style.Underline && segSize.X > 0)

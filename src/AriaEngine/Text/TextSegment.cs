@@ -29,6 +29,9 @@ public class TextSegment
     /// <summary>クリック待ち時間（ms。0=無効）</summary>
     public int WaitMs { get; set; }
 
+    /// <summary>ルビテキスト（ふりがな。null=無効）</summary>
+    public string? RubyText { get; set; }
+
     public TextSegment() { }
 
     public TextSegment(string text, TextStyle? style = null, bool isNewLine = false)
@@ -36,5 +39,6 @@ public class TextSegment
         Text = text;
         Style = style ?? TextStyle.Default;
         IsNewLine = isNewLine;
+        RubyText = style?.RubyText;
     }
 }

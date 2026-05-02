@@ -193,6 +193,9 @@ public class TextEffectParser
             "fade" => new TextStyle { FadeDuration = ParseInt(attribute) > 0 ? ParseInt(attribute) : 500 },
             "type" or "typespeed" => new TextStyle { TypeSpeed = ParseInt(attribute) > 0 ? ParseInt(attribute) : 50 },
             "shake" => new TextStyle { ShakeIntensity = ParseInt(attribute) > 0 ? ParseInt(attribute) : 3 },
+            "se" or "voice" => new TextStyle { VoiceSePath = attribute },
+            "sevol" or "voicevol" => new TextStyle { VoiceSeVolume = ParseInt(attribute) > 0 ? ParseInt(attribute) : 100 },
+            "ruby" or "rt" => new TextStyle { RubyText = attribute },
             _ => null
         };
     }
@@ -248,7 +251,10 @@ public static class TextStyleExtensions
             WaitTime = style.WaitTime,
             FadeDuration = style.FadeDuration,
             ShakeIntensity = style.ShakeIntensity,
-            TypeSpeed = style.TypeSpeed
+            TypeSpeed = style.TypeSpeed,
+            VoiceSePath = style.VoiceSePath,
+            VoiceSeVolume = style.VoiceSeVolume,
+            RubyText = style.RubyText
         };
     }
 }
