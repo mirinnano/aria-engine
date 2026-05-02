@@ -169,6 +169,29 @@ if (-not $KeepRawAssets) {
     if (Test-Path $initOut) { Remove-Item -LiteralPath $initOut -Force }
 }
 
+# ---- Build Rust installer and place at release root ----
+$installerProject = Join-Path $repoRoot "src/aria-installer"
+$installerExe = Join-Path $installerProject "target/release/aria-installer.exe"
+if (Test-Path $installerProject) {
+    $cargo = (Get-Command cargo -ErrorAction SilentlyContinue)
+    if ($cargo) {
+        Write-Host "Building Rust installer..."
+        Invoke-Checked cargo @("build", "--release") $installerProject
+
+        # Move engine output to engine/ subdirectory (installer looks here)
+        $engineDir = Join-Path $releaseDir "engine"
+        if (Test-Path $engineDir) { Remove-Item -LiteralPath $engineDir -Recurse -Force }
+        Move-Item -LiteralPath $publishDir -Destination $engineDir -Force
+        $publishDir = $engineDir  # update path for signing/zip steps below
+
+        # Copy installer to release root
+        Copy-Item -LiteralPath $installerExe -Destination (Join-Path $releaseDir "AriaInstaller.exe") -Force
+        Write-Host "Installer placed: AriaInstaller.exe (engine/ subdirectory ready)"
+    } else {
+        Write-Host "WARNING: cargo not found. Skipping installer build."
+    }
+}
+
 if ($Sign) {
     $exes = Get-ChildItem -Path $publishDir -Filter "*.exe" -Recurse
     $dlls = Get-ChildItem -Path $publishDir -Filter "*.dll" -Recurse
@@ -246,7 +269,7 @@ Get-ChildItem -Path $publishDir -Recurse -File |
 
 if (-not $NoZip) {
     if (Test-Path $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
-    Compress-Archive -Path (Join-Path $publishDir "*") -DestinationPath $zipPath -Force
+    Compress-Archive -Path (Join-Path $releaseDir "*") -DestinationPath $zipPath -Force
 }
 
 Write-Host "Package ready: $publishDir"
