@@ -56,7 +56,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
             case OpCode.UiRect:
                 if (!ValidateArgs(inst, 5)) return true;
-                State.Sprites[GetVal(inst.Arguments[0])] = new Sprite
+                State.Render.Sprites[GetVal(inst.Arguments[0])] = new Sprite
                 {
                     Id = GetVal(inst.Arguments[0]),
                     Type = SpriteType.Rect,
@@ -64,27 +64,27 @@ public sealed class UiCommandHandler : BaseCommandHandler
                     Y = GetVal(inst.Arguments[2]),
                     Width = GetVal(inst.Arguments[3]),
                     Height = GetVal(inst.Arguments[4]),
-                    FillColor = State.ChoiceBgColor,
-                    FillAlpha = State.ChoiceBgAlpha,
-                    CornerRadius = State.ChoiceCornerRadius,
-                    BorderColor = State.ChoiceBorderColor,
-                    BorderWidth = State.ChoiceBorderWidth,
-                    BorderOpacity = State.ChoiceBorderOpacity,
-                    HoverFillColor = State.ChoiceHoverColor
+                    FillColor = State.ChoiceStyle.ChoiceBgColor,
+                    FillAlpha = State.ChoiceStyle.ChoiceBgAlpha,
+                    CornerRadius = State.ChoiceStyle.ChoiceCornerRadius,
+                    BorderColor = State.ChoiceStyle.ChoiceBorderColor,
+                    BorderWidth = State.ChoiceStyle.ChoiceBorderWidth,
+                    BorderOpacity = State.ChoiceStyle.ChoiceBorderOpacity,
+                    HoverFillColor = State.ChoiceStyle.ChoiceHoverColor
                 };
                 return true;
 
             case OpCode.UiText:
                 if (!ValidateArgs(inst, 4)) return true;
-                State.Sprites[GetVal(inst.Arguments[0])] = new Sprite
+                State.Render.Sprites[GetVal(inst.Arguments[0])] = new Sprite
                 {
                     Id = GetVal(inst.Arguments[0]),
                     Type = SpriteType.Text,
                     Text = GetString(inst.Arguments[1]),
                     X = GetVal(inst.Arguments[2]),
                     Y = GetVal(inst.Arguments[3]),
-                    FontSize = State.DefaultFontSize,
-                    Color = State.DefaultTextColor,
+                    FontSize = State.TextWindow.DefaultFontSize,
+                    Color = State.TextWindow.DefaultTextColor,
                     Width = inst.Arguments.Count > 4 ? GetVal(inst.Arguments[4]) : 0,
                     Height = inst.Arguments.Count > 5 ? GetVal(inst.Arguments[5]) : 0
                 };
@@ -92,7 +92,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
             case OpCode.UiImage:
                 if (!ValidateArgs(inst, 4)) return true;
-                State.Sprites[GetVal(inst.Arguments[0])] = new Sprite
+                State.Render.Sprites[GetVal(inst.Arguments[0])] = new Sprite
                 {
                     Id = GetVal(inst.Arguments[0]),
                     Type = SpriteType.Image,
@@ -134,12 +134,12 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
             case OpCode.UiLayout:
                 if (!ValidateArgs(inst, 2)) return true;
-                State.UiLayouts[GetVal(inst.Arguments[0])] = GetString(inst.Arguments[1]).ToLowerInvariant();
+                State.UiComposition.Layouts[GetVal(inst.Arguments[0])] = GetString(inst.Arguments[1]).ToLowerInvariant();
                 return true;
 
             case OpCode.UiAnchor:
                 if (!ValidateArgs(inst, 2)) return true;
-                State.UiAnchors[GetVal(inst.Arguments[0])] = GetString(inst.Arguments[1]).ToLowerInvariant();
+                State.UiComposition.Anchors[GetVal(inst.Arguments[0])] = GetString(inst.Arguments[1]).ToLowerInvariant();
                 return true;
 
             case OpCode.UiPack:
@@ -171,13 +171,13 @@ public sealed class UiCommandHandler : BaseCommandHandler
                         Reporter.Report(new AriaError($"ui_on は event='{eventName}' をまだサポートしていません。click/hover を指定してください。", inst.SourceLine, CurrentScriptFile, AriaErrorLevel.Error, "UI_EVENT_UNSUPPORTED"));
                         return true;
                     }
-                    State.UiEvents[$"{GetVal(inst.Arguments[0])}:{eventName}"] = inst.Arguments[2];
+                    State.UiComposition.Events[$"{GetVal(inst.Arguments[0])}:{eventName}"] = inst.Arguments[2];
                 }
                 return true;
 
             case OpCode.UiHotkey:
                 if (!ValidateArgs(inst, 2)) return true;
-                State.UiHotkeys[GetString(inst.Arguments[0]).ToLowerInvariant()] = inst.Arguments[1];
+                State.UiComposition.Hotkeys[GetString(inst.Arguments[0]).ToLowerInvariant()] = inst.Arguments[1];
                 return true;
 
             case OpCode.UiTween:
@@ -192,7 +192,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
             case OpCode.UiMove:
                 if (!ValidateArgs(inst, 4)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var move))
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var move))
                 {
                     int duration = GetVal(inst.Arguments[3]);
                     Tweens.Add(new Tween { SpriteId = move.Id, Property = TweenProperty.X, From = move.X, To = GetVal(inst.Arguments[1]), DurationMs = duration, Ease = EaseType.EaseOut });
@@ -202,7 +202,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
             case OpCode.UiScale:
                 if (!ValidateArgs(inst, 4)) return true;
-                if (State.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var scale))
+                if (State.Render.Sprites.TryGetValue(GetVal(inst.Arguments[0]), out var scale))
                 {
                     int duration = GetVal(inst.Arguments[3]);
                     Tweens.Add(new Tween { SpriteId = scale.Id, Property = TweenProperty.ScaleX, From = scale.ScaleX, To = GetFloat(inst.Arguments[1], inst), DurationMs = duration, Ease = EaseType.EaseOut });
@@ -281,7 +281,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
                 return;
             }
 
-            State.MenuActionOverrides[prop] = GetString(values[0]);
+            State.MenuRuntime.MenuActionOverrides[prop] = GetString(values[0]);
             return;
         }
 
@@ -291,17 +291,17 @@ public sealed class UiCommandHandler : BaseCommandHandler
             return;
         }
 
-        if (TryParseTargetId(target, "sprite:", out int spriteId) && State.Sprites.TryGetValue(spriteId, out var sprite))
+        if (TryParseTargetId(target, "sprite:", out int spriteId) && State.Render.Sprites.TryGetValue(spriteId, out var sprite))
         {
             ApplySpriteProperty(sprite, prop, values, inst);
             return;
         }
 
-        if (TryParseTargetId(target, "group:", out int groupId) && State.UiGroups.TryGetValue(groupId, out var children))
+        if (TryParseTargetId(target, "group:", out int groupId) && State.UiComposition.Groups.TryGetValue(groupId, out var children))
         {
             foreach (int id in children.ToArray())
             {
-                if (State.Sprites.TryGetValue(id, out var child)) ApplySpriteProperty(child, prop, values, inst);
+                if (State.Render.Sprites.TryGetValue(id, out var child)) ApplySpriteProperty(child, prop, values, inst);
             }
             return;
         }
@@ -313,31 +313,31 @@ public sealed class UiCommandHandler : BaseCommandHandler
     {
         switch (prop)
         {
-            case "x": State.DefaultTextboxX = GetVal(values[0]); break;
-            case "y": State.DefaultTextboxY = GetVal(values[0]); break;
+            case "x": State.TextWindow.DefaultTextboxX = GetVal(values[0]); break;
+            case "y": State.TextWindow.DefaultTextboxY = GetVal(values[0]); break;
             case "w":
-            case "width": State.DefaultTextboxW = GetVal(values[0]); break;
+            case "width": State.TextWindow.DefaultTextboxW = GetVal(values[0]); break;
             case "h":
-            case "height": State.DefaultTextboxH = GetVal(values[0]); break;
+            case "height": State.TextWindow.DefaultTextboxH = GetVal(values[0]); break;
             case "padding":
-                State.DefaultTextboxPaddingX = GetVal(values[0]);
-                State.DefaultTextboxPaddingY = values.Count > 1 ? GetVal(values[1]) : State.DefaultTextboxPaddingX;
+                State.TextWindow.DefaultTextboxPaddingX = GetVal(values[0]);
+                State.TextWindow.DefaultTextboxPaddingY = values.Count > 1 ? GetVal(values[1]) : State.TextWindow.DefaultTextboxPaddingX;
                 break;
-            case "fill": State.DefaultTextboxBgColor = GetString(values[0]); break;
-            case "fill_alpha": State.DefaultTextboxBgAlpha = GetVal(values[0]); break;
-            case "text_color": State.DefaultTextColor = GetString(values[0]); break;
-            case "font_size": State.DefaultFontSize = GetVal(values[0]); break;
-            case "radius": State.DefaultTextboxCornerRadius = GetVal(values[0]); break;
-            case "border": State.DefaultTextboxBorderWidth = GetVal(values[0]); if (values.Count > 1) State.DefaultTextboxBorderColor = GetString(values[1]); break;
-            case "border_color": State.DefaultTextboxBorderColor = GetString(values[0]); break;
-            case "border_alpha": State.DefaultTextboxBorderOpacity = GetVal(values[0]); break;
+            case "fill": State.TextWindow.DefaultTextboxBgColor = GetString(values[0]); break;
+            case "fill_alpha": State.TextWindow.DefaultTextboxBgAlpha = GetVal(values[0]); break;
+            case "text_color": State.TextWindow.DefaultTextColor = GetString(values[0]); break;
+            case "font_size": State.TextWindow.DefaultFontSize = GetVal(values[0]); break;
+            case "radius": State.TextWindow.DefaultTextboxCornerRadius = GetVal(values[0]); break;
+            case "border": State.TextWindow.DefaultTextboxBorderWidth = GetVal(values[0]); if (values.Count > 1) State.TextWindow.DefaultTextboxBorderColor = GetString(values[1]); break;
+            case "border_color": State.TextWindow.DefaultTextboxBorderColor = GetString(values[0]); break;
+            case "border_alpha": State.TextWindow.DefaultTextboxBorderOpacity = GetVal(values[0]); break;
             case "shadow":
-                State.DefaultTextboxShadowOffsetX = GetVal(values[0]);
-                State.DefaultTextboxShadowOffsetY = values.Count > 1 ? GetVal(values[1]) : State.DefaultTextboxShadowOffsetY;
-                if (values.Count > 2) State.DefaultTextboxShadowColor = GetString(values[2]);
+                State.TextWindow.DefaultTextboxShadowOffsetX = GetVal(values[0]);
+                State.TextWindow.DefaultTextboxShadowOffsetY = values.Count > 1 ? GetVal(values[1]) : State.TextWindow.DefaultTextboxShadowOffsetY;
+                if (values.Count > 2) State.TextWindow.DefaultTextboxShadowColor = GetString(values[2]);
                 break;
-            case "shadow_alpha": State.DefaultTextboxShadowAlpha = GetVal(values[0]); break;
-            case "visible": State.TextboxVisible = IsTruthy(values[0]); break;
+            case "shadow_alpha": State.TextWindow.DefaultTextboxShadowAlpha = GetVal(values[0]); break;
+            case "visible": State.TextWindow.TextboxVisible = IsTruthy(values[0]); break;
             default: ReportUnsupportedProperty("textbox", prop, inst); break;
         }
     }
@@ -347,20 +347,20 @@ public sealed class UiCommandHandler : BaseCommandHandler
         switch (prop)
         {
             case "w":
-            case "width": State.ChoiceWidth = GetVal(values[0]); break;
+            case "width": State.ChoiceStyle.ChoiceWidth = GetVal(values[0]); break;
             case "h":
-            case "height": State.ChoiceHeight = GetVal(values[0]); break;
-            case "gap": State.ChoiceSpacing = GetVal(values[0]); break;
-            case "padding": State.ChoicePaddingX = GetVal(values[0]); break;
-            case "fill": State.ChoiceBgColor = GetString(values[0]); break;
-            case "fill_alpha": State.ChoiceBgAlpha = GetVal(values[0]); break;
-            case "text_color": State.ChoiceTextColor = GetString(values[0]); break;
-            case "font_size": State.ChoiceFontSize = GetVal(values[0]); break;
-            case "radius": State.ChoiceCornerRadius = GetVal(values[0]); break;
-            case "border": State.ChoiceBorderWidth = GetVal(values[0]); if (values.Count > 1) State.ChoiceBorderColor = GetString(values[1]); break;
-            case "border_color": State.ChoiceBorderColor = GetString(values[0]); break;
-            case "border_alpha": State.ChoiceBorderOpacity = GetVal(values[0]); break;
-            case "hover_fill": State.ChoiceHoverColor = GetString(values[0]); break;
+            case "height": State.ChoiceStyle.ChoiceHeight = GetVal(values[0]); break;
+            case "gap": State.ChoiceStyle.ChoiceSpacing = GetVal(values[0]); break;
+            case "padding": State.ChoiceStyle.ChoicePaddingX = GetVal(values[0]); break;
+            case "fill": State.ChoiceStyle.ChoiceBgColor = GetString(values[0]); break;
+            case "fill_alpha": State.ChoiceStyle.ChoiceBgAlpha = GetVal(values[0]); break;
+            case "text_color": State.ChoiceStyle.ChoiceTextColor = GetString(values[0]); break;
+            case "font_size": State.ChoiceStyle.ChoiceFontSize = GetVal(values[0]); break;
+            case "radius": State.ChoiceStyle.ChoiceCornerRadius = GetVal(values[0]); break;
+            case "border": State.ChoiceStyle.ChoiceBorderWidth = GetVal(values[0]); if (values.Count > 1) State.ChoiceStyle.ChoiceBorderColor = GetString(values[1]); break;
+            case "border_color": State.ChoiceStyle.ChoiceBorderColor = GetString(values[0]); break;
+            case "border_alpha": State.ChoiceStyle.ChoiceBorderOpacity = GetVal(values[0]); break;
+            case "hover_fill": State.ChoiceStyle.ChoiceHoverColor = GetString(values[0]); break;
             default: ReportUnsupportedProperty("choice", prop, inst); break;
         }
     }
@@ -372,8 +372,8 @@ public sealed class UiCommandHandler : BaseCommandHandler
             case "speed":
             case "text_speed":
             case "type_speed":
-                State.TextSpeedMs = Math.Max(0, GetVal(values[0]));
-                Config.Config.GlobalTextSpeedMs = State.TextSpeedMs;
+                State.TextRuntime.TextSpeedMs = Math.Max(0, GetVal(values[0]));
+                Config.Config.GlobalTextSpeedMs = State.TextRuntime.TextSpeedMs;
                 Config.Save();
                 break;
             case "advance":
@@ -381,41 +381,41 @@ public sealed class UiCommandHandler : BaseCommandHandler
                 SetTextAdvance(values, inst);
                 break;
             case "advance_ratio":
-                State.TextAdvanceMode = "ratio";
-                State.TextAdvanceRatio = Math.Clamp(GetFloat(values[0], inst, 1f), 0f, 1f);
+                State.TextRuntime.TextAdvanceMode = "ratio";
+                State.TextRuntime.TextAdvanceRatio = Math.Clamp(GetFloat(values[0], inst, 1f), 0f, 1f);
                 break;
             case "shadow":
-                State.DefaultTextShadowX = GetVal(values[0]);
-                State.DefaultTextShadowY = values.Count > 1 ? GetVal(values[1]) : State.DefaultTextShadowY;
-                if (values.Count > 2) State.DefaultTextShadowColor = GetString(values[2]);
+                State.TextRuntime.DefaultTextShadowX = GetVal(values[0]);
+                State.TextRuntime.DefaultTextShadowY = values.Count > 1 ? GetVal(values[1]) : State.TextRuntime.DefaultTextShadowY;
+                if (values.Count > 2) State.TextRuntime.DefaultTextShadowColor = GetString(values[2]);
                 ApplyCurrentTextDecoration();
                 break;
             case "shadow_color":
-                State.DefaultTextShadowColor = GetString(values[0]);
+                State.TextRuntime.DefaultTextShadowColor = GetString(values[0]);
                 ApplyCurrentTextDecoration();
                 break;
             case "outline":
-                State.DefaultTextOutlineSize = GetVal(values[0]);
-                if (values.Count > 1) State.DefaultTextOutlineColor = GetString(values[1]);
+                State.TextRuntime.DefaultTextOutlineSize = GetVal(values[0]);
+                if (values.Count > 1) State.TextRuntime.DefaultTextOutlineColor = GetString(values[1]);
                 ApplyCurrentTextDecoration();
                 break;
             case "outline_color":
-                State.DefaultTextOutlineColor = GetString(values[0]);
+                State.TextRuntime.DefaultTextOutlineColor = GetString(values[0]);
                 ApplyCurrentTextDecoration();
                 break;
             case "effect":
             case "text_effect":
-                State.DefaultTextEffect = GetString(values[0]).Trim().ToLowerInvariant();
-                if (values.Count > 1) State.DefaultTextEffectStrength = GetFloat(values[1], inst, State.DefaultTextEffectStrength);
-                if (values.Count > 2) State.DefaultTextEffectSpeed = GetFloat(values[2], inst, State.DefaultTextEffectSpeed);
+                State.TextRuntime.DefaultTextEffect = GetString(values[0]).Trim().ToLowerInvariant();
+                if (values.Count > 1) State.TextRuntime.DefaultTextEffectStrength = GetFloat(values[1], inst, State.TextRuntime.DefaultTextEffectStrength);
+                if (values.Count > 2) State.TextRuntime.DefaultTextEffectSpeed = GetFloat(values[2], inst, State.TextRuntime.DefaultTextEffectSpeed);
                 ApplyCurrentTextDecoration();
                 break;
             case "effect_strength":
-                State.DefaultTextEffectStrength = GetFloat(values[0], inst, State.DefaultTextEffectStrength);
+                State.TextRuntime.DefaultTextEffectStrength = GetFloat(values[0], inst, State.TextRuntime.DefaultTextEffectStrength);
                 ApplyCurrentTextDecoration();
                 break;
             case "effect_speed":
-                State.DefaultTextEffectSpeed = GetFloat(values[0], inst, State.DefaultTextEffectSpeed);
+                State.TextRuntime.DefaultTextEffectSpeed = GetFloat(values[0], inst, State.TextRuntime.DefaultTextEffectSpeed);
                 ApplyCurrentTextDecoration();
                 break;
             default:
@@ -431,12 +431,12 @@ public sealed class UiCommandHandler : BaseCommandHandler
             case "speed":
             case "steps":
             case "per_frame":
-                State.SkipAdvancePerFrame = Math.Clamp(GetVal(values[0]), 1, 64);
+                State.Playback.SkipAdvancePerFrame = Math.Clamp(GetVal(values[0]), 1, 64);
                 break;
             case "force_speed":
             case "force_steps":
             case "force_per_frame":
-                State.ForceSkipAdvancePerFrame = Math.Clamp(GetVal(values[0]), 1, 128);
+                State.Playback.ForceSkipAdvancePerFrame = Math.Clamp(GetVal(values[0]), 1, 128);
                 break;
             default:
                 ReportUnsupportedProperty("skip", prop, inst);
@@ -450,20 +450,20 @@ public sealed class UiCommandHandler : BaseCommandHandler
         {
             case "w":
             case "width":
-                if (target == "rmenu") State.RightMenuWidth = GetVal(values[0]);
-                else if (target is "save" or "load") State.SaveLoadWidth = GetVal(values[0]);
-                else if (target == "backlog") State.BacklogWidth = GetVal(values[0]);
-                else if (target == "settings") State.SettingsWidth = GetVal(values[0]);
+                if (target == "rmenu") State.MenuRuntime.RightMenuWidth = GetVal(values[0]);
+                else if (target is "save" or "load") State.MenuRuntime.SaveLoadWidth = GetVal(values[0]);
+                else if (target == "backlog") State.MenuRuntime.BacklogWidth = GetVal(values[0]);
+                else if (target == "settings") State.MenuRuntime.SettingsWidth = GetVal(values[0]);
                 break;
             case "columns":
-                State.SaveLoadColumns = Math.Clamp(GetVal(values[0]), 1, 4);
+                State.MenuRuntime.SaveLoadColumns = Math.Clamp(GetVal(values[0]), 1, 4);
                 break;
-            case "align": State.RightMenuAlign = GetString(values[0]).ToLowerInvariant(); break;
-            case "fill": State.MenuFillColor = GetString(values[0]); break;
-            case "fill_alpha": State.MenuFillAlpha = GetVal(values[0]); break;
-            case "text_color": State.MenuTextColor = GetString(values[0]); break;
-            case "border_color": State.MenuLineColor = GetString(values[0]); break;
-            case "radius": State.MenuCornerRadius = GetVal(values[0]); break;
+            case "align": State.MenuRuntime.RightMenuAlign = GetString(values[0]).ToLowerInvariant(); break;
+            case "fill": State.MenuRuntime.MenuFillColor = GetString(values[0]); break;
+            case "fill_alpha": State.MenuRuntime.MenuFillAlpha = GetVal(values[0]); break;
+            case "text_color": State.MenuRuntime.MenuTextColor = GetString(values[0]); break;
+            case "border_color": State.MenuRuntime.MenuLineColor = GetString(values[0]); break;
+            case "radius": State.MenuRuntime.MenuCornerRadius = GetVal(values[0]); break;
             default: ReportUnsupportedProperty(target, prop, inst); break;
         }
     }
@@ -472,13 +472,13 @@ public sealed class UiCommandHandler : BaseCommandHandler
     {
         switch (prop)
         {
-            case "size": State.ClickCursorSize = Math.Clamp(GetFloat(values[0], inst), 6f, 48f); break;
+            case "size": State.UiRuntime.ClickCursorSize = Math.Clamp(GetFloat(values[0], inst), 6f, 48f); break;
             case "color":
-            case "fill": State.ClickCursorColor = GetString(values[0]); break;
-            case "visible": State.ShowClickCursor = IsTruthy(values[0]); break;
+            case "fill": State.UiRuntime.ClickCursorColor = GetString(values[0]); break;
+            case "visible": State.UiRuntime.ShowClickCursor = IsTruthy(values[0]); break;
             case "mode":
-                State.ClickCursorMode = GetString(values[0]).ToLowerInvariant();
-                if (State.ClickCursorMode is "engine" or "builtin" or "default") State.ClickCursorPath = "";
+                State.UiRuntime.ClickCursorMode = GetString(values[0]).ToLowerInvariant();
+                if (State.UiRuntime.ClickCursorMode is "engine" or "builtin" or "default") State.UiRuntime.ClickCursorPath = "";
                 break;
             default: ReportUnsupportedProperty("cursor", prop, inst); break;
         }
@@ -489,38 +489,38 @@ public sealed class UiCommandHandler : BaseCommandHandler
         string mode = GetString(values[0]).Trim().ToLowerInvariant();
         if (mode is "any" or "immediate")
         {
-            State.TextAdvanceMode = "any";
-            State.TextAdvanceRatio = 0f;
+            State.TextRuntime.TextAdvanceMode = "any";
+            State.TextRuntime.TextAdvanceRatio = 0f;
         }
         else if (mode == "ratio")
         {
-            State.TextAdvanceMode = "ratio";
-            State.TextAdvanceRatio = values.Count > 1 ? Math.Clamp(GetFloat(values[1], inst, 1f), 0f, 1f) : State.TextAdvanceRatio;
+            State.TextRuntime.TextAdvanceMode = "ratio";
+            State.TextRuntime.TextAdvanceRatio = values.Count > 1 ? Math.Clamp(GetFloat(values[1], inst, 1f), 0f, 1f) : State.TextRuntime.TextAdvanceRatio;
         }
         else
         {
-            State.TextAdvanceMode = "complete";
-            State.TextAdvanceRatio = 1f;
+            State.TextRuntime.TextAdvanceMode = "complete";
+            State.TextRuntime.TextAdvanceRatio = 1f;
         }
     }
 
     private void ApplyCurrentTextDecoration()
     {
-        if (State.TextTargetSpriteId < 0 ||
-            !State.Sprites.TryGetValue(State.TextTargetSpriteId, out var sp) ||
+        if (State.TextWindow.TextTargetSpriteId < 0 ||
+            !State.Render.Sprites.TryGetValue(State.TextWindow.TextTargetSpriteId, out var sp) ||
             sp.Type != SpriteType.Text)
         {
             return;
         }
 
-        sp.TextShadowColor = State.DefaultTextShadowColor;
-        sp.TextShadowX = State.DefaultTextShadowX;
-        sp.TextShadowY = State.DefaultTextShadowY;
-        sp.TextOutlineColor = State.DefaultTextOutlineColor;
-        sp.TextOutlineSize = State.DefaultTextOutlineSize;
-        sp.TextEffect = State.DefaultTextEffect;
-        sp.TextEffectStrength = State.DefaultTextEffectStrength;
-        sp.TextEffectSpeed = State.DefaultTextEffectSpeed;
+        sp.TextShadowColor = State.TextRuntime.DefaultTextShadowColor;
+        sp.TextShadowX = State.TextRuntime.DefaultTextShadowX;
+        sp.TextShadowY = State.TextRuntime.DefaultTextShadowY;
+        sp.TextOutlineColor = State.TextRuntime.DefaultTextOutlineColor;
+        sp.TextOutlineSize = State.TextRuntime.DefaultTextOutlineSize;
+        sp.TextEffect = State.TextRuntime.DefaultTextEffect;
+        sp.TextEffectStrength = State.TextRuntime.DefaultTextEffectStrength;
+        sp.TextEffectSpeed = State.TextRuntime.DefaultTextEffectSpeed;
     }
 
     private void ApplySpriteProperty(Sprite sp, string prop, IReadOnlyList<string> values, Instruction inst)
@@ -541,8 +541,8 @@ public sealed class UiCommandHandler : BaseCommandHandler
             case "text_color":
             case "color": sp.Color = GetString(values[0]); break;
             case "font_size": sp.FontSize = GetVal(values[0]); break;
-            case "align": sp.TextAlign = GetString(values[0]).ToLowerInvariant(); break;
-            case "valign": sp.TextVAlign = GetString(values[0]).ToLowerInvariant(); break;
+            case "align": { var s = GetString(values[0]); if (Enum.TryParse<TextAlignment>(s, ignoreCase: true, out var v)) sp.TextAlign = v; break; }
+            case "valign": { var s = GetString(values[0]); if (Enum.TryParse<TextVerticalAlignment>(s, ignoreCase: true, out var v)) sp.TextVAlign = v; break; }
             case "radius": sp.CornerRadius = GetVal(values[0]); break;
             case "border": sp.BorderWidth = GetVal(values[0]); if (values.Count > 1) sp.BorderColor = GetString(values[1]); break;
             case "border_color": sp.BorderColor = GetString(values[0]); break;
@@ -565,7 +565,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
     private void ApplyStyle(int id, string style)
     {
-        if (!State.Sprites.TryGetValue(id, out var sp)) return;
+        if (!State.Render.Sprites.TryGetValue(id, out var sp)) return;
         switch (style.Trim().ToLowerInvariant())
         {
             case "mono":
@@ -578,18 +578,18 @@ public sealed class UiCommandHandler : BaseCommandHandler
                 sp.HoverFillColor = "#151515";
                 break;
             case "panel":
-                sp.FillColor = State.MenuFillColor;
-                sp.FillAlpha = State.MenuFillAlpha;
-                sp.BorderColor = State.MenuLineColor;
+                sp.FillColor = State.MenuRuntime.MenuFillColor;
+                sp.FillAlpha = State.MenuRuntime.MenuFillAlpha;
+                sp.BorderColor = State.MenuRuntime.MenuLineColor;
                 sp.BorderWidth = 1;
-                sp.CornerRadius = State.MenuCornerRadius;
+                sp.CornerRadius = State.MenuRuntime.MenuCornerRadius;
                 break;
         }
     }
 
     private void ApplyState(int id, string state)
     {
-        if (!State.Sprites.TryGetValue(id, out var sp)) return;
+        if (!State.Render.Sprites.TryGetValue(id, out var sp)) return;
         string normalized = state.Trim().ToLowerInvariant();
         if (normalized == "disabled")
         {
@@ -609,7 +609,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
     private void ApplyStateStyle(int id, string stateRaw, string propRaw, IReadOnlyList<string> values, Instruction inst)
     {
-        if (!State.Sprites.TryGetValue(id, out var sp) || values.Count == 0) return;
+        if (!State.Render.Sprites.TryGetValue(id, out var sp) || values.Count == 0) return;
 
         string state = stateRaw.Trim().ToLowerInvariant();
         string prop = propRaw.Trim().ToLowerInvariant();
@@ -656,7 +656,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
     private void AnimateProperty(int id, string property, float to, int durationMs, string easeName, Instruction inst)
     {
-        if (!State.Sprites.TryGetValue(id, out var sp)) return;
+        if (!State.Render.Sprites.TryGetValue(id, out var sp)) return;
         if (!TryNormalizeTweenProperty(property, out var prop))
         {
             ReportUnsupportedProperty($"sprite:{id}", property, inst);
@@ -678,57 +678,57 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
     private void PackGroup(int groupId)
     {
-        if (!State.UiGroups.TryGetValue(groupId, out var children) || children.Count == 0) return;
-        string layout = State.UiLayouts.TryGetValue(groupId, out var value) ? value : "free";
+        if (!State.UiComposition.Groups.TryGetValue(groupId, out var children) || children.Count == 0) return;
+        string layout = State.UiComposition.Layouts.TryGetValue(groupId, out var value) ? value : "free";
         if (layout == "free") return;
-        float x = State.Sprites.TryGetValue(children[0], out var first) ? first.X : 0f;
-        float y = State.Sprites.TryGetValue(children[0], out first) ? first.Y : 0f;
-        int gap = State.ChoiceSpacing;
+        float x = State.Render.Sprites.TryGetValue(children[0], out var first) ? first.X : 0f;
+        float y = State.Render.Sprites.TryGetValue(children[0], out first) ? first.Y : 0f;
+        int gap = State.ChoiceStyle.ChoiceSpacing;
         foreach (int id in children)
         {
-            if (!State.Sprites.TryGetValue(id, out var sp)) continue;
+            if (!State.Render.Sprites.TryGetValue(id, out var sp)) continue;
             sp.X = x;
             sp.Y = y;
             if (layout == "row") x += Math.Max(sp.Width, 1) + gap;
-            if (layout == "column") y += Math.Max(sp.Height, State.ChoiceHeight) + gap;
+            if (layout == "column") y += Math.Max(sp.Height, State.ChoiceStyle.ChoiceHeight) + gap;
         }
     }
 
     private void EnsureGroup(int groupId)
     {
-        if (!State.UiGroups.ContainsKey(groupId)) State.UiGroups[groupId] = new List<int>();
+        if (!State.UiComposition.Groups.ContainsKey(groupId)) State.UiComposition.Groups[groupId] = new List<int>();
     }
 
     private void AddToGroup(int groupId, int childId)
     {
         EnsureGroup(groupId);
-        if (!State.UiGroups[groupId].Contains(childId)) State.UiGroups[groupId].Add(childId);
+        if (!State.UiComposition.Groups[groupId].Contains(childId)) State.UiComposition.Groups[groupId].Add(childId);
     }
 
     private void ClearGroup(int groupId)
     {
-        if (!State.UiGroups.TryGetValue(groupId, out var children)) return;
+        if (!State.UiComposition.Groups.TryGetValue(groupId, out var children)) return;
         foreach (int id in children.ToArray())
         {
-            State.Sprites.Remove(id);
-            State.SpriteButtonMap.Remove(id);
+            State.Render.Sprites.Remove(id);
+            State.Interaction.SpriteButtonMap.Remove(id);
         }
         children.Clear();
     }
 
     private void SetGroupVisible(int groupId, bool visible)
     {
-        if (!State.UiGroups.TryGetValue(groupId, out var children)) return;
+        if (!State.UiComposition.Groups.TryGetValue(groupId, out var children)) return;
         foreach (int id in children)
         {
-            if (State.Sprites.TryGetValue(id, out var sprite)) sprite.Visible = visible;
+            if (State.Render.Sprites.TryGetValue(id, out var sprite)) sprite.Visible = visible;
         }
     }
 
     private void SetButton(int spriteId, int result)
     {
-        if (State.Sprites.TryGetValue(spriteId, out var sprite)) sprite.IsButton = true;
-        State.SpriteButtonMap[spriteId] = result;
+        if (State.Render.Sprites.TryGetValue(spriteId, out var sprite)) sprite.IsButton = true;
+        State.Interaction.SpriteButtonMap[spriteId] = result;
     }
 
     private bool TryParseTargetId(string target, string prefix, out int id)
@@ -805,7 +805,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
         int thumbR = 8;
         int height = thumbR * 2 + 4;
 
-        State.Sprites[id] = new Sprite
+        State.Render.Sprites[id] = new Sprite
         {
             Id = id,
             Type = SpriteType.Rect,
@@ -821,11 +821,11 @@ public sealed class UiCommandHandler : BaseCommandHandler
             SliderMax = max,
             SliderValue = Math.Clamp(value, min, max)
         };
-        State.SpriteButtonMap[id] = id;
+        State.Interaction.SpriteButtonMap[id] = id;
 
         int fillId = id + 1;
         float ratio = max > min ? (float)(Math.Clamp(value, min, max) - min) / (max - min) : 0f;
-        State.Sprites[fillId] = new Sprite
+        State.Render.Sprites[fillId] = new Sprite
         {
             Id = fillId,
             Type = SpriteType.Rect,
@@ -840,7 +840,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
 
         int thumbId = id + 2;
         int thumbX = x + (int)(width * ratio) - thumbR;
-        State.Sprites[thumbId] = new Sprite
+        State.Render.Sprites[thumbId] = new Sprite
         {
             Id = thumbId,
             Type = SpriteType.Rect,
@@ -854,7 +854,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
         };
 
         int valueId = id + 3;
-        State.Sprites[valueId] = new Sprite
+        State.Render.Sprites[valueId] = new Sprite
         {
             Id = valueId,
             Type = SpriteType.Text,
@@ -871,7 +871,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
     private void CreateCheckbox(int id, int x, int y, string label, bool value)
     {
         int boxSize = 18;
-        State.Sprites[id] = new Sprite
+        State.Render.Sprites[id] = new Sprite
         {
             Id = id,
             Type = SpriteType.Rect,
@@ -889,10 +889,10 @@ public sealed class UiCommandHandler : BaseCommandHandler
             CheckboxValue = value,
             CheckboxLabel = label
         };
-        State.SpriteButtonMap[id] = id;
+        State.Interaction.SpriteButtonMap[id] = id;
 
         int checkId = id + 1;
-        State.Sprites[checkId] = new Sprite
+        State.Render.Sprites[checkId] = new Sprite
         {
             Id = checkId,
             Type = SpriteType.Text,
@@ -903,12 +903,12 @@ public sealed class UiCommandHandler : BaseCommandHandler
             Text = value ? "v" : "",
             FontSize = 14,
             Color = "#000000",
-            TextAlign = "center",
-            TextVAlign = "center"
+            TextAlign = TextAlignment.Center,
+            TextVAlign = TextVerticalAlignment.Center
         };
 
         int labelId = id + 2;
-        State.Sprites[labelId] = new Sprite
+        State.Render.Sprites[labelId] = new Sprite
         {
             Id = labelId,
             Type = SpriteType.Text,

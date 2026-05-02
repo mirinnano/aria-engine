@@ -128,7 +128,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                 vm.LoadScript(initLoaded, initScriptPath);
                 StartupTrace("init-loaded");
 
-                while (vm.State.State == VmState.Running && vm.State.ProgramCounter < initLoaded.Instructions.Count)
+                while (vm.State.Execution.State == VmState.Running && vm.State.Execution.ProgramCounter < initLoaded.Instructions.Count)
                 {
                     SafeStartup("VM_INIT_STEP", vm.Step, reporter, "init.aria実行中にエラーが発生しました。可能な範囲で続行します。");
                 }
@@ -136,12 +136,12 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             }
 
             NormalizeWindowSettings(vm.State, reporter);
-            StartupTrace($"before-window {vm.State.WindowWidth}x{vm.State.WindowHeight} title={vm.State.Title}");
-            Raylib.InitWindow(vm.State.WindowWidth, vm.State.WindowHeight, "AriaEngine");
+            StartupTrace($"before-window {vm.State.EngineSettings.WindowWidth}x{vm.State.EngineSettings.WindowHeight} title={vm.State.EngineSettings.Title}");
+            Raylib.InitWindow(vm.State.EngineSettings.WindowWidth, vm.State.EngineSettings.WindowHeight, "AriaEngine");
             Raylib.SetExitKey((KeyboardKey)0);
             windowReady = true;
             StartupTrace("after-window");
-            string currentWindowTitle = vm.State.Title;
+            string currentWindowTitle = vm.State.EngineSettings.Title;
             Raylib.SetWindowTitle(currentWindowTitle);
             Raylib.SetTargetFPS(120);
             ShowStartupSplash(assetProvider, reporter);
@@ -161,16 +161,16 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             var loaded = TryLoadScript(
                 scriptLoader,
                 parser,
-                vm.State.MainScript,
+                vm.State.EngineSettings.MainScript,
                 assetProvider,
                 effectiveMode,
                 reporter,
-                fallbackMessage: $"Error: 指定されたスクリプト {vm.State.MainScript} が見つかりません。aria_error_ai.txtを確認してください。");
+                fallbackMessage: $"Error: 指定されたスクリプト {vm.State.EngineSettings.MainScript} が見つかりません。aria_error_ai.txtを確認してください。");
 
-            if (!string.IsNullOrEmpty(vm.State.FontPath))
+            if (!string.IsNullOrEmpty(vm.State.EngineSettings.FontPath))
             {
                 StartupTrace("before-font");
-                renderer.LoadFont(vm.State.FontPath, vm.State.FontAtlasSize, loaded.SourceLines, vm.State.FontFilter);
+                renderer.LoadFont(vm.State.EngineSettings.FontPath, vm.State.EngineSettings.FontAtlasSize, loaded.SourceLines, vm.State.EngineSettings.FontFilter);
                 StartupTrace("after-font");
             }
             else
@@ -182,7 +182,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             renderer.LoadUiFont("assets/fonts/JosefinSans-Thin.ttf");
             StartupTrace("after-ui-font");
 
-            vm.LoadScript(loaded, vm.State.MainScript);
+            vm.LoadScript(loaded, vm.State.EngineSettings.MainScript);
             StartupTrace("main-loaded");
 
             // 動的 include 用のリゾルバを登録（スクリプト内で include "path" を使えるように）
@@ -206,11 +206,11 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             {
                 liveReload?.Update();
 
-                if (vm.State.RequestClose || vm.State.State == VmState.Ended) break;
-                if (!string.Equals(currentWindowTitle, vm.State.Title, StringComparison.Ordinal))
+                if (vm.State.UiRuntime.RequestClose || vm.State.Execution.State == VmState.Ended) break;
+                if (!string.Equals(currentWindowTitle, vm.State.EngineSettings.Title, StringComparison.Ordinal))
                 {
-                    Raylib.SetWindowTitle(vm.State.Title);
-                    currentWindowTitle = vm.State.Title;
+                    Raylib.SetWindowTitle(vm.State.EngineSettings.Title);
+                    currentWindowTitle = vm.State.EngineSettings.Title;
                 }
 
                 float dt = Raylib.GetFrameTime();
@@ -225,11 +225,11 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
 
                 if (!vm.Menu.IsOpen)
                 {
-                    if (vm.State.SkipMode || vm.State.ForceSkipMode)
+                    if (vm.State.Playback.SkipMode || vm.State.Playback.ForceSkipMode)
                     {
                         SafeFrame("vm.skip", () => vm.ProcessSkipFrame(dtMs), reporter);
                     }
-                    else if (vm.State.State == VmState.Running)
+                    else if (vm.State.Execution.State == VmState.Running)
                     {
                         SafeFrame("vm.step", vm.Step, reporter);
                     }
@@ -466,14 +466,14 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
     {
         const int fallbackWidth = 1280;
         const int fallbackHeight = 720;
-        if (state.WindowWidth < 320 || state.WindowHeight < 240 || state.WindowWidth > 7680 || state.WindowHeight > 4320)
+        if (state.EngineSettings.WindowWidth < 320 || state.EngineSettings.WindowHeight < 240 || state.EngineSettings.WindowWidth > 7680 || state.EngineSettings.WindowHeight > 4320)
         {
             reporter.Report(new AriaError(
-                $"window指定が不正です: {state.WindowWidth}x{state.WindowHeight}。{fallbackWidth}x{fallbackHeight}で起動します。",
+                $"window指定が不正です: {state.EngineSettings.WindowWidth}x{state.EngineSettings.WindowHeight}。{fallbackWidth}x{fallbackHeight}で起動します。",
                 level: AriaErrorLevel.Warning,
                 code: "BOOT_WINDOW_SIZE_INVALID"));
-            state.WindowWidth = fallbackWidth;
-            state.WindowHeight = fallbackHeight;
+            state.EngineSettings.WindowWidth = fallbackWidth;
+            state.EngineSettings.WindowHeight = fallbackHeight;
         }
     }
 

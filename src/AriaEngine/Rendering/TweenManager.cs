@@ -68,7 +68,7 @@ public class TweenManager
 
             foreach (var t in finishing)
             {
-                if (!state.Sprites.TryGetValue(t.SpriteId, out var sp)) continue;
+                if (!state.Render.Sprites.TryGetValue(t.SpriteId, out var sp)) continue;
                 ApplyValue(sp, t.Property, t.To);
                 t.OnComplete?.Invoke(state, sp);
             }
@@ -81,7 +81,7 @@ public class TweenManager
         {
             var t = _activeTweens[i];
             
-            if (!state.Sprites.TryGetValue(t.SpriteId, out var sp))
+            if (!state.Render.Sprites.TryGetValue(t.SpriteId, out var sp))
             {
                 _activeTweens.RemoveAt(i);
                 continue;

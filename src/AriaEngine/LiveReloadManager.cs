@@ -153,34 +153,34 @@ public sealed class LiveReloadManager : IDisposable
             _vm.LoadScript(result, path);
 
             // テキスト表示状態をリセット
-            _vm.State.CurrentTextBuffer = "";
-            _vm.State.DisplayedTextLength = 0;
-            _vm.State.TextTimerMs = 0f;
-            _vm.State.CurrentTextSegments = null;
-            _vm.State.IsWaitingPageClear = false;
+            _vm.State.TextRuntime.CurrentTextBuffer = "";
+            _vm.State.TextRuntime.DisplayedTextLength = 0;
+            _vm.State.TextRuntime.TextTimerMs = 0f;
+            _vm.State.TextRuntime.CurrentTextSegments = null;
+            _vm.State.TextRuntime.IsWaitingPageClear = false;
 
             // ラベル位置を復元
             if (!string.IsNullOrEmpty(labelName) && _vm.Labels.TryGetValue(labelName, out int newPc))
             {
-                _vm.State.ProgramCounter = newPc + offset;
+                _vm.State.Execution.ProgramCounter = newPc + offset;
                 if (_vm.Instructions.Count > 0)
                 {
-                    if (_vm.State.ProgramCounter >= _vm.Instructions.Count)
-                        _vm.State.ProgramCounter = _vm.Instructions.Count - 1;
+                    if (_vm.State.Execution.ProgramCounter >= _vm.Instructions.Count)
+                        _vm.State.Execution.ProgramCounter = _vm.Instructions.Count - 1;
                 }
                 else
                 {
-                    _vm.State.ProgramCounter = 0;
+                    _vm.State.Execution.ProgramCounter = 0;
                 }
-                if (_vm.State.ProgramCounter < 0)
-                    _vm.State.ProgramCounter = 0;
+                if (_vm.State.Execution.ProgramCounter < 0)
+                    _vm.State.Execution.ProgramCounter = 0;
             }
             else
             {
-                _vm.State.ProgramCounter = 0;
+                _vm.State.Execution.ProgramCounter = 0;
             }
 
-            _vm.State.State = VmState.Running;
+            _vm.State.Execution.State = VmState.Running;
 
             _reporter.Report(new AriaError(
                 $"ライブリロード完了: '{path}' (ラベル *{labelName}, オフセット {offset})",

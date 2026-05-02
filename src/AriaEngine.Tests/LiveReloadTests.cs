@@ -78,7 +78,7 @@ public class LiveReloadTests : IDisposable
         var result = loader.LoadScript("main.aria");
         vm.LoadScript(result, "main.aria");
         vm.Step(); // execute let %0, 1
-        vm.State.Registers.Should().ContainKey("0").WhoseValue.Should().Be(1);
+        vm.State.RegisterState.Registers.Should().ContainKey("0").WhoseValue.Should().Be(1);
 
         // Change script on disk
         File.WriteAllText(scriptPath, "*start\nlet %0, 99\nwait 1000\nend");
@@ -88,7 +88,7 @@ public class LiveReloadTests : IDisposable
         manager.Update();
 
         // Register should be preserved across reload
-        vm.State.Registers.Should().ContainKey("0").WhoseValue.Should().Be(1);
+        vm.State.RegisterState.Registers.Should().ContainKey("0").WhoseValue.Should().Be(1);
         vm.CurrentScriptFile.Should().Be("main.aria");
     }
 
@@ -117,7 +117,7 @@ public class LiveReloadTests : IDisposable
         // After executing let and wait, PC is at end instruction (offset 2 from *middle)
         offset.Should().Be(2);
 
-        vm.State.Registers["0"] = 42; // manually set to verify preservation
+        vm.State.RegisterState.Registers["0"] = 42; // manually set to verify preservation
 
         // Change script while keeping same label structure
         File.WriteAllText(scriptPath,
@@ -132,7 +132,7 @@ public class LiveReloadTests : IDisposable
         vm.TryGetCurrentLabelAndOffset(out string newLabel, out int newOffset).Should().BeTrue();
         newLabel.Should().Be("middle");
         newOffset.Should().Be(offset);
-        vm.State.Registers.Should().ContainKey("0").WhoseValue.Should().Be(42); // preserved from before reload
+        vm.State.RegisterState.Registers.Should().ContainKey("0").WhoseValue.Should().Be(42); // preserved from before reload
     }
 
     [Fact]
@@ -149,17 +149,17 @@ public class LiveReloadTests : IDisposable
 
         var result = loader.LoadScript("main.aria");
         vm.LoadScript(result, "main.aria");
-        vm.State.CurrentTextBuffer = "previous text";
-        vm.State.DisplayedTextLength = 5;
-        vm.State.TextTimerMs = 123f;
+        vm.State.TextRuntime.CurrentTextBuffer = "previous text";
+        vm.State.TextRuntime.DisplayedTextLength = 5;
+        vm.State.TextRuntime.TextTimerMs = 123f;
 
         var manager = new LiveReloadManager(vm, loader, reporter, null, _tempDir);
         manager.EnqueueChange(scriptPath);
         manager.Update();
 
-        vm.State.CurrentTextBuffer.Should().BeEmpty();
-        vm.State.DisplayedTextLength.Should().Be(0);
-        vm.State.TextTimerMs.Should().Be(0f);
+        vm.State.TextRuntime.CurrentTextBuffer.Should().BeEmpty();
+        vm.State.TextRuntime.DisplayedTextLength.Should().Be(0);
+        vm.State.TextRuntime.TextTimerMs.Should().Be(0f);
     }
 
     [Fact]
@@ -176,15 +176,15 @@ public class LiveReloadTests : IDisposable
 
         var result = loader.LoadScript("main.aria");
         vm.LoadScript(result, "main.aria");
-        vm.State.Flags["flag_a"] = true;
-        vm.State.StringRegisters["name"] = "Aria";
+        vm.State.FlagRuntime.Flags["flag_a"] = true;
+        vm.State.RegisterState.StringRegisters["name"] = "Aria";
 
         var manager = new LiveReloadManager(vm, loader, reporter, null, _tempDir);
         manager.EnqueueChange(scriptPath);
         manager.Update();
 
-        vm.State.Flags.Should().ContainKey("flag_a").WhoseValue.Should().BeTrue();
-        vm.State.StringRegisters.Should().ContainKey("name").WhoseValue.Should().Be("Aria");
+        vm.State.FlagRuntime.Flags.Should().ContainKey("flag_a").WhoseValue.Should().BeTrue();
+        vm.State.RegisterState.StringRegisters.Should().ContainKey("name").WhoseValue.Should().Be("Aria");
     }
 
     [Fact]
@@ -201,14 +201,14 @@ public class LiveReloadTests : IDisposable
 
         var result = loader.LoadScript("main.aria");
         vm.LoadScript(result, "main.aria");
-        vm.State.Sprites[10] = new Sprite { Id = 10, Type = SpriteType.Rect, X = 100, Y = 200 };
+        vm.State.Render.Sprites[10] = new Sprite { Id = 10, Type = SpriteType.Rect, X = 100, Y = 200 };
 
         var manager = new LiveReloadManager(vm, loader, reporter, null, _tempDir);
         manager.EnqueueChange(scriptPath);
         manager.Update();
 
-        vm.State.Sprites.Should().ContainKey(10);
-        vm.State.Sprites[10].X.Should().Be(100);
+        vm.State.Render.Sprites.Should().ContainKey(10);
+        vm.State.Render.Sprites[10].X.Should().Be(100);
     }
 
     [Fact]

@@ -22,7 +22,7 @@ public class CompatUiManager
     /// </summary>
     public int AllocateSpriteId()
     {
-        while (_state.Sprites.ContainsKey(_nextCompatUiSpriteId))
+        while (_state.Render.Sprites.ContainsKey(_nextCompatUiSpriteId))
         {
             _nextCompatUiSpriteId++;
         }
@@ -46,8 +46,8 @@ public class CompatUiManager
 
         foreach (int id in _activeSpriteIds)
         {
-            _state.Sprites.Remove(id);
-            _state.SpriteButtonMap.Remove(id);
+            _state.Render.Sprites.Remove(id);
+            _state.Interaction.SpriteButtonMap.Remove(id);
         }
 
         _activeSpriteIds.Clear();
@@ -66,7 +66,7 @@ public class CompatUiManager
     /// </summary>
     public void ScanAndTrackTransientSprites()
     {
-        foreach (var sprite in _state.Sprites.Values)
+        foreach (var sprite in _state.Render.Sprites.Values)
         {
             if (IsTransientCompatSprite(sprite))
             {
@@ -74,7 +74,7 @@ public class CompatUiManager
             }
         }
 
-        _nextCompatUiSpriteId = Math.Max(SpriteConstants.CompatUiStartId, _state.Sprites.Count == 0 ? SpriteConstants.CompatUiStartId : _state.Sprites.Keys.Max() + 1);
+        _nextCompatUiSpriteId = Math.Max(SpriteConstants.CompatUiStartId, _state.Render.Sprites.Count == 0 ? SpriteConstants.CompatUiStartId : _state.Render.Sprites.Keys.Max() + 1);
     }
 
     /// <summary>
@@ -82,7 +82,7 @@ public class CompatUiManager
     /// </summary>
     public bool HasAnyVisibleButton()
     {
-        return _state.Sprites.Values.Any(s => s.Visible && s.IsButton);
+        return _state.Render.Sprites.Values.Any(s => s.Visible && s.IsButton);
     }
 
     /// <summary>

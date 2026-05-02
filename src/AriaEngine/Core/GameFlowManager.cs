@@ -29,7 +29,7 @@ public class GameFlowManager
         {
             _sceneHistory.Push(_currentScene);
             _currentScene = scene;
-            vm.State.CurrentScene = scene;
+            vm.State.SceneRuntime.CurrentScene = scene;
 
             // シーン遷移用ラベルにジャンプ
             if (_sceneLabels.TryGetValue(scene, out string? label))
@@ -44,7 +44,7 @@ public class GameFlowManager
         if (_sceneHistory.Count > 0)
         {
             _currentScene = _sceneHistory.Pop();
-            vm.State.CurrentScene = _currentScene;
+            vm.State.SceneRuntime.CurrentScene = _currentScene;
 
             if (_sceneLabels.TryGetValue(_currentScene, out string? label))
             {

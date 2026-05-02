@@ -76,14 +76,14 @@ public sealed class StringRegisterExpr : Expression
     public override int EvaluateInt(GameState state, VirtualMachine vm)
     {
         string key = Name.TrimStart('$');
-        if (state.StringRegisters.TryGetValue(key, out string? value) && int.TryParse(value, out int result))
+        if (state.RegisterState.StringRegisters.TryGetValue(key, out string? value) && int.TryParse(value, out int result))
             return result;
         return 0;
     }
     public override string EvaluateString(GameState state, VirtualMachine vm)
     {
         string key = Name.TrimStart('$');
-        return state.StringRegisters.TryGetValue(key, out string? value) ? value ?? "" : "";
+        return state.RegisterState.StringRegisters.TryGetValue(key, out string? value) ? value ?? "" : "";
     }
     public override bool IsStringExpression => true;
 }
@@ -103,7 +103,7 @@ public sealed class ArrayAccessExpr : Expression
     public override int EvaluateInt(GameState state, VirtualMachine vm)
     {
         int idx = Index.EvaluateInt(state, vm);
-        if (state.Arrays.TryGetValue(ArrayName, out var array) && idx >= 0 && idx < array.Length)
+        if (state.RegisterState.Arrays.TryGetValue(ArrayName, out var array) && idx >= 0 && idx < array.Length)
             return array[idx];
         return 0;
     }

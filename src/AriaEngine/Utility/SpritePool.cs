@@ -82,7 +82,7 @@ public class SpritePool
         sprite.Text = "";
         sprite.FontSize = 26;
         sprite.Color = "#ffffff";
-        sprite.TextAlign = "left";
+        sprite.TextAlign = TextAlignment.Left;
         sprite.TextShadowColor = "";
         sprite.TextShadowX = 0;
         sprite.TextShadowY = 0;

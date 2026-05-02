@@ -28,7 +28,7 @@ public class AudioManager
 
     public void Update(GameState state)
     {
-        if (state.CurrentBgm != _currentBgmName)
+        if (state.Audio.CurrentBgm != _currentBgmName)
         {
             if (_currentBgm.HasValue)
             {
@@ -46,7 +46,7 @@ public class AudioManager
                 }
             }
 
-            _currentBgmName = state.CurrentBgm;
+            _currentBgmName = state.Audio.CurrentBgm;
 
             if (!string.IsNullOrEmpty(_currentBgmName))
             {
@@ -111,17 +111,17 @@ public class AudioManager
         {
             try
             {
-                float volume = state.BgmVolume / 100f;
-                if (state.BgmFadeOutTimerMs > 0f)
+                float volume = state.Audio.BgmVolume / 100f;
+                if (state.Audio.BgmFadeOutTimerMs > 0f)
                 {
                     float frameMs = Raylib.GetFrameTime() * 1000f;
-                    state.BgmFadeOutTimerMs = Math.Max(0f, state.BgmFadeOutTimerMs - frameMs);
-                    float ratio = state.BgmFadeOutDurationMs <= 0f ? 0f : state.BgmFadeOutTimerMs / state.BgmFadeOutDurationMs;
+                    state.Audio.BgmFadeOutTimerMs = Math.Max(0f, state.Audio.BgmFadeOutTimerMs - frameMs);
+                    float ratio = state.Audio.BgmFadeOutDurationMs <= 0f ? 0f : state.Audio.BgmFadeOutTimerMs / state.Audio.BgmFadeOutDurationMs;
                     volume *= Math.Clamp(ratio, 0f, 1f);
-                    if (state.BgmFadeOutTimerMs <= 0f)
+                    if (state.Audio.BgmFadeOutTimerMs <= 0f)
                     {
-                        state.BgmFadeOutDurationMs = 0f;
-                        state.CurrentBgm = "";
+                        state.Audio.BgmFadeOutDurationMs = 0f;
+                        state.Audio.CurrentBgm = "";
                     }
                 }
 
@@ -139,10 +139,10 @@ public class AudioManager
             }
         }
 
-        if (state.PendingSe.Count > 0)
+        if (state.Audio.PendingSe.Count > 0)
         {
-            string[] pendingSe = state.PendingSe.ToArray();
-            state.PendingSe.Clear();
+            string[] pendingSe = state.Audio.PendingSe.ToArray();
+            state.Audio.PendingSe.Clear();
             foreach (string sePath in pendingSe)
             {
                 if (!_seCache.ContainsKey(sePath))
@@ -180,7 +180,7 @@ public class AudioManager
                 {
                     try
                     {
-                        Raylib.SetSoundVolume(sound, state.SeVolume / 100f);
+                        Raylib.SetSoundVolume(sound, state.Audio.SeVolume / 100f);
                         Raylib.PlaySound(sound);
                     }
                     catch (Exception ex)

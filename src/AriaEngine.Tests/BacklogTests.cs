@@ -20,15 +20,15 @@ public class BacklogTests
 
         // Simulate voice playback before text
         audio.Execute(new Instruction { Op = OpCode.Dwave, Arguments = new List<string> { "voice1.ogg" }, SourceLine = 0 });
-        vm.State.LastVoicePath.Should().Be("voice1.ogg");
+        vm.State.Audio.LastVoicePath.Should().Be("voice1.ogg");
 
         // Simulate text display and backlog addition
-        vm.State.CurrentTextBuffer = "Hello world";
+        vm.State.TextRuntime.CurrentTextBuffer = "Hello world";
         vm.AddBacklogEntry();
 
-        vm.State.TextHistory.Count.Should().Be(1);
-        vm.State.TextHistory[0].Text.Should().Be("Hello world");
-        vm.State.TextHistory[0].VoicePath.Should().Be("voice1.ogg");
+        vm.State.TextRuntime.TextHistory.Count.Should().Be(1);
+        vm.State.TextRuntime.TextHistory[0].Text.Should().Be("Hello world");
+        vm.State.TextRuntime.TextHistory[0].VoicePath.Should().Be("voice1.ogg");
     }
 
     [Fact]
@@ -37,11 +37,11 @@ public class BacklogTests
         var reporter = new ErrorReporter();
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
 
-        vm.State.LastVoicePath = "voice.ogg";
-        vm.State.CurrentTextBuffer = "First line";
+        vm.State.Audio.LastVoicePath = "voice.ogg";
+        vm.State.TextRuntime.CurrentTextBuffer = "First line";
         vm.AddBacklogEntry();
 
-        vm.State.LastVoicePath.Should().BeEmpty();
+        vm.State.Audio.LastVoicePath.Should().BeEmpty();
     }
 
     [Fact]
@@ -51,45 +51,45 @@ public class BacklogTests
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
 
         // Setup initial state
-        vm.State.Registers["testreg"] = 42;
-        vm.State.StringRegisters["teststr"] = "hello";
-        vm.State.Flags["testflag"] = true;
-        vm.State.CurrentBgm = "bgm.ogg";
-        vm.State.ProgramCounter = 100;
-        vm.State.CurrentTextBuffer = "Snapshot text";
+        vm.State.RegisterState.Registers["testreg"] = 42;
+        vm.State.RegisterState.StringRegisters["teststr"] = "hello";
+        vm.State.FlagRuntime.Flags["testflag"] = true;
+        vm.State.Audio.CurrentBgm = "bgm.ogg";
+        vm.State.Execution.ProgramCounter = 100;
+        vm.State.TextRuntime.CurrentTextBuffer = "Snapshot text";
 
         // Add a sprite
-        vm.State.Sprites[1] = new Sprite { Id = 1, Type = SpriteType.Text, Text = "sprite text", X = 10, Y = 20 };
+        vm.State.Render.Sprites[1] = new Sprite { Id = 1, Type = SpriteType.Text, Text = "sprite text", X = 10, Y = 20 };
 
         // Capture backlog entry
         vm.AddBacklogEntry();
-        vm.State.TextHistory.Count.Should().Be(1);
+        vm.State.TextRuntime.TextHistory.Count.Should().Be(1);
 
-        var entry = vm.State.TextHistory[0];
+        var entry = vm.State.TextRuntime.TextHistory[0];
         entry.StateSnapshot.Should().NotBeNull();
         entry.ProgramCounter.Should().Be(100);
 
         // Mutate current state
-        vm.State.Registers["testreg"] = 99;
-        vm.State.StringRegisters["teststr"] = "changed";
-        vm.State.Flags["testflag"] = false;
-        vm.State.CurrentBgm = "other.ogg";
-        vm.State.ProgramCounter = 200;
-        vm.State.Sprites.Clear();
+        vm.State.RegisterState.Registers["testreg"] = 99;
+        vm.State.RegisterState.StringRegisters["teststr"] = "changed";
+        vm.State.FlagRuntime.Flags["testflag"] = false;
+        vm.State.Audio.CurrentBgm = "other.ogg";
+        vm.State.Execution.ProgramCounter = 200;
+        vm.State.Render.Sprites.Clear();
 
         // Jump back
         vm.JumpToBacklogEntry(entry);
 
-        vm.State.Registers["testreg"].Should().Be(42);
-        vm.State.StringRegisters["teststr"].Should().Be("hello");
-        vm.State.Flags["testflag"].Should().BeTrue();
-        vm.State.CurrentBgm.Should().Be("bgm.ogg");
-        vm.State.ProgramCounter.Should().Be(100);
-        vm.State.CurrentTextBuffer.Should().Be("Snapshot text");
-        vm.State.Sprites.ContainsKey(1).Should().BeTrue();
-        vm.State.Sprites[1].Text.Should().Be("sprite text");
-        vm.State.Sprites[1].X.Should().Be(10);
-        vm.State.State.Should().Be(VmState.Running);
+        vm.State.RegisterState.Registers["testreg"].Should().Be(42);
+        vm.State.RegisterState.StringRegisters["teststr"].Should().Be("hello");
+        vm.State.FlagRuntime.Flags["testflag"].Should().BeTrue();
+        vm.State.Audio.CurrentBgm.Should().Be("bgm.ogg");
+        vm.State.Execution.ProgramCounter.Should().Be(100);
+        vm.State.TextRuntime.CurrentTextBuffer.Should().Be("Snapshot text");
+        vm.State.Render.Sprites.ContainsKey(1).Should().BeTrue();
+        vm.State.Render.Sprites[1].Text.Should().Be("sprite text");
+        vm.State.Render.Sprites[1].X.Should().Be(10);
+        vm.State.Execution.State.Should().Be(VmState.Running);
     }
 
     [Fact]
@@ -105,14 +105,14 @@ public class BacklogTests
             StateSnapshot = null
         };
 
-        vm.State.ProgramCounter = 999;
-        vm.State.CurrentTextBuffer = "current";
+        vm.State.Execution.ProgramCounter = 999;
+        vm.State.TextRuntime.CurrentTextBuffer = "current";
 
         vm.JumpToBacklogEntry(entry);
 
-        vm.State.ProgramCounter.Should().Be(50);
-        vm.State.CurrentTextBuffer.Should().Be("No snapshot");
-        vm.State.State.Should().Be(VmState.Running);
+        vm.State.Execution.ProgramCounter.Should().Be(50);
+        vm.State.TextRuntime.CurrentTextBuffer.Should().Be("No snapshot");
+        vm.State.Execution.State.Should().Be(VmState.Running);
     }
 
     [Fact]
@@ -121,11 +121,11 @@ public class BacklogTests
         var reporter = new ErrorReporter();
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
 
-        vm.State.TextHistory.Add(new BacklogEntry { Text = "Alice: Hello there" });
-        vm.State.TextHistory.Add(new BacklogEntry { Text = "Bob: Good morning" });
-        vm.State.TextHistory.Add(new BacklogEntry { Text = "Alice: How are you?" });
+        vm.State.TextRuntime.TextHistory.Add(new BacklogEntry { Text = "Alice: Hello there" });
+        vm.State.TextRuntime.TextHistory.Add(new BacklogEntry { Text = "Bob: Good morning" });
+        vm.State.TextRuntime.TextHistory.Add(new BacklogEntry { Text = "Alice: How are you?" });
 
-        var all = vm.State.TextHistory;
+        var all = vm.State.TextRuntime.TextHistory;
         all.Count.Should().Be(3);
 
         var filtered = all.Where(e => e.Text.Contains("Alice")).ToList();
@@ -145,22 +145,22 @@ public class BacklogTests
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
 
         // Initially no entries
-        vm.State.TextHistory.Should().BeEmpty();
+        vm.State.TextRuntime.TextHistory.Should().BeEmpty();
 
         // Add first entry - should be unread by default
-        vm.State.CurrentTextBuffer = "First line";
+        vm.State.TextRuntime.CurrentTextBuffer = "First line";
         vm.AddBacklogEntry();
-        vm.State.TextHistory[0].IsRead.Should().BeFalse();
+        vm.State.TextRuntime.TextHistory[0].IsRead.Should().BeFalse();
 
         // Simulate opening backlog: mark all as read
-        foreach (var entry in vm.State.TextHistory) entry.IsRead = true;
-        vm.State.TextHistory[0].IsRead.Should().BeTrue();
+        foreach (var entry in vm.State.TextRuntime.TextHistory) entry.IsRead = true;
+        vm.State.TextRuntime.TextHistory[0].IsRead.Should().BeTrue();
 
         // Add new entry after backlog was opened
-        vm.State.CurrentTextBuffer = "Second line";
+        vm.State.TextRuntime.CurrentTextBuffer = "Second line";
         vm.AddBacklogEntry();
-        vm.State.TextHistory[1].IsRead.Should().BeFalse();
-        vm.State.TextHistory[0].IsRead.Should().BeTrue();
+        vm.State.TextRuntime.TextHistory[1].IsRead.Should().BeFalse();
+        vm.State.TextRuntime.TextHistory[0].IsRead.Should().BeTrue();
     }
 
     [Fact]
@@ -169,11 +169,11 @@ public class BacklogTests
         var reporter = new ErrorReporter();
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
 
-        vm.State.ProgramCounter = 1234;
-        vm.State.CurrentTextBuffer = "Test text";
+        vm.State.Execution.ProgramCounter = 1234;
+        vm.State.TextRuntime.CurrentTextBuffer = "Test text";
         vm.AddBacklogEntry();
 
-        vm.State.TextHistory[0].ProgramCounter.Should().Be(1234);
+        vm.State.TextRuntime.TextHistory[0].ProgramCounter.Should().Be(1234);
     }
 
     [Fact]
@@ -183,12 +183,12 @@ public class BacklogTests
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
 
         var before = System.DateTime.Now.AddSeconds(-1);
-        vm.State.CurrentTextBuffer = "Timed text";
+        vm.State.TextRuntime.CurrentTextBuffer = "Timed text";
         vm.AddBacklogEntry();
         var after = System.DateTime.Now.AddSeconds(1);
 
-        vm.State.TextHistory[0].Timestamp.Should().BeOnOrAfter(before);
-        vm.State.TextHistory[0].Timestamp.Should().BeOnOrBefore(after);
+        vm.State.TextRuntime.TextHistory[0].Timestamp.Should().BeOnOrAfter(before);
+        vm.State.TextRuntime.TextHistory[0].Timestamp.Should().BeOnOrBefore(after);
     }
 
     [Fact]
@@ -197,10 +197,10 @@ public class BacklogTests
         var reporter = new ErrorReporter();
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
 
-        vm.State.CurrentTextBuffer = "Duplicate";
+        vm.State.TextRuntime.CurrentTextBuffer = "Duplicate";
         vm.AddBacklogEntry();
         vm.AddBacklogEntry();
 
-        vm.State.TextHistory.Count.Should().Be(1);
+        vm.State.TextRuntime.TextHistory.Count.Should().Be(1);
     }
 }

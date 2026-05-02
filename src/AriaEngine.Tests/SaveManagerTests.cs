@@ -53,14 +53,14 @@ public sealed class SaveManagerTests : IDisposable
     public void Load_ExistingSave_RestoresRuntimeAndMetadata()
     {
         var state = CreateState();
-        state.ProgramCounter = 42;
-        state.CurrentChapter = "Chapter 1";
-        state.CurrentTextBuffer = "Test save point";
-        state.Registers["%10"] = 100;
-        state.Registers["p.unlock"] = 1;
-        state.Registers["volatile.temp"] = 999;
-        state.StringRegisters["$name"] = "Player";
-        state.SaveFlags["route_a"] = true;
+        state.Execution.ProgramCounter = 42;
+        state.SaveRuntime.CurrentChapter = "Chapter 1";
+        state.TextRuntime.CurrentTextBuffer = "Test save point";
+        state.RegisterState.Registers["%10"] = 100;
+        state.RegisterState.Registers["p.unlock"] = 1;
+        state.RegisterState.Registers["volatile.temp"] = 999;
+        state.RegisterState.StringRegisters["$name"] = "Player";
+        state.FlagRuntime.SaveFlags["route_a"] = true;
 
         _saveManager.Save(2, state, "test.aria");
         var (data, success) = _saveManager.Load(2);
@@ -71,12 +71,12 @@ public sealed class SaveManagerTests : IDisposable
         data.ScriptFile.Should().Be("test.aria");
         data.ChapterTitle.Should().Be("Chapter 1");
         data.PreviewText.Should().Be("Test save point");
-        data.State.ProgramCounter.Should().Be(42);
-        data.State.Registers.Should().NotContainKey("10");
-        data.State.Registers.Should().NotContainKey("p.unlock");
-        data.State.Registers.Should().NotContainKey("volatile.temp");
-        data.State.StringRegisters["$name"].Should().Be("Player");
-        data.State.SaveFlags["route_a"].Should().BeTrue();
+        data.State.Execution.ProgramCounter.Should().Be(42);
+        data.State.RegisterState.Registers.Should().NotContainKey("10");
+        data.State.RegisterState.Registers.Should().NotContainKey("p.unlock");
+        data.State.RegisterState.Registers.Should().NotContainKey("volatile.temp");
+        data.State.RegisterState.StringRegisters["$name"].Should().Be("Player");
+        data.State.FlagRuntime.SaveFlags["route_a"].Should().BeTrue();
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public sealed class SaveManagerTests : IDisposable
     public void Load_AriaSave3_WithDeclarations_RestoresDeclarations()
     {
         var state = CreateState();
-        state.ProgramCounter = 99;
+        state.Execution.ProgramCounter = 99;
         state.Declarations["$hero"] = "local";
         state.Declarations["%gold"] = "save";
         state.Declarations["p.cleared"] = "persistent";
@@ -133,7 +133,7 @@ public sealed class SaveManagerTests : IDisposable
 
         success.Should().BeTrue();
         data.Should().NotBeNull();
-        data!.State.ProgramCounter.Should().Be(99);
+        data!.State.Execution.ProgramCounter.Should().Be(99);
         data.Declarations.Should().ContainKey("$hero").WhoseValue.Should().Be("local");
         data.Declarations.Should().ContainKey("%gold").WhoseValue.Should().Be("save");
         data.Declarations.Should().ContainKey("p.cleared").WhoseValue.Should().Be("persistent");
@@ -143,11 +143,11 @@ public sealed class SaveManagerTests : IDisposable
     public void Load_AriaSave2_TriggersMigrationAndPreservesData()
     {
         var state = CreateState();
-        state.ProgramCounter = 77;
-        state.CurrentChapter = "Legacy Chapter";
-        state.Registers["%100"] = 42;
-        state.StringRegisters["$legacy"] = "OldSave";
-        state.SaveFlags["old_flag"] = true;
+        state.Execution.ProgramCounter = 77;
+        state.SaveRuntime.CurrentChapter = "Legacy Chapter";
+        state.RegisterState.Registers["%100"] = 42;
+        state.RegisterState.StringRegisters["$legacy"] = "OldSave";
+        state.FlagRuntime.SaveFlags["old_flag"] = true;
 
         var file = new SaveFile
         {
@@ -158,7 +158,7 @@ public sealed class SaveManagerTests : IDisposable
                 SlotId = 6,
                 ScriptFile = "legacy.aria",
                 SaveTime = DateTime.Now,
-                ChapterTitle = state.CurrentChapter,
+                ChapterTitle = state.SaveRuntime.CurrentChapter,
                 PreviewText = "Legacy preview",
                 PlayTimeSeconds = 123
             },
@@ -174,10 +174,10 @@ public sealed class SaveManagerTests : IDisposable
         data!.SlotId.Should().Be(6);
         data.ScriptFile.Should().Be("legacy.aria");
         data.ChapterTitle.Should().Be("Legacy Chapter");
-        data.State.ProgramCounter.Should().Be(77);
-        data.State.Registers["%100"].Should().Be(42);
-        data.State.StringRegisters["$legacy"].Should().Be("OldSave");
-        data.State.SaveFlags["old_flag"].Should().BeTrue();
+        data.State.Execution.ProgramCounter.Should().Be(77);
+        data.State.RegisterState.Registers["%100"].Should().Be(42);
+        data.State.RegisterState.StringRegisters["$legacy"].Should().Be("OldSave");
+        data.State.FlagRuntime.SaveFlags["old_flag"].Should().BeTrue();
         data.Declarations.Should().NotBeNull();
         data.Declarations.Should().BeEmpty();
     }
@@ -186,7 +186,7 @@ public sealed class SaveManagerTests : IDisposable
     public void Load_MigratedSave_ResavesAsAriaSave3()
     {
         var state = CreateState();
-        state.ProgramCounter = 88;
+        state.Execution.ProgramCounter = 88;
 
         var file = new SaveFile
         {
@@ -246,9 +246,8 @@ public sealed class SaveManagerTests : IDisposable
     {
         return new GameState
         {
-            SessionStartTime = DateTime.Now,
-            CurrentTextBuffer = "preview",
-            CurrentChapter = "chapter"
+            SaveRuntime = { SessionStartTime = DateTime.Now, CurrentChapter = "chapter" },
+            TextRuntime = { CurrentTextBuffer = "preview" }
         };
     }
 
@@ -294,8 +293,8 @@ public sealed class SaveManagerTests : IDisposable
     public void Quicksave_Quickload_Slot0_Works()
     {
         var state = CreateState();
-        state.ProgramCounter = 77;
-        state.CurrentChapter = "Quick Chapter";
+        state.Execution.ProgramCounter = 77;
+        state.SaveRuntime.CurrentChapter = "Quick Chapter";
         _saveManager.Save(0, state, "quick.aria");
 
         var (data, success) = _saveManager.Load(0);
@@ -304,7 +303,7 @@ public sealed class SaveManagerTests : IDisposable
         data!.SlotId.Should().Be(0);
         data.ScriptFile.Should().Be("quick.aria");
         data.ChapterTitle.Should().Be("Quick Chapter");
-        data.State.ProgramCounter.Should().Be(77);
+        data.State.Execution.ProgramCounter.Should().Be(77);
     }
 
     [Fact]
@@ -313,8 +312,8 @@ public sealed class SaveManagerTests : IDisposable
         var reporter = new ErrorReporter();
         var saves = new SaveManager(reporter);
         var vm = new VirtualMachine(reporter, new TweenManager(), saves, new ConfigManager());
-        vm.State.State = VmState.WaitingForButton;
-        vm.State.SpriteButtonMap[1] = 1;
+        vm.State.Execution.State = VmState.WaitingForButton;
+        vm.State.Interaction.SpriteButtonMap[1] = 1;
         vm.ResumeFromButton(1);
         saves.HasSaveData(SaveManager.AutoSaveSlot).Should().BeTrue();
     }
@@ -344,15 +343,15 @@ public sealed class SaveManagerTests : IDisposable
     public void SaveMetadata_IncludesChapterAndPreviewText()
     {
         var state = CreateState();
-        state.CurrentChapter = "Prologue";
-        state.CurrentTextBuffer = "This is a very long text that should be truncated to the last eighty characters of the current buffer for the preview.";
+        state.SaveRuntime.CurrentChapter = "Prologue";
+        state.TextRuntime.CurrentTextBuffer = "This is a very long text that should be truncated to the last eighty characters of the current buffer for the preview.";
 
         _saveManager.Save(1, state, "meta.aria");
         var (data, success) = _saveManager.Load(1);
 
         success.Should().BeTrue();
         data!.ChapterTitle.Should().Be("Prologue");
-        string expectedPreview = state.CurrentTextBuffer[^Math.Min(80, state.CurrentTextBuffer.Length)..];
+        string expectedPreview = state.TextRuntime.CurrentTextBuffer[^Math.Min(80, state.TextRuntime.CurrentTextBuffer.Length)..];
         data.PreviewText.Should().Be(expectedPreview);
         data.SaveTime.Should().BeWithin(TimeSpan.FromSeconds(5));
     }

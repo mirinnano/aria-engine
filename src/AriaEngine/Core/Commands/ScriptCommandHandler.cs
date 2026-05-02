@@ -25,9 +25,9 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
         {
             case OpCode.Gosub:
                 if (!ValidateArgs(inst, 1)) return true;
-                State.CallStack.Push(State.ProgramCounter);
+                State.Execution.CallStack.Push(State.Execution.ProgramCounter);
                 // ref マップを保存
-                State.RefStack.Push(new Dictionary<string, string>(State.CurrentRefMap));
+                State.Execution.RefStack.Push(new Dictionary<string, string>(State.Execution.CurrentRefMap));
                 // 関数呼び出しの場合はローカルスコープをプッシュ（C++likeなスコープ）
                 string targetLabel = inst.Arguments[0].TrimStart('*');
                 if (Vm.FunctionTable.GetFunction(targetLabel) != null)
@@ -37,7 +37,7 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
                 JumpTo(inst.Arguments[0]);
                 for (int i = inst.Arguments.Count - 1; i >= 1; i--)
                 {
-                    State.ParamStack.Push(inst.Arguments[i]);
+                    State.Execution.ParamStack.Push(inst.Arguments[i]);
                 }
                 return true;
 
@@ -45,13 +45,13 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
                 // Ensure scope defer cleanup runs before returning from a function
                 Vm.ExitScopesUntil(0);
                 // ref マップを復元
-                if (State.RefStack.Count > 0)
+                if (State.Execution.RefStack.Count > 0)
                 {
-                    State.CurrentRefMap = State.RefStack.Pop();
+                    State.Execution.CurrentRefMap = State.Execution.RefStack.Pop();
                 }
                 else
                 {
-                    State.CurrentRefMap.Clear();
+                    State.Execution.CurrentRefMap.Clear();
                 }
                 // ローカルスコープとスプライト寿命をクリーンアップ
                 Vm.PopFunctionScope();
@@ -68,16 +68,16 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
             case OpCode.Getparam:
                 foreach (var arg in inst.Arguments)
                 {
-                    if (State.ParamStack.Count == 0) break;
+                    if (State.Execution.ParamStack.Count == 0) break;
 
-                    var val = State.ParamStack.Pop();
+                    var val = State.Execution.ParamStack.Pop();
                     
                     // REF| プレフィックス処理
                     if (val.StartsWith("REF|", StringComparison.OrdinalIgnoreCase))
                     {
                         string originalReg = val.Substring(4).Trim();
                         string destReg = arg.TrimStart('%');
-                        State.CurrentRefMap[destReg] = originalReg;
+                        State.Execution.CurrentRefMap[destReg] = originalReg;
                     }
                     else if (arg.StartsWith("$"))
                     {
@@ -93,19 +93,19 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
             case OpCode.Throw:
                 // Ensure scope defer cleanup on throw as it propagates
                 Vm.ExitScopesUntil(0);
-                if (State.TryStack.Count > 0)
+                if (State.Execution.TryStack.Count > 0)
                 {
-                    State.ProgramCounter = State.TryStack.Pop();
+                    State.Execution.ProgramCounter = State.Execution.TryStack.Pop();
                 }
                 else
                 {
                     Reporter.Report(new AriaError(
                         "未処理の例外 (throw)。catch ブロックがありません。",
-                        State.ProgramCounter,
+                        State.Execution.ProgramCounter,
                         CurrentScriptFile,
                         AriaErrorLevel.Error,
                         "VM_UNHANDLED_THROW"));
-                    State.State = VmState.Ended;
+                    State.Execution.State = VmState.Ended;
                 }
                 return true;
 
@@ -119,7 +119,7 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
                         string message = inst.Arguments.Count > 1 ? inst.Arguments[1] : "assertion failed";
                         Reporter.Report(new AriaError(
                             $"Assertion failed: {message}",
-                            State.ProgramCounter,
+                            State.Execution.ProgramCounter,
                             CurrentScriptFile,
                             AriaErrorLevel.Error,
                             "VM_ASSERT_FAILED"));
@@ -132,11 +132,11 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
                 string panicMessage = inst.Arguments.Count > 0 ? inst.Arguments[0] : "panic";
                 Reporter.Report(new AriaError(
                     $"Panic: {panicMessage}",
-                    State.ProgramCounter,
+                    State.Execution.ProgramCounter,
                     CurrentScriptFile,
                     AriaErrorLevel.Error,
                     "VM_PANIC"));
-                State.State = VmState.Ended;
+                State.Execution.State = VmState.Ended;
                 return true;
 
             case OpCode.SystemCall:

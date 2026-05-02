@@ -11,7 +11,7 @@ public sealed class GameStateTests
     public void GetReadRate_NoScriptLines_ReturnsZero()
     {
         var state = new GameState();
-        state.TotalScriptLines = 0;
+        state.FlagRuntime.TotalScriptLines = 0;
 
         var rate = state.GetReadRate();
 
@@ -22,7 +22,7 @@ public sealed class GameStateTests
     public void GetReadRate_NoReadKeys_ReturnsZero()
     {
         var state = new GameState();
-        state.TotalScriptLines = 100;
+        state.FlagRuntime.TotalScriptLines = 100;
 
         var rate = state.GetReadRate();
 
@@ -33,11 +33,11 @@ public sealed class GameStateTests
     public void GetReadRate_HalfRead_ReturnsFifty()
     {
         var state = new GameState();
-        state.TotalScriptLines = 100;
+        state.FlagRuntime.TotalScriptLines = 100;
         // Simulate ReadKeys with 50 entries
         for (int i = 0; i < 50; i++)
         {
-            state.ReadKeys.Add($"line_{i}");
+            state.TextRuntime.ReadKeys.Add($"line_{i}");
         }
 
         var rate = state.GetReadRate();
@@ -49,10 +49,10 @@ public sealed class GameStateTests
     public void GetReadRate_AllRead_ReturnsHundred()
     {
         var state = new GameState();
-        state.TotalScriptLines = 100;
+        state.FlagRuntime.TotalScriptLines = 100;
         for (int i = 0; i < 100; i++)
         {
-            state.ReadKeys.Add($"line_{i}");
+            state.TextRuntime.ReadKeys.Add($"line_{i}");
         }
 
         var rate = state.GetReadRate();
@@ -64,10 +64,10 @@ public sealed class GameStateTests
     public void GetReadRate_SomeRead_ReturnsCorrectPercentage()
     {
         var state = new GameState();
-        state.TotalScriptLines = 33;
+        state.FlagRuntime.TotalScriptLines = 33;
         for (int i = 0; i < 11; i++)
         {
-            state.ReadKeys.Add($"line_{i}");
+            state.TextRuntime.ReadKeys.Add($"line_{i}");
         }
 
         var rate = state.GetReadRate();
@@ -83,29 +83,29 @@ public sealed class GameStateTests
 
         state.UnlockCg("cg_001");
 
-        state.UnlockedCgs.Should().Contain("cg_001");
+        state.FlagRuntime.UnlockedCgs.Should().Contain("cg_001");
     }
 
     [Fact]
     public void UnlockCg_EmptyId_DoesNotAdd()
     {
         var state = new GameState();
-        var initialCount = state.UnlockedCgs.Count;
+        var initialCount = state.FlagRuntime.UnlockedCgs.Count;
 
         state.UnlockCg("");
 
-        state.UnlockedCgs.Count.Should().Be(initialCount);
+        state.FlagRuntime.UnlockedCgs.Count.Should().Be(initialCount);
     }
 
     [Fact]
     public void UnlockCg_WhitespaceId_DoesNotAdd()
     {
         var state = new GameState();
-        var initialCount = state.UnlockedCgs.Count;
+        var initialCount = state.FlagRuntime.UnlockedCgs.Count;
 
         state.UnlockCg("   ");
 
-        state.UnlockedCgs.Count.Should().Be(initialCount);
+        state.FlagRuntime.UnlockedCgs.Count.Should().Be(initialCount);
     }
 
     [Fact]
@@ -194,16 +194,16 @@ public sealed class GameStateTests
     public void ReadKeys_TracksReadLinesCorrectly()
     {
         var state = new GameState();
-        state.ReadKeys.Should().BeEmpty();
+        state.TextRuntime.ReadKeys.Should().BeEmpty();
 
-        state.ReadKeys.Add("script.aria:10");
-        state.ReadKeys.Add("script.aria:20");
-        state.ReadKeys.Add("script.aria:30");
+        state.TextRuntime.ReadKeys.Add("script.aria:10");
+        state.TextRuntime.ReadKeys.Add("script.aria:20");
+        state.TextRuntime.ReadKeys.Add("script.aria:30");
 
-        state.ReadKeys.Count.Should().Be(3);
-        state.ReadKeys.Should().Contain("script.aria:10");
-        state.ReadKeys.Should().Contain("script.aria:20");
-        state.ReadKeys.Should().Contain("script.aria:30");
+        state.TextRuntime.ReadKeys.Count.Should().Be(3);
+        state.TextRuntime.ReadKeys.Should().Contain("script.aria:10");
+        state.TextRuntime.ReadKeys.Should().Contain("script.aria:20");
+        state.TextRuntime.ReadKeys.Should().Contain("script.aria:30");
     }
 
     [Fact]
@@ -211,20 +211,20 @@ public sealed class GameStateTests
     {
         var state = new GameState();
 
-        state.ReadKeys.Add("script.aria:10");
-        state.ReadKeys.Add("script.aria:10");
-        state.ReadKeys.Add("script.aria:10");
+        state.TextRuntime.ReadKeys.Add("script.aria:10");
+        state.TextRuntime.ReadKeys.Add("script.aria:10");
+        state.TextRuntime.ReadKeys.Add("script.aria:10");
 
-        state.ReadKeys.Count.Should().Be(1);
+        state.TextRuntime.ReadKeys.Count.Should().Be(1);
     }
 
     [Fact]
     public void TotalScriptLines_CanBeSetAndRetrieved()
     {
         var state = new GameState();
-        state.TotalScriptLines = 500;
+        state.FlagRuntime.TotalScriptLines = 500;
 
-        state.TotalScriptLines.Should().Be(500);
+        state.FlagRuntime.TotalScriptLines.Should().Be(500);
     }
 
     [Fact]
@@ -242,10 +242,10 @@ public sealed class GameStateTests
     public void ReadKeys_IsCaseInsensitive()
     {
         var state = new GameState();
-        state.TotalScriptLines = 10;
-        state.ReadKeys.Add("SCRIPT.ARIA:10");
+        state.FlagRuntime.TotalScriptLines = 10;
+        state.TextRuntime.ReadKeys.Add("SCRIPT.ARIA:10");
 
-        state.ReadKeys.Contains("script.aria:10").Should().BeTrue();
-        state.ReadKeys.Contains("Script.aria:10").Should().BeTrue();
+        state.TextRuntime.ReadKeys.Contains("script.aria:10").Should().BeTrue();
+        state.TextRuntime.ReadKeys.Contains("Script.aria:10").Should().BeTrue();
     }
 }

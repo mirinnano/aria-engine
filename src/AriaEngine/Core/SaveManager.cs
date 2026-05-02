@@ -37,9 +37,9 @@ public class SaveManager
         try
         {
             Directory.CreateDirectory(_saveDir);
-            TimeSpan playTime = DateTime.Now - state.SessionStartTime + state.TotalPlayTime;
-            var originalRegisters = state.Registers;
-            state.Registers = state.Registers
+            TimeSpan playTime = DateTime.Now - state.SaveRuntime.SessionStartTime + state.SaveRuntime.TotalPlayTime;
+            var originalRegisters = state.RegisterState.Registers;
+            state.RegisterState.Registers = state.RegisterState.Registers
                 .Where(pair => RegisterStoragePolicy.IsSaveStored(pair.Key))
                 .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
             try
@@ -53,8 +53,8 @@ public class SaveManager
                         SlotId = slot,
                         ScriptFile = currentScriptFile,
                         SaveTime = DateTime.Now,
-                        ChapterTitle = state.CurrentChapter,
-                        PreviewText = state.CurrentTextBuffer.Length > 0 ? state.CurrentTextBuffer[^Math.Min(80, state.CurrentTextBuffer.Length)..] : "",
+                        ChapterTitle = state.SaveRuntime.CurrentChapter,
+                        PreviewText = state.TextRuntime.CurrentTextBuffer.Length > 0 ? state.TextRuntime.CurrentTextBuffer[^Math.Min(80, state.TextRuntime.CurrentTextBuffer.Length)..] : "",
                         PlayTimeSeconds = (long)playTime.TotalSeconds,
                         ThumbnailPath = screenshotData != null ? GetThumbnailPath(slot) : ""
                     },
@@ -70,7 +70,7 @@ public class SaveManager
             }
             finally
             {
-                state.Registers = originalRegisters;
+                state.RegisterState.Registers = originalRegisters;
             }
         }
         catch (Exception ex)
