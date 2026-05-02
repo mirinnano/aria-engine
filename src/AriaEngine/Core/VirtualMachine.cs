@@ -29,6 +29,7 @@ namespace AriaEngine.Core;
     public MenuSystem Menu { get; private set; }
     public SpritePool SpritePool { get; private set; }
     public Audio.AudioManager? Audio { get; set; }
+    public Rendering.ParticleSystem Particles { get; private set; }
 
     // マネージャー
     public UiThemeManager UiThemeManager { get; private set; }
@@ -132,6 +133,7 @@ namespace AriaEngine.Core;
         State = new GameState();
         Menu = new MenuSystem(this);
         SpritePool = new SpritePool(CacheConstants.SpritePoolDefaultSize);
+        Particles = new Rendering.ParticleSystem();
 
         // マネージャーを初期化
         UiThemeManager = new UiThemeManager(State);
