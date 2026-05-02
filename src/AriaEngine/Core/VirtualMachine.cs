@@ -415,7 +415,15 @@ namespace AriaEngine.Core;
             catch (Exception ex)
             {
                 string scriptFile = !string.IsNullOrEmpty(inst.ScriptFile) ? inst.ScriptFile : _currentScriptFile;
-                _reporter.Report(new AriaError($"実行時エラー: {ex.Message}", inst.SourceLine, scriptFile, AriaErrorLevel.Error));
+                string details = $"op={inst.Op}; pc={state.Execution.ProgramCounter - 1}; args=[{string.Join(", ", inst.Arguments)}]";
+                _reporter.Report(new AriaError(
+                    $"実行時エラー: {ex.Message}",
+                    inst.SourceLine,
+                    scriptFile,
+                    AriaErrorLevel.Error,
+                    "VM_EXEC_ERROR",
+                    details: details,
+                    exceptionType: ex.GetType().Name));
             }
             
             executed++;
