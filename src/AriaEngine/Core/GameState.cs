@@ -130,6 +130,7 @@ public sealed class RenderState
     public string FxProfile { get; set; } = "normal";
     public string FxSkipPolicy { get; set; } = "finish";
     public List<string> ActiveEffects { get; set; } = new();
+    public float VignetteStrength { get; set; } = 0f; // 0=disabled, 1=max
 }
 
 public sealed class BackgroundTimeMapping
