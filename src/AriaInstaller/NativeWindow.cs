@@ -65,26 +65,37 @@ internal sealed class NativeInstallerWindow : IDisposable
     {
         _onButtonClick = onButtonClick;
 
+        // Initialize common controls (required for progress bar)
+        var icc = new INITCOMMONCONTROLSEX { dwSize = 8, dwICC = 0x20 };
+        InitCommonControlsEx(ref icc);
+
+        // Allocate class name in native memory to prevent GC issues
+        nint classNamePtr = Marshal.StringToHGlobalUni("AriaInstallerWindow");
+        nint titlePtr = Marshal.StringToHGlobalUni(title);
+
         var wc = new WNDCLASSEXW();
         wc.cbSize = Marshal.SizeOf<WNDCLASSEXW>();
-        wc.lpfnWndProc = Marshal.GetFunctionPointerForDelegate((WndProcDelegate)StaticWndProc);
+        wc.lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_wndProc);
         wc.hInstance = GetModuleHandleW(nint.Zero);
         wc.hCursor = LoadCursorW(nint.Zero, 32512);
         wc.hbrBackground = (nint)(COLOR_WINDOW + 1);
-        wc.lpszClassName = "AriaInstallerWindow";
+        wc.lpszClassName = classNamePtr;
 
-        if (RegisterClassExW(ref wc) == 0)
-            throw new Win32Exception(Marshal.GetLastWin32Error());
-
-        _hwnd = CreateWindowExW(0, "AriaInstallerWindow", title, WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, wc.hInstance, 0);
-
-        if (_hwnd == 0)
-            throw new Win32Exception(Marshal.GetLastWin32Error());
+        ushort atom = RegisterClassExW(ref wc);
+        if (atom == 0)
+        {
+            int err = Marshal.GetLastWin32Error();
+            Marshal.FreeHGlobal(classNamePtr);
+            Marshal.FreeHGlobal(titlePtr);
+            throw new Win32Exception(err, $"RegisterClassExW failed (error {err})");
+        }
 
         var gch = GCHandle.Alloc(this);
         _hwnd = CreateWindowExW(0, "AriaInstallerWindow", title, WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, wc.hInstance, GCHandle.ToIntPtr(gch));
+            100, 100, width, height, 0, 0, wc.hInstance, GCHandle.ToIntPtr(gch));
+
+        Marshal.FreeHGlobal(classNamePtr);
+        Marshal.FreeHGlobal(titlePtr);
 
         if (_hwnd == 0)
             throw new Win32Exception(Marshal.GetLastWin32Error());
@@ -282,8 +293,11 @@ internal sealed class NativeInstallerWindow : IDisposable
     [DllImport("user32.dll")] private static extern bool KillTimer(nint hWnd, nint uIDEvent);
     [DllImport("user32.dll")] private static extern bool InvalidateRect(nint hWnd, nint lpRect, bool bErase);
 
-    // WndProc delegate
+    // WndProc delegate - MUST be rooted to prevent GC, MUST use StdCall
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
     internal delegate nint WndProcDelegate(nint hwnd, uint msg, nint wParam, nint lParam);
+    private static readonly WndProcDelegate _wndProc = StaticWndProc;
+    private static readonly GCHandle _wndProcHandle = GCHandle.Alloc(_wndProc);
 
     private static nint StaticWndProc(nint hwnd, uint msg, nint wParam, nint lParam)
     {
@@ -339,8 +353,8 @@ internal sealed class NativeInstallerWindow : IDisposable
         public nint hIcon;
         public nint hCursor;
         public nint hbrBackground;
-        public string? lpszMenuName;
-        public string lpszClassName;
+        public nint lpszMenuName;
+        public nint lpszClassName;
         public nint hIconSm;
     }
 
@@ -360,5 +374,14 @@ internal sealed class NativeInstallerWindow : IDisposable
     private struct RECT
     {
         public int left, top, right, bottom;
+    }
+
+    [DllImport("comctl32.dll")] private static extern bool InitCommonControlsEx(ref INITCOMMONCONTROLSEX picc);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct INITCOMMONCONTROLSEX
+    {
+        public int dwSize;
+        public uint dwICC;
     }
 }
