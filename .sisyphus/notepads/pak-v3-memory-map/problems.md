@@ -1,0 +1,2 @@
+- None observed yet. Potential future issue: mmap paths rely on file length; ensure correct mapping even for 0-byte payloads.
+- Cross-platform considerations: Windows RTS may differ in memory-mmapped semantics on non-Windows environments.

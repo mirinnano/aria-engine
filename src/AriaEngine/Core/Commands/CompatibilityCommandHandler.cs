@@ -66,6 +66,7 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
                 return true;
 
             case OpCode.ChapterScroll:
+                ExecuteChapterScroll(inst);
                 return true;
 
             case OpCode.ChapterProgress:
@@ -189,6 +190,7 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
     {
         var chapters = Vm.ChapterManager.GetAvailableChapters();
         const int chapterStartY = 200;
+        int scrollOffset = GetChapterScrollOffset();
 
         for (int i = 2000; i < 2100; i++)
         {
@@ -206,7 +208,7 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
                 isUnlocked = flagValue;
             }
 
-            int y = chapterStartY + (i * 120);
+            int y = chapterStartY + scrollOffset + (i * 120);
             State.Render.Sprites[cardId] = new Sprite
             {
                 Id = cardId,
@@ -255,6 +257,30 @@ public sealed class CompatibilityCommandHandler : BaseCommandHandler
 
             if (isUnlocked) State.Interaction.SpriteButtonMap[cardId] = chapter.Id;
         }
+    }
+
+    private void ExecuteChapterScroll(Instruction inst)
+    {
+        int delta = inst.Arguments.Count > 0 ? GetVal(inst.Arguments[0]) : 0;
+        int nextOffset = Math.Clamp(GetChapterScrollOffset() + delta, -10000, 10000);
+        State.SceneRuntime.SceneData["chapter_scroll_offset"] = nextOffset;
+        ExecuteChapterSelect();
+    }
+
+    private int GetChapterScrollOffset()
+    {
+        if (!State.SceneRuntime.SceneData.TryGetValue("chapter_scroll_offset", out object? value) || value == null)
+        {
+            return 0;
+        }
+
+        return value switch
+        {
+            int intValue => intValue,
+            long longValue => (int)Math.Clamp(longValue, int.MinValue, int.MaxValue),
+            string stringValue when int.TryParse(stringValue, out int parsed) => parsed,
+            _ => 0
+        };
     }
 
     private void ExecuteChapterCard(Instruction inst)

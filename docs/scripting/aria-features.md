@@ -124,15 +124,13 @@ screen particle_stop      ; 停止
 
 ## インストーラ
 
-Rust製（264KB、自己完結）。NSIS風UI。
+正式なWindows installerはNSIS製です。C# GUI installer と Rust installer は廃止済みです。
 
-- 製品情報表示（名前・バージョン）
-- インストール先選択（参照ボタン付き）
-- デフォルト: `C:\Program Files\Ponkotusoft\umikaze`
-- デスクトップ / スタートメニューショートカット（チェックボックス）
-- ファイル飛行アニメーション
-- インストール進捗ログ
-- .NET 8 ランタイムチェック（未インストール時はDL誘導）
+- script: `installer/umikaze.nsi`
+- build: `scripts/installer.ps1`
+- default install target: `%LOCALAPPDATA%\Ponkotusoft\umikaze`
+- shortcuts launch `AriaEngine.exe --run-mode release --pak data.pak --compiled scripts/scripts.ariac`
+- shortcuts set the working directory to the install directory
 
 ---
 
@@ -140,9 +138,16 @@ Rust製（264KB、自己完結）。NSIS風UI。
 
 ```powershell
 $env:ARIA_PACK_KEY = "your-32-char-key"
-./scripts/release.ps1 -Version "v1.0.0"
+./scripts/release.ps1 -Version "v1.0.0" -Runtime win-x64
+./scripts/installer.ps1 -Version "v1.0.0" -Runtime win-x64 -PackageDir artifacts/release/AriaEngine-v1.0.0-win-x64/app
 ```
 
-出力: `artifacts/release/AriaEngine-v1.0.0-portable/dist/*.zip`
+出力:
 
-エンジンは `data.pak` と `aria.key` を自動検出してReleaseモードで起動する。
+```text
+artifacts/release/AriaEngine-v1.0.0-win-x64/app
+artifacts/release/AriaEngine-v1.0.0-win-x64/dist/AriaEngine-v1.0.0-win-x64.zip
+artifacts/installer/AriaEngine-v1.0.0-win-x64-installer.zip
+```
+
+production package は `data.pak` と `scripts/scripts.ariac` を使用し、通常は raw `.aria` を含めない。

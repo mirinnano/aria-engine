@@ -11,7 +11,7 @@ set_sflag scenario_01_started, 1
 set_pflag chapter_01, 1
 ; --- プロローグ：現在の俺 ---
 chapter_card_fx("PROLOGUE", "秋の海風")
-scenechange("bg/bg_rooftop.png", 2)
+scenechange("prologue_rooftop", 2, "fade")
 nvl
 
 春が来るたび、俺はあの不格好な雛菊を思い出す。\n@
@@ -178,8 +178,8 @@ nvl
 ; 視点切り替え演出：ADVパート（校舎裏）へ
 ; ===========================================================
 cls
-; 校舎裏の背景画像
-scenechange("bg/bg_rooftop.bmp", 2)
+; 校舎裏は背景を出さず、黒場の余白で切る
+scenechange("school_backyard", 2, "fade")
 wait 350
 ; ===========================================================
 

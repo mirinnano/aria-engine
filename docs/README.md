@@ -18,14 +18,14 @@ Welcome to the AriaEngine documentation hub!
 
 ---
 
-### 📖 4つのドキュメント类型 | Four Documentation Types (Diátaxis)
+### 📖 4つのドキュメントタイプ | Four Documentation Types
 
 | Quadrant | 日本語 | English | ドキュメント | Doc |
 |---------|--------|---------|------------|-----|
 | **Tutorials** | 📚 チュートリアル | 📚 Tutorials | 学習向き | Learning-oriented |
 | **How-To Guides** | 🔧 使い方ガイド | 🔧 How-To Guides | 問題解決向き | Problem-oriented |
 | **Reference** | 📋 リファレンス | 📋 Reference | 情報参照向き | Information-oriented |
-| **Explanation** | 💡 解説 | 💡 Explanation | 理解促進向き | Understanding-oriented |
+| **Architecture** | 💡 設計資料 | 💡 Architecture | 理解促進向き | Understanding-oriented |
 
 ---
 
@@ -35,7 +35,7 @@ Welcome to the AriaEngine documentation hub!
 初めてですか？     → tutorials/getting-started.md へ
 スクリプトの書き方 → how-to-guides/ へ
 コマンドの詳細     → reference/ へ
-仕組みを理解したい → explanation/ へ
+仕組みを理解したい → architecture/ へ
 AI agentで拡張     → ai-agent/ へ
 ```
 
@@ -44,7 +44,7 @@ AI agentで拡張     → ai-agent/ へ
 ## 📚 ドキュメント構成 | Documentation Structure
 
 ### 🎓 チュートリアル | Tutorials
-学習为导向 | Learning-oriented
+学習向き | Learning-oriented
 
 - [最初プロジェクト作成](tutorials/getting-started.md) — はじめての方へ
 - [UI作成](tutorials/creating-ui.md) — タイトル画面・ボタン
@@ -54,38 +54,48 @@ AI agentで拡張     → ai-agent/ へ
 📍 パス: `docs/tutorials/`
 
 ### 🔧 使い方ガイド | How-To Guides
-問題解決为导向 | Problem-oriented
+問題解決向き | Problem-oriented
 
-- [ゲームを作る](how-to-guides/creating-a-game.md)
-- [スプライト操作](how-to-guides/sprite-operations.md)
-- [アニメーション](how-to-guides/animations.md)
-- [音频Playback](how-to-guides/audio.md)
 - [リリースビルドの作成](how-to-guides/compile-and-package.md)
+- [カスタムフォント](how-to-guides/custom-fonts.md)
+- [デバッグモード](how-to-guides/debug-mode.md)
+- [トラブルシューティング](how-to-guides/troubleshooting.md)
 
 📍 パス: `docs/how-to-guides/`
 
 ### 📋 リファレンス | Reference
-情報参照为导向 | Information-oriented
+情報参照向き | Information-oriented
 
 - [オペコード一覧](reference/opcodes/) — 全コマンド
 - [スクリプト構文](reference/syntax.md) — 文法規則
+- [設定](reference/config.md) — config.json
+- [init.aria](reference/init-aria.md) — 初期化スクリプト
 
 📍 パス: `docs/reference/`
 
-### 💡 解説 | Explanation
-理解促进为导向 | Understanding-oriented
+### 💡 設計資料 | Architecture
+理解促進向き | Understanding-oriented
 
-- [言語理念](explanation/language-philosophy.md) — 設計思想
-- [VM概要](explanation/vm.md) — 仮想マシン
-- [パーサー](explanation/parser.md) — 解析机理
+- [言語理念](architecture/language-philosophy.md) — 設計思想
+- [概要](architecture/overview.md) — エンジン構成
+- [VM](architecture/vm.md) — 仮想マシン
+- [Parser](architecture/parser.md) — 解析処理
+- [Rendering](architecture/rendering.md) — 描画処理
 
-📍 パス: `docs/explanation/`
+📍 パス: `docs/architecture/`
+
+### 📋 仕様書 | Specifications
+技術仕様 | Technical specifications
+
+- [Aria v2 Strict 技術仕様書](spec/aria-v2-strict.md) — v2 strict言語拡張の完全仕様
+
+📍 パス: `docs/spec/`
 
 ### 🤖 AI Agent向け | AI Agent Guide
-AI agent扩展为导向 | AI agent extension-oriented
+AI agent 向け | AI agent-oriented
 
-- [プロンプト生成](ai-agent/prompt-generation.md)
-- [コード生成](ai-agent/code-generation.md)
+- [AGENTS.md](ai-agent/AGENTS.md)
+- [CODEBASE.md](ai-agent/CODEBASE.md)
 
 📍 パス: `docs/ai-agent/`
 
@@ -103,7 +113,7 @@ AI agent扩展为导向 | AI agent extension-oriented
 | `msp` | msp | スプライト移動 | Move sprite |
 | `if` | if | 条件分岐 | Conditional |
 
-更多コマンドは [reference/opcodes/](reference/opcodes/) を参照。
+その他のコマンドは [reference/opcodes/](reference/opcodes/) を参照。
 
 ---
 

@@ -142,8 +142,22 @@ public class FastSpriteDictionary : IDictionary<int, Sprite>
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     
     public void Add(KeyValuePair<int, Sprite> item) => Add(item.Key, item.Value);
-    public bool Contains(KeyValuePair<int, Sprite> item) => ContainsKey(item.Key);
-    public void CopyTo(KeyValuePair<int, Sprite>[] array, int arrayIndex) => throw new NotSupportedException();
+    public bool Contains(KeyValuePair<int, Sprite> item) =>
+        TryGetValue(item.Key, out var value) && EqualityComparer<Sprite>.Default.Equals(value, item.Value);
+    public void CopyTo(KeyValuePair<int, Sprite>[] array, int arrayIndex)
+    {
+        ArgumentNullException.ThrowIfNull(array);
+        if (arrayIndex < 0) throw new ArgumentOutOfRangeException(nameof(arrayIndex));
+        if (array.Length - arrayIndex < Count)
+        {
+            throw new ArgumentException("Target array does not have enough space.", nameof(array));
+        }
+
+        foreach (var item in this)
+        {
+            array[arrayIndex++] = item;
+        }
+    }
     public bool Remove(KeyValuePair<int, Sprite> item) => Remove(item.Key);
 }
 

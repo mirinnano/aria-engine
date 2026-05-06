@@ -28,6 +28,13 @@ public enum TransitionType
     WipeCircle
 }
 
+public sealed class NscrEffectDefinition
+{
+    public int DurationMs { get; set; } = 700;
+    public TransitionType Transition { get; set; } = TransitionType.Fade;
+    public string Method { get; set; } = "fade";
+}
+
 public enum VmState
 {
     Running,
@@ -119,6 +126,7 @@ public sealed class RenderState
     public bool IsFading { get; set; }
     public TransitionType TransitionStyle { get; set; } = TransitionType.Fade;
     public int FadeDurationMs { get; set; } = 1000;
+    public Dictionary<int, NscrEffectDefinition> NscrEffects { get; set; } = new();
     public int QuakeAmplitude { get; set; }
     public float QuakeTimerMs { get; set; }
     public string ScreenTintColor { get; set; } = "#000000";

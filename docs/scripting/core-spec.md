@@ -2,6 +2,8 @@
 
 この文書は、Ariaのコア文法と命令設計の最小仕様を定義します。
 
+> **v2 strict について**: 詳細な設計仕様は [`docs/spec/aria-v2-strict.md`](../spec/aria-v2-strict.md) を参照。
+
 ## 1. 文法スタイル
 
 1. 基本は命令形式: `op arg1, arg2, arg3`
@@ -9,6 +11,8 @@
 3. 文字列は引用符で囲む
 4. ラベルは `*label`
 5. コメントは `;` 以降
+6. 新規スクリプトは `# aria-version: 2.0` を先頭に置く
+7. v2 strict モードでは `strict on` を指定し、型安全・寿命管理・構造化機能を有効化する
 
 ## 2. データモデル
 
@@ -16,6 +20,33 @@
 2. 文字列レジスタ: `$name`
 3. スプライト: `id` で一意管理
 4. 実行状態: `Running / Waiting / Ended` を明示管理
+
+### v2 struct
+
+`struct` はParserで展開する静的な型付き糖衣とします。ランタイムに新しいオブジェクト命令やUI自動生成を追加しません。
+
+```aria
+struct Button
+    int x
+    string text
+endstruct
+
+let %button, new Button { x = 80, text = "START" }
+let $caption, $button.text
+```
+
+1. 対応field型は `int` / `bool` / `float` / `string`
+2. `int` / `bool` / `float` fieldは `%instance_field` に展開する
+3. `string` fieldは `$instance_field` に展開する
+4. 未指定fieldは `0` または `""` で初期化する
+5. `namespace` 付き型名は `new Game.Point { ... }` の形式を許可する
+6. 未知field、重複field、明らかな型不一致はParse Errorにする
+
+非目標:
+
+1. メソッド、継承、ヒープ確保
+2. 入れ子struct、参照field、寿命推論
+3. struct定義からのUIや描画命令の自動生成
 
 ### レジスタ保存範囲
 
@@ -106,6 +137,23 @@ btnwait %result
 2. 型不正は警告ではなくエラーを優先
 3. 未定義ラベルは即時エラー
 4. 暗黙補完は最小限にする
+
+### strict lint
+
+`aria-lint` のstrict運用では、実行は可能でも事故に繋がる書き方を警告します。
+
+1. `%` 数値レジスタへの文字列代入
+2. `btnwait` の結果をサブルーチンやシステム呼び出しの後まで共有すること
+3. 互換用の一時レジスタを長いスコープで使い続けること
+
+安全な書き方:
+
+```aria
+btnwait %0
+let %title_choice = %0
+settings_ui()
+if %title_choice == 3 { goto *return_title }
+```
 
 ## 9. 命令登録
 

@@ -1,0 +1,3 @@
+- Decision: Use ZstdStream-based decompression to auto-detect uncompressed size.
+- Decision: Remove LZ4 package from csproj to enable build in offline environment; plan to reintroduce when LZ4 implementation exists.
+- Decision: Implement ChunkEncryption.cs using AES-CTR with deterministic per-chunk key/IV derivation as specified (4MB chunks, independent encryption).

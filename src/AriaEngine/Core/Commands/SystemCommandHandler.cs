@@ -9,6 +9,7 @@ public sealed class SystemCommandHandler : BaseCommandHandler
         OpCode.Backlog,
         OpCode.BacklogCount,
         OpCode.BacklogEntry,
+        OpCode.AutoModeTime,
         OpCode.KidokuMode,
         OpCode.SkipMode,
         OpCode.SystemButton,
@@ -55,6 +56,13 @@ public sealed class SystemCommandHandler : BaseCommandHandler
                     }
                     SetStr(GetString(inst.Arguments[1]), bText);
                 }
+                return true;
+
+            case OpCode.AutoModeTime:
+                if (!ValidateArgs(inst, 1)) return true;
+                State.Playback.AutoModeWaitTimeMs = Math.Clamp(GetVal(inst.Arguments[0]), 100, 10000);
+                Config.Config.AutoModeWaitTimeMs = State.Playback.AutoModeWaitTimeMs;
+                MarkPersistentDirty();
                 return true;
 
             case OpCode.KidokuMode:

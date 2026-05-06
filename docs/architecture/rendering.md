@@ -325,7 +325,7 @@ private Font LoadFont(string fontPath, int fontSize)
 
     if (!font.IsReady)
     {
-        throw new Exception($"Failed to load font: {fontPath}");
+        throw new InvalidOperationException($"Failed to load font: {fontPath}");
     }
 
     // フィルターを適用

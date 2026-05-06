@@ -121,17 +121,28 @@ if (Test-Path $releaseDir) {
 New-Item -ItemType Directory -Force -Path $publishDir, $distDir | Out-Null
 
 if (-not $SkipPublish) {
-    if ([string]::IsNullOrWhiteSpace($Runtime)) {
-        if (-not $SkipRestore) {
-            Invoke-Checked dotnet @("restore", $Project, "/p:NuGetAudit=false")
+    $publishStageDir = Join-Path ([IO.Path]::GetTempPath()) ("aria-publish-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path $publishStageDir | Out-Null
+    try {
+        if ([string]::IsNullOrWhiteSpace($Runtime)) {
+            if (-not $SkipRestore) {
+                Invoke-Checked dotnet @("restore", $Project, "/p:NuGetAudit=false")
+            }
+            Invoke-Checked dotnet @("publish", $Project, "-c", $Configuration, "--no-restore", "-o", $publishStageDir, "/p:AriaCompileOnPublish=false", "/p:NuGetAudit=false", "/p:DebugType=none", "/p:DebugSymbols=false")
+        } else {
+            $selfContainedValue = $SelfContained.ToString().ToLowerInvariant()
+            if (-not $SkipRestore) {
+                Invoke-Checked dotnet @("restore", $Project, "-r", $Runtime, "/p:NuGetAudit=false")
+            }
+            Invoke-Checked dotnet @("publish", $Project, "-c", $Configuration, "-r", $Runtime, "--self-contained", $selfContainedValue, "--no-restore", "-o", $publishStageDir, "/p:AriaCompileOnPublish=false", "/p:NuGetAudit=false", "/p:PublishSingleFile=$($SingleFile.ToString().ToLowerInvariant())", "/p:IncludeNativeLibrariesForSelfExtract=true", "/p:DebugType=none", "/p:DebugSymbols=false")
         }
-        Invoke-Checked dotnet @("publish", $Project, "-c", $Configuration, "--no-restore", "-o", $publishDir, "/p:AriaCompileOnPublish=false", "/p:NuGetAudit=false", "/p:DebugType=none", "/p:DebugSymbols=false")
-    } else {
-        $selfContainedValue = $SelfContained.ToString().ToLowerInvariant()
-        if (-not $SkipRestore) {
-            Invoke-Checked dotnet @("restore", $Project, "-r", $Runtime, "/p:NuGetAudit=false")
+
+        Copy-Item -Path (Join-Path $publishStageDir "*") -Destination $publishDir -Recurse -Force
+    }
+    finally {
+        if (Test-Path $publishStageDir) {
+            Remove-Item -LiteralPath $publishStageDir -Recurse -Force
         }
-        Invoke-Checked dotnet @("publish", $Project, "-c", $Configuration, "-r", $Runtime, "--self-contained", $selfContainedValue, "--no-restore", "-o", $publishDir, "/p:AriaCompileOnPublish=false", "/p:NuGetAudit=false", "/p:PublishSingleFile=$($SingleFile.ToString().ToLowerInvariant())", "/p:IncludeNativeLibrariesForSelfExtract=true", "/p:DebugType=none", "/p:DebugSymbols=false")
     }
 }
 
@@ -154,6 +165,12 @@ if (-not [string]::IsNullOrWhiteSpace($ReleaseNotes)) {
     Copy-Item -LiteralPath $ReleaseNotes -Destination (Join-Path $publishDir "release-notes.md") -Force
 }
 
+$packageReadme = Join-Path $repoRoot "docs/release/package-readme.md"
+if (-not (Test-Path $packageReadme)) {
+    throw "Package README file not found: $packageReadme"
+}
+Copy-Item -LiteralPath $packageReadme -Destination (Join-Path $publishDir "README.md") -Force
+
 $configSource = Join-Path $engineDir "config.json"
 if (Test-Path $configSource) {
     Copy-Item -LiteralPath $configSource -Destination (Join-Path $publishDir "config.template.json") -Force
@@ -175,7 +192,7 @@ New-Item -ItemType Directory -Force -Path $compiledDir | Out-Null
 
 $pakEncrypted = -not [string]::IsNullOrWhiteSpace($env:ARIA_PACK_KEY)
 $compileArgs = @("aria-compile", "--init", $InitScript, "--main", $MainScript, "--out", "scripts/scripts.ariac")
-$packArgs = @("aria-pack", "build", "--input", "assets", "--compiled", "scripts/scripts.ariac", "--output", "data.pak")
+$packArgs = @("aria-pack", "build", "--input", "assets", "--compiled", "scripts/scripts.ariac", "--format", "v3", "--split", "--output", "data.pak")
 if ($pakEncrypted) {
     $compileArgs += @("--key", $env:ARIA_PACK_KEY)
     $packArgs += @("--key", $env:ARIA_PACK_KEY)
@@ -193,45 +210,31 @@ if ([string]::IsNullOrWhiteSpace($cliAssembly)) {
 $dotnetCompileArgs = @($cliAssembly) + $compileArgs
 $dotnetPackArgs = @($cliAssembly) + $packArgs
 Invoke-Checked dotnet $dotnetCompileArgs $publishDir
+
+if (-not $KeepRawAssets) {
+    $rawScriptsOut = Join-Path $publishDir "assets\scripts"
+    if (Test-Path $rawScriptsOut) {
+        Remove-Item -LiteralPath $rawScriptsOut -Recurse -Force
+    }
+    $rawInitOut = Join-Path $publishDir $InitScript
+    if (Test-Path $rawInitOut) {
+        Remove-Item -LiteralPath $rawInitOut -Force
+    }
+}
+
 Invoke-Checked dotnet $dotnetPackArgs $publishDir
 
 if (-not (Test-Path $compiledOut)) {
     throw "Compiled script bundle was not generated."
 }
-if (-not (Test-Path $pakOut)) {
-    throw "data.pak was not generated."
+$v3PakFiles = Get-ChildItem -Path $publishDir -Filter "*.ari?" -File
+if ($v3PakFiles.Count -eq 0) {
+    throw "No v3 split pak files were generated."
 }
 
 if (-not $KeepRawAssets) {
     $assetsOut = Join-Path $publishDir "assets"
     if (Test-Path $assetsOut) { Remove-Item -LiteralPath $assetsOut -Recurse -Force }
-    # Keep init.aria in published output (required for engine startup)
-    if (Test-Path (Join-Path $publishDir $InitScript)) {
-        # init.aria stays - engine reads it on startup
-    }
-}
-
-# ---- Build Rust installer and place at release root ----
-$installerProject = Join-Path $repoRoot "src/aria-installer"
-$installerExe = Join-Path $installerProject "target/release/aria-installer.exe"
-if (Test-Path $installerProject) {
-    $cargo = (Get-Command cargo -ErrorAction SilentlyContinue)
-    if ($cargo) {
-        Write-Host "Building Rust installer..."
-        Invoke-Checked cargo @("build", "--release") $installerProject
-
-        # Move engine output to engine/ subdirectory (installer looks here)
-        $engineDir = Join-Path $releaseDir "engine"
-        if (Test-Path $engineDir) { Remove-Item -LiteralPath $engineDir -Recurse -Force }
-        Move-Item -LiteralPath $publishDir -Destination $engineDir -Force
-        $publishDir = $engineDir  # update path for signing/zip steps below
-
-        # Copy installer to release root
-        Copy-Item -LiteralPath $installerExe -Destination (Join-Path $releaseDir "AriaInstaller.exe") -Force
-        Write-Host "Installer placed: AriaInstaller.exe (engine/ subdirectory ready)"
-    } else {
-        Write-Host "WARNING: cargo not found. Skipping installer build."
-    }
 }
 
 if ($Sign) {
@@ -311,7 +314,7 @@ Get-ChildItem -Path $publishDir -Recurse -File |
 
 if (-not $NoZip) {
     if (Test-Path $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
-    Compress-Archive -Path (Join-Path $releaseDir "*") -DestinationPath $zipPath -Force
+    Compress-Archive -Path (Join-Path $publishDir "*") -DestinationPath $zipPath -Force
 }
 
 Write-Host "Package ready: $publishDir"

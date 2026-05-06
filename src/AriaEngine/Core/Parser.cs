@@ -9,6 +9,8 @@ namespace AriaEngine.Core;
     public class Parser
     {
         private readonly ErrorReporter _reporter;
+        // Counter for unique temporary return variables used when evaluating simple expressions in return statements
+        private int _retTmpCounter = 0;
         private static readonly System.Text.RegularExpressions.Regex DialogRegex = new System.Text.RegularExpressions.Regex(@"^([^「]*)「(.*)」(\\?|@?)$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
         // Helper for match/case blocks
@@ -20,6 +22,10 @@ namespace AriaEngine.Core;
             public string? Guard;
             public List<string> Body = new List<string>();
         }
+
+        private static readonly Regex StructNewRegex = new(
+            @"^\s*let\s+([%$@&][A-Za-z_][A-Za-z0-9_]*)\s*,\s*new\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\{(.*)\}\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public Parser(ErrorReporter reporter)
     {
@@ -63,7 +69,7 @@ namespace AriaEngine.Core;
             // Step: support generic Let parsing for lines like `let x, y` producing OpCode.Let
             if (Regex.IsMatch(line, @"^\s*let\s+", RegexOptions.IgnoreCase))
             {
-                var mLet = Regex.Match(line, @"^\s*let\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*(.+)$", RegexOptions.IgnoreCase);
+                var mLet = Regex.Match(line, @"^\s*let\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*(.+)$", RegexOptions.IgnoreCase);
                 if (mLet.Success)
                 {
                     string dest = mLet.Groups[1].Value;
@@ -76,7 +82,7 @@ namespace AriaEngine.Core;
             if (line.StartsWith("*"))
             {
                 var labelName = line.Substring(1).Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)[0];
-                labels[labelName] = -1; // Temp placeholder
+                labels[labelName] = -1; // Reserve label until its instruction index is known.
             }
             else if (line.StartsWith("defsub ", StringComparison.OrdinalIgnoreCase))
             {
@@ -99,7 +105,7 @@ namespace AriaEngine.Core;
             // owned sprite <var>
             if (Regex.IsMatch(line, @"^owned\s+sprite\s+", RegexOptions.IgnoreCase))
             {
-                var mOwned = Regex.Match(line, @"^owned\s+sprite\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s*$", RegexOptions.IgnoreCase);
+                var mOwned = Regex.Match(line, @"^owned\s+sprite\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*$", RegexOptions.IgnoreCase);
                 if (mOwned.Success)
                 {
                     string ownedVar = mOwned.Groups[1].Value;
@@ -112,7 +118,7 @@ namespace AriaEngine.Core;
             // local/global/persistent/save/volatile/readonly/mut <var> = <value>
             if (Regex.IsMatch(line, @"^(local|global|persistent|save|volatile|readonly|mut)\s+", RegexOptions.IgnoreCase))
             {
-                var m = Regex.Match(line, @"^(local|global|persistent|save|volatile|readonly|mut)\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$", RegexOptions.IgnoreCase);
+                var m = Regex.Match(line, @"^(local|global|persistent|save|volatile|readonly|mut)\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$", RegexOptions.IgnoreCase);
                 if (m.Success)
                 {
                     string scopeWord = m.Groups[1].Value.ToLowerInvariant();
@@ -327,8 +333,29 @@ namespace AriaEngine.Core;
                 }
                 else if (firstToken.Equals("return", StringComparison.OrdinalIgnoreCase) && parts.Count > 1)
                 {
-                    // return value → returnvalue opcode
+                    // return value; support simple expression evaluation (2-operand) for return expressions
                     var args = parts.Skip(1).ToList();
+                    var expression = string.Join(" ", args).Trim();
+
+                    // Detect a simple binary expression like: <left> <op> <right>
+                    // Supported ops: +, -, *, /
+                    var mBin = System.Text.RegularExpressions.Regex.Match(expression, @"^(.*?)[ \t]+([+\-*/])[ \t]+(.*)$");
+                    if (mBin.Success)
+                    {
+                        string left = mBin.Groups[1].Value.Trim();
+                        string op = mBin.Groups[2].Value.Trim();
+                        string right = mBin.Groups[3].Value.Trim();
+
+                        // Create a unique temporary return variable
+                        string tmpRetVar = $"%__ret_tmp_{++_retTmpCounter}";
+                        // Emit: let <tmpRetVar>, <left> <op> <right>
+                        instructions.Add(new Instruction(OpCode.Let, new List<string> { tmpRetVar, $"{left} {op} {right}" }, sourceLine));
+                        // Emit: returnvalue <tmpRetVar>
+                        instructions.Add(new Instruction(OpCode.ReturnValue, new List<string> { tmpRetVar }, sourceLine));
+                        continue;
+                    }
+
+                    // Fallback: no binary expression detected, pass through existing behavior
                     instructions.Add(new Instruction(OpCode.ReturnValue, args, sourceLine));
                     continue;
                 }
@@ -431,7 +458,7 @@ namespace AriaEngine.Core;
             string text = pl.Text;
             // Try to catch raw forms that may have slipped through and ensure we transpile again if needed
             // Use the same patterns as in PreprocessModernSyntax with a lightweight check
-            var mOk = Regex.Match(text, @"^\s*let\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Ok\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
+            var mOk = Regex.Match(text, @"^\s*let\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Ok\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
             if (mOk.Success)
             {
                 string varName = mOk.Groups[1].Value;
@@ -440,7 +467,7 @@ namespace AriaEngine.Core;
                 outList.Add(new PreprocessedLine($"let {varName}_err, 0", pl.SourceLine));
                 continue;
             }
-            var mErr = Regex.Match(text, @"^\s*let\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Err\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
+            var mErr = Regex.Match(text, @"^\s*let\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Err\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
             if (mErr.Success)
             {
                 string varName = mErr.Groups[1].Value;
@@ -449,7 +476,7 @@ namespace AriaEngine.Core;
                 outList.Add(new PreprocessedLine($"let {varName}_err, {val}", pl.SourceLine));
                 continue;
             }
-            var mSome = Regex.Match(text, @"^\s*let\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Some\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
+            var mSome = Regex.Match(text, @"^\s*let\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Some\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
             if (mSome.Success)
             {
                 string varName = mSome.Groups[1].Value;
@@ -458,7 +485,7 @@ namespace AriaEngine.Core;
                 outList.Add(new PreprocessedLine($"let {varName}_has, 1", pl.SourceLine));
                 continue;
             }
-            var mNone = Regex.Match(text, @"^\s*let\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*None\s*$", RegexOptions.IgnoreCase);
+            var mNone = Regex.Match(text, @"^\s*let\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*None\s*$", RegexOptions.IgnoreCase);
             if (mNone.Success)
             {
                 string varName = mNone.Groups[1].Value;
@@ -585,7 +612,7 @@ namespace AriaEngine.Core;
             // 2) let %var, Err(v) -> let %var_val, 0 ; let %var_err, v
             // 3) let %var, Some(v) -> let %var_val, v ; let %var_has, 1
             // 4) let %var, None    -> let %var_val, 0 ; let %var_has, 0
-            var mOk = Regex.Match(trimmed, @"^\s*let\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Ok\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
+            var mOk = Regex.Match(trimmed, @"^\s*let\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Ok\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
             if (mOk.Success)
             {
                 string varName = mOk.Groups[1].Value;
@@ -594,7 +621,7 @@ namespace AriaEngine.Core;
                 output.Add(new PreprocessedLine($"let {varName}_err, 0", sourceLine));
                 continue;
             }
-            var mErr = Regex.Match(trimmed, @"^\s*let\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Err\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
+            var mErr = Regex.Match(trimmed, @"^\s*let\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Err\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
             if (mErr.Success)
             {
                 string varName = mErr.Groups[1].Value;
@@ -603,7 +630,7 @@ namespace AriaEngine.Core;
                 output.Add(new PreprocessedLine($"let {varName}_err, {val}", sourceLine));
                 continue;
             }
-            var mSome = Regex.Match(trimmed, @"^\s*let\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Some\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
+            var mSome = Regex.Match(trimmed, @"^\s*let\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*Some\(([^\)]*)\)\s*$", RegexOptions.IgnoreCase);
             if (mSome.Success)
             {
                 string varName = mSome.Groups[1].Value;
@@ -612,7 +639,7 @@ namespace AriaEngine.Core;
                 output.Add(new PreprocessedLine($"let {varName}_has, 1", sourceLine));
                 continue;
             }
-            var mNone = Regex.Match(trimmed, @"^\s*let\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*None\s*$", RegexOptions.IgnoreCase);
+            var mNone = Regex.Match(trimmed, @"^\s*let\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*,\s*None\s*$", RegexOptions.IgnoreCase);
             if (mNone.Success)
             {
                 string varName = mNone.Groups[1].Value;
@@ -621,7 +648,7 @@ namespace AriaEngine.Core;
                 continue;
             }
             // 5) if_err <var> goto *label  -> if <var>_err != 0 goto *label
-            var mIfErr = Regex.Match(trimmed, @"^\s*if_err\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s+goto\s+\*(\w+)\s*$", RegexOptions.IgnoreCase);
+            var mIfErr = Regex.Match(trimmed, @"^\s*if_err\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s+goto\s+\*(\w+)\s*$", RegexOptions.IgnoreCase);
             if (mIfErr.Success)
             {
                 string varName = mIfErr.Groups[1].Value;
@@ -630,7 +657,7 @@ namespace AriaEngine.Core;
                 continue;
             }
             // 6) if_none <var> goto *label  -> if <var>_has == 0 goto *label
-            var mIfNone = Regex.Match(trimmed, @"^\s*if_none\s+([%$]?[A-Za-z_][A-Za-z0-9_]*)\s+goto\s+\*(\w+)\s*$", RegexOptions.IgnoreCase);
+            var mIfNone = Regex.Match(trimmed, @"^\s*if_none\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s+goto\s+\*(\w+)\s*$", RegexOptions.IgnoreCase);
 
             // Fallback: handle common Ok/Err/Some/None forms even if regex misses (robust parsing)
             if (!mOk.Success && !mErr.Success && !mSome.Success && !mNone.Success)
@@ -683,43 +710,17 @@ namespace AriaEngine.Core;
 
             // T14: struct instantiation syntax
             // let %var, new StructName { %field = value, ... }
-            var mStructNew = Regex.Match(trimmed, @"^\s*let\s+([%$][A-Za-z_][A-Za-z0-9_]*)\s*,\s*new\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{(.*)\}\s*$", RegexOptions.IgnoreCase);
-            if (mStructNew.Success)
+            if (TryExpandStructInstantiation(
+                    trimmed,
+                    sourceLine,
+                    structRegistry,
+                    instanceMap,
+                    namespaceStack,
+                    scriptFile,
+                    out var expandedStructLines))
             {
-                string varName = mStructNew.Groups[1].Value;
-                string structName = mStructNew.Groups[2].Value;
-                string fieldsRaw = mStructNew.Groups[3].Value;
-
-                // Look up struct: try exact name, then namespace-qualified
-                StructDefinition? def = null;
-                if (!structRegistry.TryGetValue(structName, out def) && namespaceStack.Count > 0)
-                {
-                    string qualified = string.Join("_", namespaceStack.Reverse()) + "_" + structName;
-                    structRegistry.TryGetValue(qualified, out def);
-                }
-
-                if (def != null)
-                {
-                    instanceMap[varName] = def;
-                    var fieldAssignments = ParseStructFieldAssignments(fieldsRaw);
-                    foreach (var field in def.Fields)
-                    {
-                        string value = fieldAssignments.ContainsKey(field.Name)
-                            ? fieldAssignments[field.Name]
-                            : GetDefaultValue(field.Type);
-                        string destReg = varName.StartsWith("%")
-                            ? $"%{varName.Substring(1)}_{field.Name}"
-                            : $"{varName}_{field.Name}";
-                        output.Add(new PreprocessedLine($"let {destReg}, {value}", sourceLine));
-                    }
-                    continue;
-                }
-                else
-                {
-                    _reporter.Report(new AriaError(
-                        $"構造体 '{structName}' が見つかりません。",
-                        sourceLine, "", AriaErrorLevel.Error));
-                }
+                output.AddRange(expandedStructLines);
+                continue;
             }
 
             if (enumName is not null)
@@ -1137,10 +1138,20 @@ namespace AriaEngine.Core;
                 }
                 
                 // フィールド行をパース: "int id" または "string text"
-                var fieldParts = trimmed.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                if (fieldParts.Length >= 2 && currentStruct != null)
+                var fieldMatch = Regex.Match(trimmed, @"^(int|bool|float|string)\s+([A-Za-z_][A-Za-z0-9_]*)\s*;?$", RegexOptions.IgnoreCase);
+                if (fieldMatch.Success && currentStruct != null)
                 {
-                    int fieldSize = fieldParts[0].ToLowerInvariant() switch
+                    string fieldType = fieldMatch.Groups[1].Value.ToLowerInvariant();
+                    string fieldName = fieldMatch.Groups[2].Value;
+                    if (currentStruct.GetField(fieldName) != null)
+                    {
+                        _reporter.Report(new AriaError(
+                            $"構造体 '{currentStruct.ShortName}' のフィールド '{fieldName}' が重複しています。",
+                            sourceLine, scriptFile, AriaErrorLevel.Error));
+                        continue;
+                    }
+
+                    int fieldSize = fieldType switch
                     {
                         "int" or "bool" => 4,
                         "float" => 4,
@@ -1149,11 +1160,17 @@ namespace AriaEngine.Core;
                     };
                     currentStruct.Fields.Add(new StructField
                     {
-                        Name = fieldParts[1].TrimEnd(';'),
-                        Type = fieldParts[0],
+                        Name = fieldName,
+                        Type = fieldType,
                         Offset = currentStruct.TotalSize,
                         Size = fieldSize
                     });
+                }
+                else
+                {
+                    _reporter.Report(new AriaError(
+                        $"構造体 '{currentStruct?.ShortName ?? ""}' のフィールド定義が不正です: {trimmed}",
+                        sourceLine, scriptFile, AriaErrorLevel.Error));
                 }
                 continue;
             }
@@ -1379,8 +1396,14 @@ namespace AriaEngine.Core;
         var finalOutput = new List<PreprocessedLine>(output.Count * 2);
         foreach (var pl in output)
         {
-            var expanded = TryExpandStructInstantiation(pl.Text, pl.SourceLine, structRegistry, instanceMap);
-            if (expanded != null)
+            if (TryExpandStructInstantiation(
+                    pl.Text,
+                    pl.SourceLine,
+                    structRegistry,
+                    instanceMap,
+                    null,
+                    scriptFile,
+                    out var expanded))
             {
                 finalOutput.AddRange(expanded);
             }
@@ -1394,7 +1417,7 @@ namespace AriaEngine.Core;
         for (int i = 0; i < finalOutput.Count; i++)
         {
             var pl = finalOutput[i];
-            string rewritten = RewriteStructFieldAccess(pl.Text, instanceMap);
+            string rewritten = RewriteStructFieldAccess(pl.Text, instanceMap, _reporter, pl.SourceLine, scriptFile);
             finalOutput[i] = new PreprocessedLine(rewritten, pl.SourceLine);
         }
 
@@ -2235,53 +2258,123 @@ namespace AriaEngine.Core;
 
     // T14: struct instantiation helpers
 
-    private static List<PreprocessedLine>? TryExpandStructInstantiation(
-        string line, int sourceLine,
+    private bool TryExpandStructInstantiation(
+        string line,
+        int sourceLine,
         Dictionary<string, StructDefinition> structRegistry,
-        Dictionary<string, StructDefinition> instanceMap)
+        Dictionary<string, StructDefinition> instanceMap,
+        Stack<string>? namespaceStack,
+        string scriptFile,
+        out List<PreprocessedLine> expanded)
     {
-        var m = Regex.Match(line, @"^\s*let\s+([%$][A-Za-z_][A-Za-z0-9_]*)\s*,\s*new\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{(.*)\}\s*$", RegexOptions.IgnoreCase);
-        if (!m.Success) return null;
+        expanded = new List<PreprocessedLine>();
+        var m = StructNewRegex.Match(line);
+        if (!m.Success) return false;
 
         string varName = m.Groups[1].Value;
         string structName = m.Groups[2].Value;
         string fieldsRaw = m.Groups[3].Value;
-
-        if (!structRegistry.TryGetValue(structName, out var def))
-            return null;
-
-        instanceMap[varName] = def;
-        var fieldAssignments = ParseStructFieldAssignments(fieldsRaw);
-        var result = new List<PreprocessedLine>();
-
-        foreach (var field in def.Fields)
+        var def = ResolveStructDefinition(structName, structRegistry, namespaceStack);
+        if (def == null)
         {
-            string value = fieldAssignments.ContainsKey(field.Name)
-                ? fieldAssignments[field.Name]
-                : GetDefaultValue(field.Type);
-            string destReg = varName.StartsWith("%")
-                ? $"%{varName.Substring(1)}_{field.Name}"
-                : $"{varName}_{field.Name}";
-            result.Add(new PreprocessedLine($"let {destReg}, {value}", sourceLine));
+            _reporter.Report(new AriaError(
+                $"構造体 '{structName}' が見つかりません。",
+                sourceLine, scriptFile, AriaErrorLevel.Error));
+            return true;
         }
 
-        return result;
+        string instanceName = NormalizeStructInstanceName(varName);
+        instanceMap[instanceName] = def;
+        var fieldAssignments = ParseStructFieldAssignments(fieldsRaw, def, sourceLine, scriptFile);
+        foreach (var field in def.Fields)
+        {
+            string value = fieldAssignments.TryGetValue(field.Name, out var assignedValue)
+                ? assignedValue
+                : GetDefaultValue(field.Type);
+            ValidateStructFieldAssignment(def, field, value, sourceLine, scriptFile);
+            string destReg = GetStructFieldRegisterName(instanceName, field);
+            expanded.Add(new PreprocessedLine($"let {destReg}, {value}", sourceLine));
+        }
+
+        return true;
     }
 
-    private static Dictionary<string, string> ParseStructFieldAssignments(string fieldsRaw)
+    private static StructDefinition? ResolveStructDefinition(
+        string structName,
+        Dictionary<string, StructDefinition> structRegistry,
+        Stack<string>? namespaceStack)
+    {
+        var candidates = new List<string>
+        {
+            structName,
+            structName.Replace('.', '_'),
+            ReplaceLastDotWithUnderscore(structName)
+        };
+
+        if (namespaceStack != null && namespaceStack.Count > 0 && !structName.Contains('.'))
+        {
+            string ns = string.Join("_", namespaceStack.Reverse());
+            candidates.Add($"{ns}_{structName}");
+            candidates.Add($"{ns.Replace('.', '_')}_{structName}");
+        }
+
+        foreach (var candidate in candidates.Where(c => !string.IsNullOrWhiteSpace(c)).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (structRegistry.TryGetValue(candidate, out var def))
+                return def;
+        }
+
+        return null;
+    }
+
+    private Dictionary<string, string> ParseStructFieldAssignments(
+        string fieldsRaw,
+        StructDefinition def,
+        int sourceLine,
+        string scriptFile)
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var entries = SplitByCommaQuoteAware(fieldsRaw);
         foreach (var entry in entries)
         {
+            if (string.IsNullOrWhiteSpace(entry)) continue;
+
             var eqIdx = entry.IndexOf('=');
-            if (eqIdx < 0) continue;
-            var fieldName = entry.Substring(0, eqIdx).Trim();
+            if (eqIdx < 0)
+            {
+                _reporter.Report(new AriaError(
+                    $"構造体 '{def.ShortName}' の初期化子 '{entry.Trim()}' が不正です。",
+                    sourceLine, scriptFile, AriaErrorLevel.Error));
+                continue;
+            }
+
+            var fieldName = NormalizeStructFieldName(entry.Substring(0, eqIdx).Trim());
             var fieldValue = entry.Substring(eqIdx + 1).Trim();
-            if (fieldName.StartsWith("%") || fieldName.StartsWith("$"))
-                fieldName = fieldName.Substring(1);
-            if (!string.IsNullOrEmpty(fieldName))
-                result[fieldName] = fieldValue;
+            if (string.IsNullOrEmpty(fieldName))
+            {
+                _reporter.Report(new AriaError(
+                    $"構造体 '{def.ShortName}' の初期化子に空のフィールド名があります。",
+                    sourceLine, scriptFile, AriaErrorLevel.Error));
+                continue;
+            }
+
+            if (def.GetField(fieldName) == null)
+            {
+                _reporter.Report(new AriaError(
+                    $"構造体 '{def.ShortName}' にフィールド '{fieldName}' はありません。",
+                    sourceLine, scriptFile, AriaErrorLevel.Error));
+                continue;
+            }
+
+            if (result.ContainsKey(fieldName))
+            {
+                _reporter.Report(new AriaError(
+                    $"構造体 '{def.ShortName}' のフィールド '{fieldName}' が初期化子で重複しています。",
+                    sourceLine, scriptFile, AriaErrorLevel.Error));
+                continue;
+            }
+
+            result[fieldName] = fieldValue;
         }
         return result;
     }
@@ -2316,7 +2409,38 @@ namespace AriaEngine.Core;
         };
     }
 
-    private static string RewriteStructFieldAccess(string line, Dictionary<string, StructDefinition> instanceMap)
+    private void ValidateStructFieldAssignment(
+        StructDefinition def,
+        StructField field,
+        string value,
+        int sourceLine,
+        string scriptFile)
+    {
+        if (IsStringStructField(field.Type))
+        {
+            if (IsNumericRegister(value) || IsIntegerLiteral(value))
+            {
+                _reporter.Report(new AriaError(
+                    $"構造体 '{def.ShortName}' のフィールド '{field.Name}' は文字列型が期待されます。",
+                    sourceLine, scriptFile, AriaErrorLevel.Error));
+            }
+            return;
+        }
+
+        if (IsStringRegister(value) || IsQuotedStringLiteral(value))
+        {
+            _reporter.Report(new AriaError(
+                $"構造体 '{def.ShortName}' のフィールド '{field.Name}' は数値型が期待されます。",
+                sourceLine, scriptFile, AriaErrorLevel.Error));
+        }
+    }
+
+    private string RewriteStructFieldAccess(
+        string line,
+        Dictionary<string, StructDefinition> instanceMap,
+        ErrorReporter reporter,
+        int sourceLine,
+        string scriptFile)
     {
         if (instanceMap.Count == 0) return line;
 
@@ -2338,16 +2462,26 @@ namespace AriaEngine.Core;
                 i++;
                 while (i < line.Length && (char.IsLetterOrDigit(line[i]) || line[i] == '_')) i++;
                 string varName = line.Substring(start, i - start);
+                string instanceName = NormalizeStructInstanceName(varName);
 
-                if (i < line.Length && line[i] == '.' && instanceMap.ContainsKey(varName))
+                if (i < line.Length && line[i] == '.' && instanceMap.TryGetValue(instanceName, out var def))
                 {
                     i++; // skip '.'
                     int fieldStart = i;
                     while (i < line.Length && (char.IsLetterOrDigit(line[i]) || line[i] == '_')) i++;
                     string fieldName = line.Substring(fieldStart, i - fieldStart);
-                    string prefix = varName[0].ToString();
-                    string baseName = varName.Substring(1);
-                    sb.Append($"{prefix}{baseName}_{fieldName}");
+                    var field = def.GetField(fieldName);
+                    if (field == null)
+                    {
+                        reporter.Report(new AriaError(
+                            $"構造体 '{def.ShortName}' にフィールド '{fieldName}' はありません。",
+                            sourceLine, scriptFile, AriaErrorLevel.Error));
+                        sb.Append($"{varName}.{fieldName}");
+                    }
+                    else
+                    {
+                        sb.Append(GetStructFieldRegisterName(instanceName, field));
+                    }
                 }
                 else
                 {
@@ -2361,6 +2495,56 @@ namespace AriaEngine.Core;
         }
 
         return sb.ToString();
+    }
+
+    private static string NormalizeStructInstanceName(string name)
+    {
+        return name.TrimStart('%', '$');
+    }
+
+    private static string NormalizeStructFieldName(string name)
+    {
+        return name.TrimStart('%', '$');
+    }
+
+    private static string GetStructFieldRegisterName(string instanceName, StructField field)
+    {
+        string prefix = IsStringStructField(field.Type) ? "$" : "%";
+        return $"{prefix}{instanceName}_{field.Name}";
+    }
+
+    private static bool IsStringStructField(string fieldType)
+    {
+        return fieldType.Equals("string", StringComparison.OrdinalIgnoreCase) ||
+               fieldType.Equals("str", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsStringRegister(string value)
+    {
+        return value.TrimStart().StartsWith("$", StringComparison.Ordinal);
+    }
+
+    private static bool IsNumericRegister(string value)
+    {
+        return value.TrimStart().StartsWith("%", StringComparison.Ordinal);
+    }
+
+    private static bool IsQuotedStringLiteral(string value)
+    {
+        var trimmed = value.Trim();
+        return trimmed.Length >= 2 && trimmed[0] == '"' && trimmed[^1] == '"';
+    }
+
+    private static bool IsIntegerLiteral(string value)
+    {
+        return int.TryParse(value.Trim(), out _);
+    }
+
+    private static string ReplaceLastDotWithUnderscore(string value)
+    {
+        int dot = value.LastIndexOf('.');
+        if (dot < 0) return value;
+        return value.Substring(0, dot) + "_" + value.Substring(dot + 1);
     }
 }
 

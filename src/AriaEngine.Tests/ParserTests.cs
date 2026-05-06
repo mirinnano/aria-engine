@@ -829,7 +829,43 @@ public class ParserTests
 
         var lets = result.Instructions.Where(i => i.Op == OpCode.Let).ToList();
         lets.Should().Contain(i => i.Arguments[0] == "%btn_x" && i.Arguments[1] == "100");
-        lets.Should().Contain(i => i.Arguments[0] == "%btn_text" && i.Arguments[1] == "\"OK\"");
+        lets.Should().Contain(i => i.Arguments[0] == "$btn_text" && i.Arguments[1] == "\"OK\"");
+    }
+
+    [Fact]
+    public void Parse_StructInstantiation_StringFieldAccess_RewritesToStringRegister()
+    {
+        var result = CreateParser().Parse(new[]
+        {
+            "struct Button",
+            "    string text",
+            "endstruct",
+            "let %btn, new Button { $text = \"OK\" }",
+            "let $copy, $btn.text",
+            "end"
+        }, "struct_string_access.aria");
+
+        var copyLet = result.Instructions.FirstOrDefault(i => i.Op == OpCode.Let && i.Arguments[0] == "$copy");
+        copyLet.Should().NotBeNull();
+        copyLet!.Arguments[1].Should().Be("$btn_text");
+    }
+
+    [Fact]
+    public void Parse_StructInstantiation_QualifiedName_Works()
+    {
+        var result = CreateParser().Parse(new[]
+        {
+            "namespace Game {",
+            "struct Point",
+            "    int x",
+            "endstruct",
+            "}",
+            "let %p, new Game.Point { %x = 10 }",
+            "end"
+        }, "struct_qualified.aria");
+
+        var lets = result.Instructions.Where(i => i.Op == OpCode.Let).ToList();
+        lets.Should().Contain(i => i.Arguments[0] == "%p_x" && i.Arguments[1] == "10");
     }
 
     [Fact]
@@ -883,6 +919,114 @@ public class ParserTests
         var lets = result.Instructions.Where(i => i.Op == OpCode.Let).ToList();
         lets.Should().Contain(i => i.Arguments[0] == "%p_x" && i.Arguments[1] == "10");
         lets.Should().Contain(i => i.Arguments[0] == "%p_y" && i.Arguments[1] == "0");
+    }
+
+    [Fact]
+    public void Parse_StructInstantiation_UnknownField_ReportsError()
+    {
+        var reporter = new ErrorReporter();
+        var parser = new Parser(reporter);
+        parser.Parse(new[]
+        {
+            "struct Point",
+            "    int x",
+            "endstruct",
+            "let %p, new Point { %y = 10 }",
+            "end"
+        }, "struct_unknown_field.aria");
+
+        reporter.Errors.Should().Contain(e =>
+            e.Level == AriaErrorLevel.Error &&
+            e.Message.Contains("Point") &&
+            e.Message.Contains("フィールド") &&
+            e.Message.Contains("y"));
+    }
+
+    [Fact]
+    public void Parse_StructInstantiation_DuplicateInitializerField_ReportsError()
+    {
+        var reporter = new ErrorReporter();
+        var parser = new Parser(reporter);
+        parser.Parse(new[]
+        {
+            "struct Point",
+            "    int x",
+            "endstruct",
+            "let %p, new Point { %x = 10, x = 20 }",
+            "end"
+        }, "struct_duplicate_init.aria");
+
+        reporter.Errors.Should().Contain(e =>
+            e.Level == AriaErrorLevel.Error &&
+            e.Message.Contains("重複") &&
+            e.Message.Contains("x"));
+    }
+
+    [Fact]
+    public void Parse_StructDefinition_DuplicateField_ReportsError()
+    {
+        var reporter = new ErrorReporter();
+        var parser = new Parser(reporter);
+        parser.Parse(new[]
+        {
+            "struct Point",
+            "    int x",
+            "    string x",
+            "endstruct",
+            "end"
+        }, "struct_duplicate_field.aria");
+
+        reporter.Errors.Should().Contain(e =>
+            e.Level == AriaErrorLevel.Error &&
+            e.Message.Contains("重複") &&
+            e.Message.Contains("x"));
+    }
+
+    [Fact]
+    public void Parse_StructInstantiation_TypeMismatch_ReportsError()
+    {
+        var reporter = new ErrorReporter();
+        var parser = new Parser(reporter);
+        parser.Parse(new[]
+        {
+            "struct Point",
+            "    int x",
+            "    string label",
+            "endstruct",
+            "let %p, new Point { %x = \"bad\", $label = %x }",
+            "end"
+        }, "struct_type_mismatch.aria");
+
+        reporter.Errors.Should().Contain(e =>
+            e.Level == AriaErrorLevel.Error &&
+            e.Message.Contains("x") &&
+            e.Message.Contains("数値型"));
+        reporter.Errors.Should().Contain(e =>
+            e.Level == AriaErrorLevel.Error &&
+            e.Message.Contains("label") &&
+            e.Message.Contains("文字列型"));
+    }
+
+    [Fact]
+    public void Parse_StructFieldAccess_UnknownField_ReportsError()
+    {
+        var reporter = new ErrorReporter();
+        var parser = new Parser(reporter);
+        parser.Parse(new[]
+        {
+            "struct Point",
+            "    int x",
+            "endstruct",
+            "let %p, new Point { %x = 10 }",
+            "let %q, %p.y",
+            "end"
+        }, "struct_unknown_access.aria");
+
+        reporter.Errors.Should().Contain(e =>
+            e.Level == AriaErrorLevel.Error &&
+            e.Message.Contains("Point") &&
+            e.Message.Contains("フィールド") &&
+            e.Message.Contains("y"));
     }
 
     // ===========================================================

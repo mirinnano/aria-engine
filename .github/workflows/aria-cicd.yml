@@ -83,6 +83,12 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifacts/dist | Out-Null
           Copy-Item "artifacts/release/AriaEngine-$version-win-x64/dist/AriaEngine-$version-win-x64.zip" artifacts/dist/ -Force
 
+      - name: Setup NSIS
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          "${env:ProgramFiles(x86)}\NSIS" >> $env:GITHUB_PATH
+
       - name: Create installer zip
         shell: pwsh
         run: |

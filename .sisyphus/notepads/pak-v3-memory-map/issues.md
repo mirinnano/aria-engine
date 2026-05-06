@@ -1,0 +1,3 @@
+- No blockers encountered during mmap integration.
+- If you see occasional FileNotFoundException from Open(), ensure file path is correct and file exists.
+- Ensure the target environment allows MemoryMappedFile usage (Windows path vs. long paths).

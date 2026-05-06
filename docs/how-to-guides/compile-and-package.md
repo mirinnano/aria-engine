@@ -11,15 +11,26 @@ AriaEngineには2つの実行モードがあります。
 | スクリプト読み込み | 平文の`.aria`ファイルを直接読み込む | コンパイル済み`.ariac` + `.pak`から読み込む |
 | ライブリロード | スクリプト変更を即座に反映 | なし |
 | アセット読み込み | ディスク上の`assets/`フォルダから読み込む | `.pak`アーカイブから読み込む |
-| セキュリティ | スクリプトとアセットが丸見え | 暗号化されたパッケージに収録 |
+| セキュリティ | スクリプトとアセットが丸見え | `data.pak` と `scripts/scripts.ariac` に収録 |
 
-リリースモードでは、`.aria`スクリプトをコンパイルして暗号化し、画像・音声・アセットを1つの`.pak`ファイルにまとめます。ユーザーに配布する際はリリースモードを使用してください。
+リリースモードでは、`.aria`スクリプトを`.ariac`へコンパイルし、画像・音声・アセットを`data.pak`へまとめます。通常の production package では raw `.aria` は同梱しません。
 
 ## 前提条件
 
 - .NET 8.0 SDKがインストールされていること
-- `ARIA_PACK_KEY`環境変数が設定されていること（後述）
+- 暗号化する場合は `ARIA_PACK_KEY` 環境変数が設定されていること（未設定でも package は作成できます）
 - `init.aria`とメインスクリプトが正しく配置されていること
+- Windows installer を作成する場合は NSIS 3.x の `makensis.exe` が利用できること
+
+## 推奨手順: release scripts を使う
+
+通常は手動で `aria-compile` / `aria-pack` を直接呼ばず、release scripts を使います。これにより manifest、checksums、README、release notes、raw `.aria` 除外、NSIS installer まで同じ経路で生成できます。
+
+```powershell
+scripts/doctor.ps1 -Project src/AriaEngine/AriaEngine.csproj -InitScript init.aria -MainScript assets/scripts/main.aria -Strict
+scripts/package.ps1 -Version v1.0.0-rc.2 -Runtime win-x64
+scripts/installer.ps1 -Version v1.0.0-rc.2 -Runtime win-x64 -PackageDir artifacts/release/AriaEngine-v1.0.0-rc.2-win-x64/app
+```
 
 ## 手順1: スクリプトのコンパイル
 
@@ -59,6 +70,8 @@ dotnet run --project src/AriaEngine/AriaEngine.csproj -- aria-compile --init myg
 cd src/AriaEngine
 dotnet run -- aria-pack build --input assets --compiled build/scripts.ariac --output build/data.pak
 ```
+
+注意: `assets/scripts` が残ったまま直接 `aria-pack build --input assets` を実行すると、raw `.aria` も `data.pak` に入ります。production package では `scripts/package.ps1` を使うか、pack 前に raw script を除外してください。
 
 ### パラメータ
 
@@ -137,9 +150,10 @@ export ARIA_PACK_KEY="your-secret-key-here"
 
 ### ワークフローの動作
 
-1. `master`ブランチへのプッシュ: ビルドとスモークテストを実行（パッケージングはスキップ）
-2. `v*`タグのプッシュ: リリースビルドを作成し、GitHub Releaseを公開
-3. 手動実行: `workflow_dispatch`でリリース作成を選択可能
+1. `master`ブランチへのプッシュ: ビルドとスモークテストを実行
+2. release package を生成
+3. NSIS installer zip を生成
+4. 手動実行: `workflow_dispatch`でリリース作成を選択可能
 
 ### 必要な設定
 
@@ -165,7 +179,8 @@ git push origin v1.0.0
 2. `aria-compile`によるスクリプトコンパイル
 3. `aria-pack build`によるアセットパッケージング
 4. 配布用ZIPの作成
-5. GitHub ReleaseへのZIPアップロード
+5. NSIS installer zip の作成
+6. GitHub ReleaseへのZIPアップロード
 
 ### 手動でのワークフロー実行
 
@@ -205,8 +220,13 @@ dotnet run -- --run-mode release --pak build/data.pak --compiled build/scripts.a
 ```
 MyGame/
 ├── AriaEngine.exe          # 公開用にリネーム可能
-├── data.pak                # aria-pack build の出力
-├── config.json             # ユーザー設定（初回起動時に自動生成）
+├── data.pak                # packed assets
+├── scripts/
+│   └── scripts.ariac       # compiled script bundle
+├── README.md               # package usage notes
+├── manifest.json           # build / compatibility / signing metadata
+├── checksums.txt           # SHA-256 checksums
+├── config.template.json    # default config reference
 └── saves/                  # セーブデータフォルダ（自動作成）
 ```
 

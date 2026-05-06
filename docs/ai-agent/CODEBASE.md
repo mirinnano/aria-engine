@@ -43,7 +43,7 @@ The `GameState` object is the single source of truth. Every subsystem reads from
 
 ### `Core/OpCode.cs`
 
-Defines the `OpCode` enum, which is the canonical instruction set. There are roughly 100 enum members covering 11 categories registered in `CommandRegistry.cs`. The enum spans:
+Defines the `OpCode` enum, which is the canonical instruction set. There are 240 script-visible canonical commands covering 11 categories registered in `CommandRegistry.cs`. The enum also contains parser-generated internal opcodes such as `Text`, `JumpIfFalse`, and `Let`. The enum spans:
 
 - **Core**: arithmetic, jumps, subroutine control, timers, arrays, exceptions (`Add`, `Sub`, `Beq`, `Gosub`, `Return`, `Throw`, `Assert`, etc.)
 - **Script**: flow control aliases, `include`, modern syntax support (`While`, `Wend`, `Break`, `Continue`, `ReturnValue`)
@@ -166,7 +166,7 @@ Defines the `Sprite` class, a unified visual entity with three `SpriteType` vari
 The renderer consumes `GameState` each frame and draws all visible sprites in Z-order. Key internals:
 
 - **LRU texture cache**: `_textureCache` stores loaded `Texture2D` objects with a byte-size budget. Evicted textures are unloaded from GPU memory.
-- **Font management**: Loads a primary font via `LoadFontEx` with a dynamic codepoint set derived from the script text. Supports size-specific font caches and a separate UI font (`JosefinSans-Thin.ttf`).
+- **Font management**: Loads a primary font via `LoadFontEx` with a dynamic codepoint set derived from the script text. Supports size-specific font caches and a UI font path loaded from the bundled Noto Sans JP font.
 - **Color cache**: `_colorCache` avoids re-parsing hex strings every frame.
 - **Render lock**: `lock (_renderLock)` around `Draw()` because live reload may invalidate textures from another thread.
 

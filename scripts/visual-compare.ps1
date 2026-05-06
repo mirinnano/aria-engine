@@ -1,9 +1,10 @@
 param(
-    [string]$BaselineDir = "artifacts/visual-regression/baseline",
+    [string]$BaselineDir = "tests/visual-regression/baseline",
     [string]$CurrentDir = "artifacts/visual-regression/current",
     [string]$OutputDir = "artifacts/visual-regression/diff",
     [int]$Tolerance = 4,
-    [double]$MaxDiffRatio = 0.001
+    [double]$MaxDiffRatio = 0.001,
+    [switch]$AllowEmpty
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,6 +15,10 @@ $failures = @()
 $results = @()
 
 $baselineFiles = Get-ChildItem -Path $BaselineDir -Filter "*.png" -File -ErrorAction SilentlyContinue
+if ($baselineFiles.Count -eq 0 -and -not $AllowEmpty) {
+    throw "No baseline images found in $BaselineDir. Capture and promote visual baselines before running the release visual compare gate."
+}
+
 foreach ($base in $baselineFiles) {
     $current = Join-Path $CurrentDir $base.Name
     if (-not (Test-Path $current)) {

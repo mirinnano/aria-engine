@@ -12,7 +12,7 @@
 - [`beq` / `bne` / `bgt` / `blt` — 条件付きジャンプ](#beq--bne--bgt--blt--条件付きジャンプ)
 - [`while` / `wend` — ループ](#while--wend--ループ)
 - [`break` / `continue` — ループ制御](#break--continue--ループ制御)
-- [`defsub` / `sub` — サブルーチン定義](#defsub--sub--サブルーチン定義)
+- [`defsub` — サブルーチン定義](#defsub--サブルーチン定義)
 - [`gosub` / `call` — サブルーチン呼び出し](#gosub--call--サブルーチン呼び出し)
 - [`return` / `ret` — サブルーチンから復帰](#return--ret--サブルーチンから復帰)
 - [`returnvalue` — 戻り値を設定](#returnvalue--戻り値を設定)
@@ -240,7 +240,7 @@ wend
 
 ---
 
-## `defsub` / `sub` — サブルーチン定義
+## `defsub` — サブルーチン定義
 
 サブルーチン（関数）を定義します。`gosub`で呼び出せます。
 
@@ -250,7 +250,7 @@ defsub 名前
     return
 ```
 
-**エイリアス:** `sub`
+`sub` は算術減算コマンドです。サブルーチン定義には `defsub` を使います。
 
 **例:**
 ```aria

@@ -78,6 +78,126 @@ end
         finally { CleanupTempFile(path); }
     }
 
+    [Fact]
+    public void Lint_IncludeRoot_ResolvesLabelsFromIncludedFiles()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "aria-lint-include-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        string mainPath = Path.Combine(dir, "main.aria");
+        string childPath = Path.Combine(dir, "child.aria");
+        File.WriteAllText(mainPath, "include \"child.aria\"\ngoto *child\n");
+        File.WriteAllText(childPath, "*child\nend\n");
+
+        var oldOut = Console.Out;
+        var oldErr = Console.Error;
+        try
+        {
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
+            Console.SetOut(stdout);
+            Console.SetError(stderr);
+
+            int exitCode = AriaLintCommand.Run(new[] { mainPath });
+
+            exitCode.Should().NotBe(2, stderr.ToString());
+            stdout.ToString().Should().NotContain("undefined-label");
+        }
+        finally
+        {
+            Console.SetOut(oldOut);
+            Console.SetError(oldErr);
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Lint_StringFunctionArgument_DoesNotWarnForLiteral()
+    {
+        string script = @"
+func scenechange(path: string)
+    bg $path
+endfunc
+
+scenechange(""bg/title.png"")
+end
+";
+        string path = WriteTempScript(script);
+        try
+        {
+            var output = RunLint(path, out int exitCode, out string stderr);
+
+            exitCode.Should().NotBe(2, stderr);
+            output.Should().NotContain("function-type-mismatch");
+        }
+        finally { CleanupTempFile(path); }
+    }
+
+    [Fact]
+    public void Lint_Gosub_DoesNotMakeFollowingInstructionUnreachable()
+    {
+        string script = @"
+gosub *helper
+mov %result, 1
+end
+
+*helper
+return
+";
+        string path = WriteTempScript(script);
+        try
+        {
+            var output = RunLint(path, out int exitCode, out string stderr);
+
+            exitCode.Should().NotBe(2, stderr);
+            output.Should().NotContain("unreachable-code");
+        }
+        finally { CleanupTempFile(path); }
+    }
+
+    [Fact]
+    public void Lint_FunctionDefinition_DoesNotWarnUnreachableForFunctionBody()
+    {
+        string script = @"
+goto *start
+
+func helper()
+    mov %result, 1
+endfunc
+
+*start
+helper()
+end
+";
+        string path = WriteTempScript(script);
+        try
+        {
+            var output = RunLint(path, out int exitCode, out string stderr);
+
+            exitCode.Should().NotBe(2, stderr);
+            output.Should().NotContain("unreachable-code");
+        }
+        finally { CleanupTempFile(path); }
+    }
+
+    [Fact]
+    public void Lint_ExplicitGoto_MakesFollowingInstructionUnreachable()
+    {
+        string script = @"
+goto *end
+mov %result, 1
+*end
+end
+";
+        string path = WriteTempScript(script);
+        try
+        {
+            var output = RunLint(path, out _, out _);
+
+            output.Should().Contain("unreachable-code");
+        }
+        finally { CleanupTempFile(path); }
+    }
+
     // === Unused Variable Tests ===
 
     [Fact]
@@ -110,6 +230,26 @@ end
         {
             var result = LintFile(path);
             result.Issues.Should().NotContain(i => i.Rule == "unused-variable");
+        }
+        finally { CleanupTempFile(path); }
+    }
+
+    [Fact]
+    public void Lint_IfConditionVariableCountsAsRead()
+    {
+        string script = @"
+let %end, 1
+if %end > 0 { goto *done }
+*done
+end
+";
+        string path = WriteTempScript(script);
+        try
+        {
+            var output = RunLint(path, out int exitCode, out string stderr);
+
+            exitCode.Should().NotBe(2, stderr);
+            output.Should().NotContain("unused-variable");
         }
         finally { CleanupTempFile(path); }
     }
@@ -238,7 +378,159 @@ mov %0, 1
         finally { CleanupTempFile(path); }
     }
 
+    // New sprite ownership rules basic sanity test (no owned sprites -> no crash)
+    [Fact]
+    public void Lint_DoesNotCrash_WhenNoOwnedSprites()
+    {
+        string script = @"
+*start
+end
+";
+        string path = WriteTempScript(script);
+        try
+        {
+            var result = LintFile(path);
+            result.Should().NotBeNull();
+            result.Issues.Should().BeEmpty();
+        }
+        finally { CleanupTempFile(path); }
+    }
+
+    [Fact]
+    public void Lint_ConditionalEnd_DoesNotMakeFollowingInstructionUnreachable()
+    {
+        string script = @"
+if %0 == 1 { end }
+mov %result, 1
+end
+";
+        string path = WriteTempScript(script);
+        try
+        {
+            var output = RunLint(path, out int exitCode, out string stderr);
+
+            exitCode.Should().NotBe(2, stderr);
+            output.Should().NotContain("unreachable-code");
+        }
+        finally { CleanupTempFile(path); }
+    }
+
+    [Fact]
+    public void Lint_NumericRegisterStringAssignment_Warns()
+    {
+        string script = @"
+let %label, ""PAGE 1""
+ui_text 1, %label, 0, 0
+end
+";
+        string path = WriteTempScript(script);
+        try
+        {
+            var output = RunLint(path, out int exitCode, out string stderr);
+
+            exitCode.Should().Be(1, stderr);
+            output.Should().Contain("numeric-register-string-assignment");
+        }
+        finally { CleanupTempFile(path); }
+    }
+
+    [Fact]
+    public void Lint_ButtonResultReadAfterSubroutine_Warns()
+    {
+        string script = @"
+func config()
+    btnwait %0
+endfunc
+
+*start
+btnwait %0
+if %0 == 1 { config() }
+if %0 == 2 { end }
+end
+";
+        string path = WriteTempScript(script);
+        try
+        {
+            var output = RunLint(path, out int exitCode, out string stderr);
+
+            exitCode.Should().Be(1, stderr);
+            output.Should().Contain("button-result-lifetime");
+        }
+        finally { CleanupTempFile(path); }
+    }
+
+    [Fact]
+    public void Lint_ButtonResultCopiedBeforeSubroutine_DoesNotWarn()
+    {
+        string script = @"
+func config()
+    btnwait %0
+endfunc
+
+*start
+btnwait %0
+let %choice, %0
+if %choice == 1 { config() }
+if %choice == 2 { end }
+end
+";
+        string path = WriteTempScript(script);
+        try
+        {
+            var output = RunLint(path, out int exitCode, out string stderr);
+
+            exitCode.Should().NotBe(2, stderr);
+            output.Should().NotContain("button-result-lifetime");
+        }
+        finally { CleanupTempFile(path); }
+    }
+
+    [Fact]
+    public void Lint_OutputArgumentsAndInterpolation_DoNotReportUndefinedVariables()
+    {
+        string script = @"
+gallery_entry ""cg1"", ""cg/one.png"", ""One""
+gallery_count %count
+for %i = 0 to 1
+    gallery_info %i, $title, $path, %unlocked
+next
+if %count > 0 { ui_text 1, $title, 0, 0 }
+ui_text 2, ""${%count}%"", 0, 32
+end
+";
+        string path = WriteTempScript(script);
+        try
+        {
+            var output = RunLint(path, out int exitCode, out string stderr);
+
+            exitCode.Should().NotBe(2, stderr);
+            output.Should().NotContain("E002");
+        }
+        finally { CleanupTempFile(path); }
+    }
+
     // Helper to run lint
+    private static string RunLint(string path, out int exitCode, out string stderrText)
+    {
+        var oldOut = Console.Out;
+        var oldErr = Console.Error;
+        using var stdout = new StringWriter();
+        using var stderr = new StringWriter();
+        try
+        {
+            Console.SetOut(stdout);
+            Console.SetError(stderr);
+            exitCode = AriaLintCommand.Run(new[] { path });
+            stderrText = stderr.ToString();
+            return stdout.ToString();
+        }
+        finally
+        {
+            Console.SetOut(oldOut);
+            Console.SetError(oldErr);
+        }
+    }
+
     private static LintResult LintFile(string path)
     {
         var reporter = new ErrorReporter();

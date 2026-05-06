@@ -1,0 +1,2 @@
+- Need to implement a full LZ4 path in a future task.
+- Ensure that ZstdCompression integrates with existing PakArchiveV3 architecture (ICompressionAlgorithm contract confirmed).

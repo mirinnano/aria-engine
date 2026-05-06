@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
 using AriaEngine.Core;
@@ -10,7 +11,40 @@ namespace AriaEngine.Tests;
 
 public class DocTests
 {
+    private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+
     private static Parser CreateParser() => new(new ErrorReporter());
+
+    [Fact]
+    public void OpcodeApiIndex_InventoryMatchesCommandRegistry()
+    {
+        string doc = File.ReadAllText(Path.Combine(RepoRoot, "docs", "api", "opcodes.md"));
+
+        int canonicalCount = CommandRegistry.All.Values
+            .Select(info => info.CanonicalName)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        int tokenCount = CommandRegistry.All.Count;
+        int registeredOpcodeCount = CommandRegistry.All.Values
+            .Select(info => info.OpCode)
+            .Distinct()
+            .Count();
+        int internalOpcodeCount = Enum.GetValues<OpCode>()
+            .Except(CommandRegistry.All.Values.Select(info => info.OpCode).Distinct())
+            .Count();
+
+        ExtractCount(doc, "Script-visible canonical commands").Should().Be(canonicalCount);
+        ExtractCount(doc, "Script-visible token names including aliases").Should().Be(tokenCount);
+        ExtractCount(doc, "Registered executable opcodes").Should().Be(registeredOpcodeCount);
+        ExtractCount(doc, "Internal parser opcodes").Should().Be(internalOpcodeCount);
+    }
+
+    private static int ExtractCount(string markdown, string label)
+    {
+        var match = Regex.Match(markdown, $@"\|\s*{Regex.Escape(label)}\s*\|\s*(\d+)\s*\|");
+        match.Success.Should().BeTrue($"docs/api/opcodes.md should contain '{label}'");
+        return int.Parse(match.Groups[1].Value);
+    }
 
     [Fact]
     public void Parse_DocCommentBeforeFunc_CapturesDocComment()

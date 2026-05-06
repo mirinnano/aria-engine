@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/AriaEngine/AriaEngine.csproj" />
-    <Project Path="src/AriaInstaller/AriaInstaller.csproj" />
   </Folder>
 </Solution>

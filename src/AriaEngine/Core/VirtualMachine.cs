@@ -83,13 +83,23 @@ namespace AriaEngine.Core;
             }
             frame.Defer.Clear();
 
-            // Remove sprites created in this scope
+            // Remove sprites created in this scope (only Owned sprites are removed)
             if (State.Execution.SpriteLifetimeStacks.Count > 0)
             {
                 var lifetimeSet = State.Execution.SpriteLifetimeStacks.Pop();
                 foreach (var sid in lifetimeSet)
                 {
-                    State.Render.Sprites.Remove(sid);
+                    if (State.Render.Sprites.TryGetValue(sid, out var spr))
+                    {
+                        if (spr.OwnershipMode == OwnershipMode.Owned)
+                        {
+                            State.Render.Sprites.Remove(sid);
+                        }
+                    }
+                    else
+                    {
+                        // If sprite is already gone or not tracked, skip safely
+                    }
                 }
             }
 
@@ -124,7 +134,7 @@ namespace AriaEngine.Core;
     // T20: ラベルアドレスセット（チャプターラベル検出用）
     private HashSet<int> _labelAddresses = new();
 
-    public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager saves, ConfigManager config)
+    public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager saves, ConfigManager config, string? runtimeDataRoot = null)
     {
         _reporter = reporter;
         Tweens = tweens;
@@ -184,7 +194,10 @@ namespace AriaEngine.Core;
         State.FlagRuntime.UnlockedCgs = new HashSet<string>(persistent.UnlockedCgs, StringComparer.OrdinalIgnoreCase);
 
         // Initialize new managers
-        ChapterManager = new ChapterManager(reporter);
+        string chapterDataPath = runtimeDataRoot == null
+            ? "chapters.json"
+            : System.IO.Path.Combine(runtimeDataRoot, "chapters.json");
+        ChapterManager = new ChapterManager(reporter, chapterDataPath);
         ChapterManager.LoadChapters();
 
         GameFlow = new GameFlowManager();
@@ -294,17 +307,6 @@ namespace AriaEngine.Core;
         _labelAddresses = new HashSet<int>(_labels.Values);
     }
     
-    [Obsolete("Use LoadScript(ParseResult, string) instead")]
-    public void LoadScript(List<Instruction> instructions, Dictionary<string, int> labels, string file)
-    {
-        _instructions = instructions;
-        _labels = labels;
-        _currentScriptFile = file;
-        _currentReadKeyPrefix = file + ":";
-        State.Execution.ProgramCounter = 0;
-        State.Execution.State = VmState.Running;
-    }
-
     public void ResumeFromClick()
     {
         if (State.Execution.State == VmState.WaitingForClick)
@@ -409,7 +411,7 @@ namespace AriaEngine.Core;
 
             try
             {
-                if (EvaluateCondition(inst.Condition))
+                if (inst.Op == OpCode.JumpIfFalse || EvaluateCondition(inst.Condition))
                 {
                     ExecuteInstruction(inst);
                 }
@@ -595,10 +597,10 @@ namespace AriaEngine.Core;
         }
 
         _reporter.Report(new AriaError(
-            $"未実装の命令 '{inst.Op}' はスキップされました。",
+            $"ハンドラ未接続の命令 '{inst.Op}' は実行できません。",
             inst.SourceLine,
             _currentScriptFile,
-            AriaErrorLevel.Warning,
+            AriaErrorLevel.Error,
             "VM_OPCODE_UNHANDLED",
             hint: "CommandHandler の HandledCodes と Execute 実装を確認してください。"));
     }

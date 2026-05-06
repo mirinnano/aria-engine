@@ -202,25 +202,20 @@ public class Instruction
 }
 ```
 
-### コマンドのマッピング
+### コマンドの解決
 
 ```csharp
-private static readonly Dictionary<string, OpCode> KnownCommands =
-    new(StringComparer.OrdinalIgnoreCase)
+if (CommandRegistry.TryGet(firstToken, out OpCode op))
 {
-    { "text", OpCode.Text },
-    { "wait", OpCode.Wait },
-    { "lsp", OpCode.Lsp },
-    { "lsp_text", OpCode.LspText },
-    { "lsp_rect", OpCode.LspRect },
-    // ... その他のコマンド
-};
+    var args = parts.Skip(1).ToList();
+    instructions.Add(new Instruction(op, args, i + 1));
+}
 ```
 
 ### 命令の生成プロセス
 
 ```csharp
-if (KnownCommands.TryGetValue(firstToken, out OpCode op))
+if (CommandRegistry.TryGet(firstToken, out OpCode op))
 {
     var args = parts.Skip(1).ToList();
     instructions.Add(new Instruction(op, args, i + 1));
@@ -267,7 +262,7 @@ if (firstToken.Equals("if", StringComparison.OrdinalIgnoreCase))
     // 条件とコマンドを分割
     for (int j = 1; j < parts.Count; j++)
     {
-        if (KnownCommands.ContainsKey(parts[j]) || defsubs.Contains(parts[j]))
+        if (CommandRegistry.Contains(parts[j]) || defsubs.Contains(parts[j]))
         {
             cmdIndex = j;
             break;
@@ -280,7 +275,7 @@ if (firstToken.Equals("if", StringComparison.OrdinalIgnoreCase))
         var cmdToken = parts[cmdIndex];
         var opArgs = parts.Skip(cmdIndex + 1).ToList();
 
-        if (KnownCommands.TryGetValue(cmdToken, out OpCode op))
+        if (CommandRegistry.TryGet(cmdToken, out OpCode op))
         {
             instructions.Add(new Instruction(op, opArgs, i + 1, condTokens));
         }
@@ -545,8 +540,8 @@ private string InternString(string str)
 ### 新しいコマンドの追加
 
 1. `OpCode.cs`に新しいオペコードを追加
-2. `KnownCommands`辞書にマッピングを追加
-3. VMに実装を追加
+2. `CommandRegistry` にcanonical name、alias、category、minimum argsを登録
+3. 対応する `*CommandHandler` の `HandledCodes` と `Execute` に実装を追加
 
 ```csharp
 // 1. OpCode.cs
@@ -556,13 +551,12 @@ public enum OpCode
     MyNewCommand,
 }
 
-// 2. Parser.cs
-{ "my_new_command", OpCode.MyNewCommand },
+// 2. CommandRegistry.cs
+Register(CommandCategory.System, OpCode.MyNewCommand, "my_new_command");
 
-// 3. VirtualMachine.cs
-case OpCode.MyNewCommand:
-    ExecuteMyNewCommand(instruction);
-    break;
+// 3. SystemCommandHandler.cs
+public override IReadOnlySet<OpCode> HandledCodes { get; } =
+    new HashSet<OpCode> { OpCode.MyNewCommand };
 ```
 
 ### カスタム構文の追加

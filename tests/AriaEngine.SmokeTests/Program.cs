@@ -5,7 +5,7 @@ using Raylib_cs;
 
 static void Assert(bool condition, string message)
 {
-    if (!condition) throw new Exception(message);
+    if (!condition) throw new InvalidOperationException(message);
 }
 
 var workspace = Path.Combine(Path.GetTempPath(), "aria-smoke-" + Guid.NewGuid().ToString("N"));
@@ -38,7 +38,7 @@ try
     Assert(parsed.Instructions.Any(i => i.Op == OpCode.Text && i.Arguments.Count > 0 && i.Arguments[0].Contains(":")), "Parser split plain text containing ':'");
 
     var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    vm.LoadScript(parsed.Instructions, parsed.Labels, "smoke.aria");
+    vm.LoadScript(parsed, "smoke.aria");
     vm.Step();
     Assert(vm.State.Execution.State == VmState.WaitingForClick, "VM did not wait for text click");
     vm.ResumeFromClick();
@@ -56,7 +56,7 @@ try
         "font_atlas_size 64"
     }, "font-size.aria");
     var fontSizeVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    fontSizeVm.LoadScript(fontSizeScript.Instructions, fontSizeScript.Labels, "font-size.aria");
+    fontSizeVm.LoadScript(fontSizeScript, "font-size.aria");
     fontSizeVm.Step();
     Assert(fontSizeVm.State.EngineSettings.FontAtlasSize == 64, "font_atlas_size should preserve small UI font sizes");
     Assert(SpriteRenderer.SelectFontAtlasSize(18) == 18, "Renderer should choose a native atlas size for small UI text");
@@ -67,14 +67,21 @@ try
 
     var waitScript = parser.Parse(new[] { "wait 250" }, "wait.aria");
     var waitVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    waitVm.LoadScript(waitScript.Instructions, waitScript.Labels, "wait.aria");
+    waitVm.LoadScript(waitScript, "wait.aria");
     waitVm.Step();
     Assert(waitVm.State.Execution.State == VmState.WaitingForDelay, "wait <ms> should be a timed delay");
     Assert(waitVm.State.Execution.DelayTimerMs == 250f, "wait <ms> should store delay milliseconds");
 
+    var automodeScript = parser.Parse(new[] { "automode_time 3500" }, "automode-time.aria");
+    var automodeVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+    automodeVm.LoadScript(automodeScript, "automode-time.aria");
+    automodeVm.Step();
+    Assert(automodeVm.State.Playback.AutoModeWaitTimeMs == 3500, "automode_time should update auto-mode wait milliseconds");
+    Assert(automodeVm.Config.Config.AutoModeWaitTimeMs == 3500, "automode_time should persist through config state");
+
     var waitClickScript = parser.Parse(new[] { "compat_mode on", "textspeed 40", "最後の一文", "@" }, "wait-click.aria");
     var waitClickVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    waitClickVm.LoadScript(waitClickScript.Instructions, waitClickScript.Labels, "wait-click.aria");
+    waitClickVm.LoadScript(waitClickScript, "wait-click.aria");
     for (int i = 0; i < 12 && waitClickVm.State.Execution.State != VmState.WaitingForClick; i++)
     {
         if (waitClickVm.State.Execution.State == VmState.Running) waitClickVm.Step();
@@ -98,7 +105,7 @@ try
         "set_vflag skip_done, 1"
     }, "skip.aria");
     var skipVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    skipVm.LoadScript(skipScript.Instructions, skipScript.Labels, "skip.aria");
+    skipVm.LoadScript(skipScript, "skip.aria");
     skipVm.State.Playback.SkipMode = true;
     skipVm.State.Playback.SkipUnread = true;
     skipVm.State.Playback.SkipRateMs = 1; // テスト用に最短間隔
@@ -118,7 +125,7 @@ try
     Assert(!skipVm.State.Playback.SkipMode, "Manual advance input should be able to stop skip mode");
 
     var forceSkipVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    forceSkipVm.LoadScript(skipScript.Instructions, skipScript.Labels, "skip.aria");
+    forceSkipVm.LoadScript(skipScript, "skip.aria");
     forceSkipVm.State.Playback.ForceSkipMode = true;
     forceSkipVm.State.Playback.SkipRateMs = 1;
     int forceSkippedWaits = 0;
@@ -145,7 +152,7 @@ try
         "set_vflag throttled_skip_done, 1"
     }, "throttled-skip.aria");
     var throttledSkipVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    throttledSkipVm.LoadScript(throttledSkipScript.Instructions, throttledSkipScript.Labels, "throttled-skip.aria");
+    throttledSkipVm.LoadScript(throttledSkipScript, "throttled-skip.aria");
     throttledSkipVm.State.Playback.SkipMode = true;
     throttledSkipVm.State.Playback.SkipUnread = true;
     throttledSkipVm.State.Playback.SkipRateMs = 200; // デフォルト5msg/秒
@@ -180,7 +187,7 @@ try
         "ui_group_clear 900"
     }, "ui.aria");
     var uiVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    uiVm.LoadScript(uiScript.Instructions, uiScript.Labels, "ui.aria");
+    uiVm.LoadScript(uiScript, "ui.aria");
     for (int i = 0; i < uiScript.Instructions.Count; i++) uiVm.Step();
     Assert(uiVm.State.TextWindow.DefaultTextboxPaddingX == 34 && uiVm.State.TextWindow.DefaultTextboxPaddingY == 30, "ui textbox padding should update textbox defaults");
     Assert(uiVm.State.TextWindow.DefaultTextboxX == 72, "ui textbox x should update textbox default x");
@@ -213,7 +220,7 @@ try
         "ui sprite:600, unknown_prop, 1"
     }, "reserved-menu.aria");
     var reservedMenuVm = new VirtualMachine(reservedMenuReporter, new TweenManager(), new SaveManager(reservedMenuReporter), new ConfigManager());
-    reservedMenuVm.LoadScript(reservedMenuScript.Instructions, reservedMenuScript.Labels, "reserved-menu.aria");
+    reservedMenuVm.LoadScript(reservedMenuScript, "reserved-menu.aria");
     for (int i = 0; i < reservedMenuScript.Instructions.Count; i++) reservedMenuVm.Step();
     Assert(!reservedMenuVm.State.MenuRuntime.MenuActionOverrides.ContainsKey("save"), "save menu action should remain engine-owned");
     Assert(!reservedMenuVm.State.MenuRuntime.MenuActionOverrides.ContainsKey("load"), "load menu action should remain engine-owned");
@@ -248,13 +255,13 @@ try
         "ui_state_style 410, \"hover\", fill, \"#333333\""
     }, "ui-state-style.aria");
     var uiStateStyleVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    uiStateStyleVm.LoadScript(uiStateStyleScript.Instructions, uiStateStyleScript.Labels, "ui-state-style.aria");
+    uiStateStyleVm.LoadScript(uiStateStyleScript, "ui-state-style.aria");
     for (int i = 0; i < uiStateStyleScript.Instructions.Count; i++) uiStateStyleVm.Step();
     Assert(uiStateStyleVm.State.Render.Sprites[410].HoverFillColor == "#333333", "ui_state_style hover fill should affect hover rendering");
 
     var highQualityScript = parser.Parse(new[] { "ui_quality high" }, "ui-quality-high.aria");
     var highQualityVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    highQualityVm.LoadScript(highQualityScript.Instructions, highQualityScript.Labels, "ui-quality-high.aria");
+    highQualityVm.LoadScript(highQualityScript, "ui-quality-high.aria");
     highQualityVm.Step();
     Assert(highQualityVm.State.UiQuality.Quality == "high", "ui_quality high should keep high quality mode");
     Assert(!highQualityVm.State.UiQuality.SubpixelRendering, "ui_quality high should keep UI edges on pixel boundaries");
@@ -262,7 +269,7 @@ try
 
     var uiQualityScript = parser.Parse(new[] { "ui_quality ultra", "ui_motion on, 20" }, "ui-quality.aria");
     var uiQualityVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    uiQualityVm.LoadScript(uiQualityScript.Instructions, uiQualityScript.Labels, "ui-quality.aria");
+    uiQualityVm.LoadScript(uiQualityScript, "ui-quality.aria");
     uiQualityVm.Step();
     Assert(uiQualityVm.State.UiQuality.Quality == "ultra", "ui_quality should switch quality mode");
     Assert(uiQualityVm.State.UiQuality.RoundedRectSegments == 96, "ui_quality ultra should maximize rounded rectangle quality");
@@ -271,7 +278,7 @@ try
 
     var cleanThemeScript = parser.Parse(new[] { "ui_theme clean" }, "clean-theme.aria");
     var cleanThemeVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    cleanThemeVm.LoadScript(cleanThemeScript.Instructions, cleanThemeScript.Labels, "clean-theme.aria");
+    cleanThemeVm.LoadScript(cleanThemeScript, "clean-theme.aria");
     cleanThemeVm.Step();
     Assert(cleanThemeVm.State.TextWindow.DefaultTextboxCornerRadius <= 10, "clean theme should use a hard-edged textbox shape");
     Assert(cleanThemeVm.State.TextWindow.DefaultTextboxBgAlpha >= 218, "clean theme should make textboxes read as solid metal panels");
@@ -281,7 +288,7 @@ try
 
     var steelThemeScript = parser.Parse(new[] { "ui_theme steel" }, "steel-theme.aria");
     var steelThemeVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    steelThemeVm.LoadScript(steelThemeScript.Instructions, steelThemeScript.Labels, "steel-theme.aria");
+    steelThemeVm.LoadScript(steelThemeScript, "steel-theme.aria");
     steelThemeVm.Step();
     Assert(steelThemeVm.State.MenuRuntime.MenuFillColor == UIThemeDefaults.MenuFillColor, "steel theme should use the rugged default menu fill");
     Assert(steelThemeVm.State.ChoiceStyle.ChoiceCornerRadius <= 8, "steel theme should keep choice buttons hard-edged");
@@ -313,7 +320,7 @@ try
     Assert(modernScript.Labels.ContainsKey("title.entry") && modernScript.Labels.ContainsKey("title.done"), "namespace should qualify labels");
 
     var modernVm = new VirtualMachine(modernReporter, new TweenManager(), new SaveManager(modernReporter), new ConfigManager());
-    modernVm.LoadScript(modernScript.Instructions, modernScript.Labels, "modern.aria");
+    modernVm.LoadScript(modernScript, "modern.aria");
     for (int i = 0; i < 50 && modernVm.State.Execution.ProgramCounter < modernScript.Instructions.Count; i++)
     {
         if (modernVm.State.Execution.State == VmState.Running) modernVm.Step();
@@ -336,7 +343,7 @@ try
 
     var cursorScript = parser.Parse(new[] { "clickcursor engine", "clickcursor \"cursor.bmp\"" }, "cursor.aria");
     var cursorVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    cursorVm.LoadScript(cursorScript.Instructions, cursorScript.Labels, "cursor.aria");
+    cursorVm.LoadScript(cursorScript, "cursor.aria");
     cursorVm.Step();
     Assert(cursorVm.State.UiRuntime.ClickCursorMode == "image" && cursorVm.State.UiRuntime.ClickCursorPath == "cursor.bmp", "clickcursor path should opt into image mode");
 
@@ -355,7 +362,7 @@ try
 
     var fadeScript = parser.Parse(new[] { "bgm \"loop.ogg\"", "bgmfade 250" }, "bgmfade.aria");
     var fadeVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    fadeVm.LoadScript(fadeScript.Instructions, fadeScript.Labels, "bgmfade.aria");
+    fadeVm.LoadScript(fadeScript, "bgmfade.aria");
     fadeVm.Step();
     fadeVm.Step();
     Assert(fadeVm.State.Audio.BgmFadeOutTimerMs == 250f && fadeVm.State.Audio.CurrentBgm == "loop.ogg", "bgmfade should schedule a fade instead of stopping immediately");
@@ -370,7 +377,7 @@ try
         "自動既読保存@"
     }, "persistent.aria");
     var persistentVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    persistentVm.LoadScript(persistentScript.Instructions, persistentScript.Labels, "persistent.aria");
+    persistentVm.LoadScript(persistentScript, "persistent.aria");
     persistentVm.Step();
     persistentVm.Step();
 
@@ -388,12 +395,12 @@ try
         "set_vflag after_autosave_wait, 1"
     }, "autosave.aria");
     var autoSaveVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    autoSaveVm.LoadScript(autoSaveScript.Instructions, autoSaveScript.Labels, "autosave.aria");
+    autoSaveVm.LoadScript(autoSaveScript, "autosave.aria");
     autoSaveVm.Step();
     Assert(autoSaveVm.State.Execution.State == VmState.WaitingForClick, "Autosave fixture should stop at click wait");
     Assert(autoSaveVm.Saves.HasSaveData(SaveManager.AutoSaveSlot), "Click wait should create hidden autosave data");
     var autoLoadVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-    autoLoadVm.LoadScript(autoSaveScript.Instructions, autoSaveScript.Labels, "autosave.aria");
+    autoLoadVm.LoadScript(autoSaveScript, "autosave.aria");
     Assert(autoLoadVm.LoadAutoSaveGame(), "autoload should restore hidden autosave data");
     Assert(autoLoadVm.State.Execution.State == VmState.WaitingForClick && autoLoadVm.State.TextRuntime.CurrentTextBuffer.Contains("自動進行保存"), "autoload should restore text wait progress");
 
@@ -414,13 +421,13 @@ try
     }, "save-load.aria");
 
     var saveVm = new VirtualMachine(saveReporter, new TweenManager(), new SaveManager(saveReporter), new ConfigManager());
-    saveVm.LoadScript(saveScript.Instructions, saveScript.Labels, "save-load.aria");
+    saveVm.LoadScript(saveScript, "save-load.aria");
     saveVm.Step();
     Assert(saveVm.State.Execution.State == VmState.WaitingForClick, "Save fixture did not reach first wait");
     saveVm.SaveGame(1);
 
     var loadVm = new VirtualMachine(saveReporter, new TweenManager(), new SaveManager(saveReporter), new ConfigManager());
-    loadVm.LoadScript(saveScript.Instructions, saveScript.Labels, "save-load.aria");
+    loadVm.LoadScript(saveScript, "save-load.aria");
     loadVm.LoadGame(1);
     Assert(loadVm.State.TextWindow.TextTargetSpriteId >= 0, "Load did not restore text target id");
     Assert(loadVm.State.TextWindow.TextboxBackgroundSpriteId >= 0, "Load did not restore textbox background id");
@@ -443,13 +450,13 @@ try
         "text \"after\""
     }, "choice-load.aria");
     var choiceSaveVm = new VirtualMachine(choiceLoadReporter, new TweenManager(), new SaveManager(choiceLoadReporter), new ConfigManager());
-    choiceSaveVm.LoadScript(choiceLoadScript.Instructions, choiceLoadScript.Labels, "choice-load.aria");
+    choiceSaveVm.LoadScript(choiceLoadScript, "choice-load.aria");
     choiceSaveVm.Step();
     Assert(choiceSaveVm.State.Execution.State == VmState.WaitingForButton, "Choice load fixture did not reach button wait");
     choiceSaveVm.SaveGame(5);
 
     var choiceLoadedVm = new VirtualMachine(choiceLoadReporter, new TweenManager(), new SaveManager(choiceLoadReporter), new ConfigManager());
-    choiceLoadedVm.LoadScript(choiceLoadScript.Instructions, choiceLoadScript.Labels, "choice-load.aria");
+    choiceLoadedVm.LoadScript(choiceLoadScript, "choice-load.aria");
     choiceLoadedVm.LoadGame(5);
     int loadedChoiceButton = choiceLoadedVm.State.Interaction.SpriteButtonMap.Keys.First();
     choiceLoadedVm.ResumeFromButton(loadedChoiceButton);
@@ -572,7 +579,7 @@ try
     Assert(transitionScript.Instructions.Any(i => i.Op == OpCode.Transition), "Transition instruction should parse");
 
     var transitionVm = new VirtualMachine(transitionReporter, new TweenManager(), new SaveManager(transitionReporter), new ConfigManager());
-    transitionVm.LoadScript(transitionScript.Instructions, transitionScript.Labels, "transition.aria");
+    transitionVm.LoadScript(transitionScript, "transition.aria");
     transitionVm.Step(); // bg load
     transitionVm.Step(); // transition command
 
@@ -607,13 +614,14 @@ try
     Assert(!textFxReporter.Errors.Any(e => e.Level == AriaErrorLevel.Error), "Text effects should parse without errors");
 
     var textFxVm = new VirtualMachine(textFxReporter, new TweenManager(), new SaveManager(textFxReporter), new ConfigManager());
-    textFxVm.LoadScript(textFxScript.Instructions, textFxScript.Labels, "text-fx.aria");
+    textFxVm.LoadScript(textFxScript, "text-fx.aria");
     textFxVm.Step();
 
-    Assert(textFxVm.State.TextRuntime.CurrentTextSegments != null, "CurrentTextSegments should be parsed");
-    Assert(textFxVm.State.TextRuntime.CurrentTextSegments.Any(s => !string.IsNullOrEmpty(s.Style.VoiceSePath)),
+    var textSegments = textFxVm.State.TextRuntime.CurrentTextSegments
+        ?? throw new InvalidOperationException("CurrentTextSegments should be parsed");
+    Assert(textSegments.Any(s => !string.IsNullOrEmpty(s.Style.VoiceSePath)),
         "Should have segment with voice SE path");
-    Assert(textFxVm.State.TextRuntime.CurrentTextSegments.Any(s => !string.IsNullOrEmpty(s.RubyText)),
+    Assert(textSegments.Any(s => !string.IsNullOrEmpty(s.RubyText)),
         "Should have segment with ruby text");
 
     // Test [ruby] standalone tag

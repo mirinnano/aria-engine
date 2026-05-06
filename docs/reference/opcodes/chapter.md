@@ -318,18 +318,19 @@ chapter_progress 2, 100
 
 **構文**:
 ```
-chapter_scroll
+chapter_scroll <delta_y>
 ```
 
-**引数**: なし
+**引数**:
+- `delta_y`: int - チャプター選択UIの縦スクロール量。負数で上へ、正数で下へ移動します。
 
 **説明**:
-現在の実装では**何も行いません**（no-op）。チャプター選択画面のスクロール機能の予約コマンドです。将来のバージョンで実装される可能性があります。
+`chapter_select` で生成したチャプターカードの縦オフセットを更新し、選択UIを再描画します。
 
 **例**:
 ```aria
-; 現在は効果がありません
-chapter_scroll
+; チャプター一覧を48px上へ送る
+chapter_scroll -48
 ```
 
 ---
@@ -517,5 +518,5 @@ endchapter
 | `unlock_chapter` | `ID` | チャプターをアンロック |
 | `chapter_thumbnail` | `ID`, `"パス"` | サムネイルパスを設定 |
 | `chapter_card` | `ID`, `"タイトル"`, `"説明"`, `X`, `Y` | チャプターカードを手動生成 |
-| `chapter_scroll` | なし | （予約、現在はno-op） |
+| `chapter_scroll` | `delta_y` | チャプター選択UIの縦オフセットを更新 |
 | `chapter_progress` | `ID`, `進行度` | チャプター進行度を更新 |

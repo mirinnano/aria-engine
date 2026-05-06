@@ -1,0 +1,3 @@
+- Potential risk: Reading manifest length when reconstructing PathStringPool may require exact boundary logic. Implemented a best-effort parsing; may require refinement when real manifest formats are finalized.
+- Next tasks: integrate xxHash64 implementation for exact path hashing; implement proper hash-based FindEntry performance tests; extend tests for Read/Write parity.
+- Ensure memory-mapped IO path remains optional and guarded behind a feature flag.

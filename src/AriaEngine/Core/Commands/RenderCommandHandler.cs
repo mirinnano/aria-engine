@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace AriaEngine.Core.Commands;
 
 public sealed class RenderCommandHandler : BaseCommandHandler
@@ -242,8 +244,10 @@ public sealed class RenderCommandHandler : BaseCommandHandler
                 return true;
 
             case OpCode.Print:
+                ExecutePrint(inst);
                 return true;
             case OpCode.Effect:
+                ExecuteEffect(inst);
                 return true;
 
             case OpCode.Quake:
@@ -276,21 +280,76 @@ public sealed class RenderCommandHandler : BaseCommandHandler
     private void TrackSpriteLifetime(int spriteId, string? arg = null)
     {
         bool isOwned = arg != null && State.OwnedSprites.Contains(arg);
-        if (isOwned && State.Execution.SpriteLifetimeStacks.Count == 0)
+        // If this sprite is owned, ensure a lifetime tracking scope exists and record it
+        if (isOwned)
         {
-            State.Execution.SpriteLifetimeStacks.Push(new HashSet<int>());
+            if (State.Execution.SpriteLifetimeStacks.Count == 0)
+            {
+                State.Execution.SpriteLifetimeStacks.Push(new HashSet<int>());
+            }
+            if (State.Execution.SpriteLifetimeStacks.Count > 0)
+            {
+                State.Execution.SpriteLifetimeStacks.Peek().Add(spriteId);
+            }
+            // Annotate ownership on the actual sprite for later cleanup decisions
+            if (State.Render.Sprites.TryGetValue(spriteId, out var sp))
+            {
+                sp.OwnershipMode = AriaEngine.Core.OwnershipMode.Owned;
+                sp.OwnerScopeId = arg ?? string.Empty;
+            }
         }
-        if (State.Execution.SpriteLifetimeStacks.Count > 0)
+        else
         {
-            State.Execution.SpriteLifetimeStacks.Peek().Add(spriteId);
+            // Not owned by current scope; ensure ownership state remains Unowned unless explicitly set elsewhere
+            if (State.Render.Sprites.TryGetValue(spriteId, out var spNonOwned))
+            {
+            if (spNonOwned.OwnershipMode == AriaEngine.Core.OwnershipMode.Unowned)
+            {
+                spNonOwned.OwnerScopeId = string.Empty;
+            }
+            }
         }
     }
 
     private Sprite CreateBackgroundSprite(string bgPath, int timeOfDay = 0, string preset = "")
     {
-        return bgPath.StartsWith("#")
-            ? new Sprite { Id = 0, Type = SpriteType.Rect, FillColor = bgPath, FillAlpha = 255, Width = State.EngineSettings.WindowWidth, Height = State.EngineSettings.WindowHeight, Z = 0, BackgroundTimeOfDay = timeOfDay, BackgroundTimePreset = preset }
-            : new Sprite { Id = 0, Type = SpriteType.Image, ImagePath = bgPath, Width = State.EngineSettings.WindowWidth, Height = State.EngineSettings.WindowHeight, Z = 0, BackgroundTimeOfDay = timeOfDay, BackgroundTimePreset = preset };
+        if (bgPath.StartsWith("#"))
+        {
+            return new Sprite { Id = 0, Type = SpriteType.Rect, FillColor = bgPath, FillAlpha = 255, Width = State.EngineSettings.WindowWidth, Height = State.EngineSettings.WindowHeight, Z = 0, BackgroundTimeOfDay = timeOfDay, BackgroundTimePreset = preset };
+        }
+
+        // Check if the background image asset exists; if not, use a solid black fallback
+        if (!BackgroundAssetExists(bgPath))
+        {
+            Reporter.Report(new AriaError(
+                $"背景画像が見つかりません: '{bgPath}' - 代替として黒背景を表示します。",
+                -1,
+                CurrentScriptFile,
+                AriaErrorLevel.Warning,
+                "BG_ASSET_MISSING"));
+
+            return new Sprite { Id = 0, Type = SpriteType.Rect, FillColor = "#000000", FillAlpha = 255, Width = State.EngineSettings.WindowWidth, Height = State.EngineSettings.WindowHeight, Z = 0, BackgroundTimeOfDay = timeOfDay, BackgroundTimePreset = preset };
+        }
+
+        return new Sprite { Id = 0, Type = SpriteType.Image, ImagePath = bgPath, Width = State.EngineSettings.WindowWidth, Height = State.EngineSettings.WindowHeight, Z = 0, BackgroundTimeOfDay = timeOfDay, BackgroundTimePreset = preset };
+    }
+
+    private static bool BackgroundAssetExists(string path)
+    {
+        // Mirror DiskAssetProvider resolution logic:
+        // 1. Check if path is rooted and exists directly
+        // 2. Check relative to current directory
+        // 3. Check under assets/ subdirectory
+        if (Path.IsPathRooted(path))
+        {
+            return File.Exists(path);
+        }
+
+        string direct = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, path));
+        if (File.Exists(direct)) return true;
+
+        string prefixed = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "assets", path));
+        return File.Exists(prefixed);
     }
 
     private void StartBackgroundFade(string bgPath, int durationMs, int timeOfDay = 0, string preset = "")
@@ -343,6 +402,71 @@ public sealed class RenderCommandHandler : BaseCommandHandler
     {
         if (value <= 0) return 0;
         return value <= 20 ? 700 : value;
+    }
+
+    private void ExecuteEffect(Instruction inst)
+    {
+        if (!ValidateArgs(inst, 1)) return;
+
+        int id = GetVal(inst.Arguments[0]);
+        int durationMs = inst.Arguments.Count > 1 ? Math.Max(0, GetVal(inst.Arguments[1])) : 700;
+        string method = inst.Arguments.Count > 2 ? GetString(inst.Arguments[2]) : "fade";
+
+        State.Render.NscrEffects[id] = new NscrEffectDefinition
+        {
+            DurationMs = durationMs,
+            Transition = MapNscrEffectMethod(method),
+            Method = method
+        };
+    }
+
+    private void ExecutePrint(Instruction inst)
+    {
+        int id = inst.Arguments.Count > 0 ? GetVal(inst.Arguments[0]) : 0;
+        if (id == 0)
+        {
+            State.Render.ActiveEffects.Add("nscr:print:0");
+            return;
+        }
+
+        if (!State.Render.NscrEffects.TryGetValue(id, out var effect))
+        {
+            effect = new NscrEffectDefinition();
+        }
+
+        State.Render.TransitionStyle = effect.Transition;
+        State.Render.FadeDurationMs = Math.Max(1, effect.DurationMs);
+        State.Render.FadeProgress = 0f;
+        State.Render.IsFading = true;
+        State.Execution.State = VmState.FadingIn;
+        State.Render.ActiveEffects.Add($"nscr:print:{id}");
+    }
+
+    private static TransitionType MapNscrEffectMethod(string method)
+    {
+        string normalized = method.Trim().ToLowerInvariant();
+        if (int.TryParse(normalized, out int numeric))
+        {
+            return numeric switch
+            {
+                11 => TransitionType.SlideLeft,
+                12 => TransitionType.SlideRight,
+                13 => TransitionType.SlideUp,
+                14 => TransitionType.SlideDown,
+                18 or 99 => TransitionType.WipeCircle,
+                _ => TransitionType.Fade
+            };
+        }
+
+        return normalized switch
+        {
+            "slide_left" or "slideleft" or "left" => TransitionType.SlideLeft,
+            "slide_right" or "slideright" or "right" => TransitionType.SlideRight,
+            "slide_up" or "slideup" or "up" => TransitionType.SlideUp,
+            "slide_down" or "slidedown" or "down" => TransitionType.SlideDown,
+            "wipe" or "circle" or "wipe_circle" or "mask" => TransitionType.WipeCircle,
+            _ => TransitionType.Fade
+        };
     }
 
     private void ExecuteTransition(Instruction inst)

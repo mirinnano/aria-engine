@@ -1,0 +1,28 @@
+{
+  "cases": [
+    {
+      "name": "compile-main-script",
+      "cwd": "src/AriaEngine",
+      "command": "dotnet run -c Release --project AriaEngine.csproj -- aria-compile --init init.aria --main assets/scripts/main.aria --out ../../artifacts/replay/replay-check.ariac",
+      "expectedExitCode": 0
+    },
+    {
+      "name": "lint-main-script",
+      "cwd": "src/AriaEngine",
+      "command": "dotnet run -c Release --project AriaEngine.csproj -- aria-lint assets/scripts/main.aria",
+      "expectedExitCode": 0
+    },
+    {
+      "name": "flowcheck-umikaze-routes",
+      "cwd": "src/AriaEngine",
+      "command": "dotnet run -c Release --project AriaEngine.csproj -- aria-flowcheck --root . --main assets/scripts/main.aria --chapters 6 --execute",
+      "expectedExitCode": 0
+    },
+    {
+      "name": "validate-empty-release-saves",
+      "cwd": "src/AriaEngine",
+      "command": "dotnet run -c Release --project AriaEngine.csproj -- aria-save --dir ../../.tmp/replay-save-validation validate",
+      "expectedExitCode": 0
+    }
+  ]
+}

@@ -44,9 +44,11 @@ public class ConfigManager
     private readonly ErrorReporter? _reporter;
     public AppConfig Config { get; private set; } = new();
 
-    public ConfigManager(ErrorReporter? reporter = null)
+    public ConfigManager(ErrorReporter? reporter = null, string configPath = "config.json", string? persistentPath = null)
     {
         _reporter = reporter;
+        _configPath = configPath;
+        _persistentPath = persistentPath ?? Path.Combine("saves", "persistent.ariasav");
     }
 
     public void Load()

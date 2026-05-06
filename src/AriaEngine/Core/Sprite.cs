@@ -6,16 +6,27 @@ public enum TextAlignment { Left, Center, Right }
 
 public enum TextVerticalAlignment { Top = 0, Center = 1, Middle = 1, Bottom = 2 }
 
+public enum OwnershipMode
+{
+    Unowned,
+    Owned,
+    Borrowed,
+    Moved
+}
+
 public class Sprite
 {
     public int Id { get; set; }
     public SpriteType Type { get; set; }
 
-    // ダーティフラグと最終更新時刻（未使用、互換性維持）
-    [System.Text.Json.Serialization.JsonIgnore]
-    public bool IsDirty { get; set; } = true;
-    [System.Text.Json.Serialization.JsonIgnore]
-    public DateTime LastModified { get; set; } = DateTime.Now;
+    // Ownership tracking
+    public OwnershipMode OwnershipMode { get; set; } = OwnershipMode.Unowned;
+    /// <summary>
+    /// Identifier of the scope that currently owns this sprite (used for lifecycle tracking).
+    /// The exact format of the scope id is implementation-defined; a simple string is sufficient
+    /// for correlation with OwnedSprites from the parse result.
+    /// </summary>
+    public string OwnerScopeId { get; set; } = "";
 
     public float X { get; set; }
     public float Y { get; set; }

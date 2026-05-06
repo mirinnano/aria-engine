@@ -415,17 +415,27 @@ clr
 
 ### `print`
 
-**未実装**です。互換性のために登録されていますが、何も行いません。
+定義済みの `effect` を使って画面 transition を実行します。`print 0` または引数なしの場合は即時反映です。
 
 **カテゴリ**: Compatibility
+
+```aria
+print <effect_id>
+```
 
 ---
 
 ### `effect`
 
-**未実装**です。互換性のために登録されていますが、何も行いません。
+`print` で使う transition effect を定義します。
 
 **カテゴリ**: Compatibility
+
+```aria
+effect <effect_id>, <duration_ms>, <method>
+```
+
+`method` は `fade`、`slide_left`、`slide_right`、`slide_up`、`slide_down`、`wipe` を指定できます。数値 method は代表的な NScripter 互換値を同系統の transition に丸めます。
 
 ---
 

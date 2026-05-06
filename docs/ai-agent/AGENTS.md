@@ -62,7 +62,7 @@ The `.aria` scripting language supports NScripter-compatible syntax:
 - Variables: `%0`-`%9` for integers, `$name` for strings
 - Sprites: `lsp id, "path", x, y`, `vsp id, on/off`, `msp id, x, y`
 
-The complete command set is defined in `Core/OpCode.cs` and registered in `Core/CommandRegistry.cs`. The engine supports **101 opcodes** across categories: Core, Script, Render, Text, Input, Audio, Save, Flags, System, Ui, and Compatibility.
+The complete command set is defined in `Core/OpCode.cs` and registered in `Core/CommandRegistry.cs`. The engine currently registers **240 script-visible canonical commands** across categories: Core, Script, Render, Text, Input, Audio, Save, Flags, System, Ui, and Compatibility.
 
 ### Engine Initialization
 

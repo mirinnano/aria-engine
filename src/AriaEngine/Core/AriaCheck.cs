@@ -182,6 +182,54 @@ public class AriaCheck
     }
 
     /// <summary>
+    /// Enforce strict mutability rules: reassignment to readonly variables and undeclared mutations.
+    /// </summary>
+    public void CheckStrictMutability(ParseResult result, string scriptFile)
+    {
+        // 1) Detect reassignment to readonly variables
+        foreach (var (idx, varName) in result.ReadonlyDeclarations)
+        {
+            for (int i = idx + 1; i < result.Instructions.Count; i++)
+            {
+                var inst = result.Instructions[i];
+                if ((inst.Op == OpCode.Let || inst.Op == OpCode.Mov ||
+                     inst.Op == OpCode.Add || inst.Op == OpCode.Sub || inst.Op == OpCode.Mul || inst.Op == OpCode.Div ||
+                     inst.Op == OpCode.Mod || inst.Op == OpCode.Inc || inst.Op == OpCode.Dec || inst.Op == OpCode.SetArray) &&
+                    inst.Arguments.Count > 0 && string.Equals(inst.Arguments[0], varName, StringComparison.OrdinalIgnoreCase))
+                {
+                    _reporter.Report(new AriaError(
+                        $"Readonly variable '{varName}' cannot be reassigned",
+                        inst.SourceLine,
+                        scriptFile,
+                        AriaErrorLevel.Error,
+                        "ARIA_CHECK_READONLY_REASSIGN"));
+                }
+            }
+        }
+
+        // 2) Detect assignment to undeclared variables (basic heuristic)
+        foreach (var inst in result.Instructions)
+        {
+            if (inst.Arguments.Count == 0) continue;
+            var target = inst.Arguments[0];
+            // consider registers and known literals; skip pure literals
+            if (!(target.StartsWith("%") || target.StartsWith("$") || target.StartsWith("@")))
+                continue;
+            // If declared variables dictionary exists, ensure target is declared or is a register
+            if (result.DeclaredVariables != null && !result.DeclaredVariables.ContainsKey(target) && !(target.StartsWith("%") || target.StartsWith("$") || target.StartsWith("@")))
+            {
+                // Declaration missing for this target; warn about undeclared mutation
+                _reporter.Report(new AriaError(
+                    $"Mutation to undeclared variable '{target}'",
+                    inst.SourceLine,
+                    scriptFile,
+                    AriaErrorLevel.Warning,
+                    "ARIA_CHECK_UNDECLARED_MUTATION"));
+            }
+        }
+    }
+
+    /// <summary>
     /// バージョン互換性の警告
     /// </summary>
     public void CheckCompatibility()

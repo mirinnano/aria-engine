@@ -6,12 +6,13 @@
 - [ ] `scripts/smoke.ps1`
 - [ ] `scripts/release.ps1 -Version v1.0.0-rc.2 -Runtime win-x64`
 - [ ] `scripts/installer.ps1 -Version v1.0.0-rc.2 -Runtime win-x64`
-- [ ] package zip contains `manifest.json`, `checksums.txt`, `release-notes.md`, `data.pak`, and `scripts/scripts.ariac`
-- [ ] installer zip contains `AriaInstaller.exe` and bundled `app/`
+- [ ] package zip contains `README.md`, `manifest.json`, `checksums.txt`, `release-notes.md`, `data.pak`, and `scripts/scripts.ariac`
+- [ ] production `data.pak` does not contain raw `.aria` scripts
+- [ ] installer zip contains `umikaze-v1.0.0-rc.2-win-x64-setup.exe`
 
 ## Manual Gates
 
-- [ ] Fresh install to Program Files
+- [ ] Fresh install to `%LOCALAPPDATA%\Ponkotusoft\umikaze`
 - [ ] Launch from installer
 - [ ] Launch from desktop shortcut
 - [ ] New game

@@ -28,9 +28,10 @@ public class ChapterManager
     private string _dataPath = "chapters.json";
     private readonly ErrorReporter _reporter;
 
-    public ChapterManager(ErrorReporter reporter)
+    public ChapterManager(ErrorReporter reporter, string dataPath = "chapters.json")
     {
         _reporter = reporter;
+        _dataPath = dataPath;
     }
 
     public void LoadChapters()

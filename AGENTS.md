@@ -52,8 +52,9 @@ AriaEngine is a visual novel game engine built with .NET 8.0 and Raylib. It uses
 
 ### Script Language
 
-The `.aria` scripting language supports NScripter-compatible syntax:
+The `.aria` scripting language supports NScripter-compatible syntax, with v2 strict extensions:
 
+**v1.x (Compatibility Mode)**:
 - Labels: `*label_name`
 - Subroutines: `defsub name` ... call via `name` or `gosub *name`
 - Control flow: `if %0 == 1 command`, `goto *label`, `beq *label`
@@ -62,7 +63,16 @@ The `.aria` scripting language supports NScripter-compatible syntax:
 - Variables: `%0`-`%9` for integers, `$name` for strings
 - Sprites: `lsp id, "path", x, y`, `vsp id, on/off`, `msp id, x, y`
 
-See `Core/OpCode.cs` for the complete command set (~80 opcodes including sprites, animations, audio, UI, and system commands).
+**v2 strict (`# aria-version: 2.0` + `strict on`)**:
+- Type-safe registers: `%` (int), `$` (string), `@` (sprite, new), `&` (flag, new)
+- Function definitions: `func name(params) -> return_type` / `endfunc`
+- Scope-based resource management: `scope "name"` / `end_scope` with `owned sprite`
+- Ownership model: `owned` (auto-drop), `borrow` (temporary), `move` (transfer)
+- Mutability: `readonly` / `mut` / `local` / `global` / `persistent` / `volatile`
+- Structuring: `func` / `namespace` / `struct` / `enum`
+- Static analysis via `aria-lint` with error codes E001-E012
+
+See `Core/OpCode.cs` for the complete command set (~100 opcodes including sprites, animations, audio, UI, scope management, and system commands).
 
 ### Engine Initialization
 
@@ -98,15 +108,30 @@ src/AriaEngine/
 ├── Rendering/      # Sprite rendering, transitions, tweens
 ├── Input/          # Input handling
 ├── Audio/          # Audio playback
+├── Tools/          # CLI tools (aria-lint, aria-compile, aria-pack, etc.)
 ├── assets/
 │   ├── fonts/      # TTF font files
 │   ├── bg/         # Background images
 │   ├── ch/         # Character sprites
-│   └── scripts/    # .aria script files
+│   └── scripts/    # .aria script files (main.aria, scenario_01-06, UI scripts)
 ├── init.aria       # Engine initialization script
 ├── config.json     # User settings (auto-generated)
-└── Program.cs      # Entry point and main loop
+└── Program.cs      # Entry point, splash screen, and main loop
 ```
+
+### Static Analysis & Linting
+
+`aria-lint` provides static analysis for `.aria` scripts with error codes E001-E012 and warnings W001-W008:
+
+- Type checking (int/string/sprite/flag)
+- Ownership tracking (owned/borrow/move)
+- Sprite lifetime analysis (scope exit detection, double-drop)
+- Readonly enforcement and undefined variable detection
+- Unreachable code and unused variable detection
+
+Run: `dotnet run --project src/AriaEngine/AriaEngine.csproj -- aria-lint <path/to/script.aria>`
+
+See `docs/spec/aria-v2-strict.md` for the complete v2 strict specification.
 
 ### Debug Mode
 

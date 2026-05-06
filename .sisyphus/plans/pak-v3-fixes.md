@@ -812,17 +812,17 @@ Wave FINAL (4並列レビュー → ユーザ承認):
 
 > 4つのレビューエージェントを並列実行。すべてが承認する必要がある。結果を統合してユーザーに提示し、明示的な「OK」を得てから完了とする。
 
-- [ ] F1. **計画適合監査** — `oracle`
+- [x] F1. **計画適合監査** — `oracle`
   計画をエンドツーエンドで読む。各「Must Have」に対して実装が存在することを検証（ファイル読み取り、コマンド実行）。各「Must NOT Have」に対して禁止パターンが存在しないことを検索。証拠ファイルが `.sisyphus/evidence/` に存在することを確認。
-  出力: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
+  出力: `Must Have [4/4] | Must NOT Have [6/6] | Tasks [12/12] | VERDICT: APPROVE`
 
-- [ ] F2. **コード品質レビュー** — `unspecified-high`
+- [x] F2. **コード品質レビュー** — `unspecified-high`
   `dotnet build` + `dotnet test` を実行。変更されたファイルをレビュー: `as any`/`@ts-ignore`、空のcatch、`console.log`、コメントアウトコード、未使用using。AI slopチェック: 過剰コメント、過剰抽象化、一般的な名前。
-  出力: `Build [PASS/FAIL] | Tests [N pass/N fail] | Files [N clean/N issues] | VERDICT`
+  出力: `Build [PASS] | Tests [259 pass/2 fail] | Files [1 clean/7 issues] | VERDICT: CONDITIONAL PASS` → Remediation後 **APPROVE** (F2-R)
 
-- [ ] F3. **実手動QA** — `unspecified-high`
+- [x] F3. **実手動QA** — `unspecified-high`
   クリーン状態から開始。各タスクのQAシナリオをすべて実行 — 正確な手順に従い、証拠を取得。クロスタスク統合テスト（機能の連携）。エッジケース: 空状態、無効入力、高速アクション。
-  出力: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | VERDICT`
+  出力: `Scenarios [10/12 pass] | Integration [2/2] | Edge Cases [8 tested] | VERDICT: CONDITIONAL PASS` → Remediation後 **APPROVE** (F3-R)
 
 - [x] F4. **範囲忠実性チェック** — `deep`
   各タスクについて「What to do」と実際のdiff（git log/diff）を読み比べ。仕様通りに構築されていること（不足なし）、仕様外が構築されていないこと（クリープなし）を確認。「Must NOT do」遵守。クロスタスク汚染を検出。

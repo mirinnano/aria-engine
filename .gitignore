@@ -150,12 +150,14 @@ aria_error_ai.*
 .codex_build_check*/
 src/AriaEngine/build/
 src/AriaEngine/saves/
+saves/
 src/AriaEngine/aria_error.log
 src/AriaEngine/aria_error_ai.*
 *.png
 !src/AriaEngine/assets/bg/ui_title_menu_ocean.png
 !src/AriaEngine/assets/bg/ui_save_load_ocean.png
 !src/AriaEngine/assets/bg/ui_chapter_select_ocean.png
+!tests/visual-regression/baseline/*.png
 *.jpg
 *.jpeg
 
@@ -168,9 +170,6 @@ src/AriaEngine/aria_error_ai.*
 temp_test*.aria
 
 .worktrees/
-
-# Rust
-src/aria-installer/target/
 
 # Publish test dirs
 publish-installer/

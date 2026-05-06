@@ -1,6 +1,7 @@
 param(
     [string]$Project = "src/AriaEngine/AriaEngine.csproj",
     [string]$Runtime = "",
+    [string]$Version = "ci",
     [string]$OutDir = "artifacts/publish",
     [string]$InitScript = "init.aria",
     [string]$MainScript = "assets/scripts/main.aria",
@@ -48,15 +49,29 @@ if ([string]::IsNullOrWhiteSpace($Runtime)) {
     Invoke-DotNet @("publish", $Project, "-c", "Release", "--no-restore", "-r", $Runtime, "--self-contained", "false", "-o", $OutDir, "/p:AriaCompileOnPublish=false", "/p:NuGetAudit=false")
 }
 
-if ($SkipPackage -or [string]::IsNullOrWhiteSpace($env:ARIA_PACK_KEY)) {
-    Write-Host "ARIA_PACK_KEY is not set or packaging was skipped. Build/publish completed without encrypted Pak generation."
+if ($SkipPackage) {
+    Write-Host "Packaging was skipped. Build/publish completed."
     Write-Host "CI pipeline finished. Output: $OutDir"
     exit 0
 }
 
-Push-Location (Split-Path -Parent $Project)
-Invoke-DotNet @("run", "-c", "Release", "--no-build", "--project", "AriaEngine.csproj", "--", "aria-compile", "--init", $InitScript, "--main", $MainScript, "--out", "../../$OutDir/build/scripts.ariac")
-Invoke-DotNet @("run", "-c", "Release", "--no-build", "--project", "AriaEngine.csproj", "--", "aria-pack", "build", "--input", "assets", "--compiled", "../../$OutDir/build/scripts.ariac", "--output", "../../$OutDir/data.pak")
-Pop-Location
+if ([string]::IsNullOrWhiteSpace($env:ARIA_PACK_KEY)) {
+    Write-Host "ARIA_PACK_KEY is not set. Package will be generated without encryption."
+}
+
+$packageArgs = @{
+    Project = $Project
+    Version = $Version
+    Runtime = $Runtime
+    Configuration = "Release"
+    OutputRoot = $OutDir
+    InitScript = $InitScript
+    MainScript = $MainScript
+    SkipRestore = $true
+}
+& ./scripts/package.ps1 @packageArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "Package generation failed"
+}
 
 Write-Host "CI/CD pipeline finished. Output: $OutDir"

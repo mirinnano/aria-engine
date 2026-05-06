@@ -67,10 +67,8 @@ try {
     Invoke-Checked dotnet @("run", "-c", "Release", "--no-build", "--project", "AriaEngine.csproj", "--", "aria-compile", "--init", $InitScript, "--main", $MainScript, "--out", "build/doctor-check.ariac")
 
     if (-not $SkipLint) {
-        $scripts = Get-ChildItem -Path "assets/scripts" -Filter "*.aria" -Recurse -File | ForEach-Object { $_.FullName }
-        if ($scripts.Count -gt 0) {
-            Write-Host "aria-lint is advisory for include-based projects; aria-compile is the blocking script gate."
-            Invoke-Checked dotnet (@("run", "-c", "Release", "--no-build", "--project", "AriaEngine.csproj", "--", "aria-lint") + $scripts) -AdvisoryOnly
+        if (Test-Path $MainScript) {
+            Invoke-Checked dotnet @("run", "-c", "Release", "--no-build", "--project", "AriaEngine.csproj", "--", "aria-lint", $MainScript) -WarningOnly
         }
     }
 

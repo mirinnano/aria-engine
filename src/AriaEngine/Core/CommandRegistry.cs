@@ -147,7 +147,7 @@ public static class CommandRegistry
         Register(CommandCategory.Script, OpCode.Gosub, "gosub", "call");
         Register(CommandCategory.Script, OpCode.Return, "return", "ret");
         Register(CommandCategory.Script, OpCode.ReturnValue, "returnvalue");
-        Register(CommandCategory.Script, OpCode.Defsub, "defsub", "sub");
+        Register(CommandCategory.Script, OpCode.Defsub, "defsub");
         Register(CommandCategory.Script, OpCode.Getparam, "getparam");
         Register(CommandCategory.Core, OpCode.While, "while");
         Register(CommandCategory.Core, OpCode.Wend, "wend");
@@ -362,7 +362,7 @@ public static class CommandRegistry
             OpCode.SpBtn => 2,
             OpCode.BtnTime => 1,
             OpCode.Window => 3,
-            OpCode.Caption or OpCode.WindowTitle or OpCode.Font or OpCode.FontAtlasSize or OpCode.Script => 1,
+            OpCode.Caption or OpCode.WindowTitle or OpCode.Font or OpCode.FontAtlasSize or OpCode.Script or OpCode.AutoModeTime => 1,
             OpCode.Textbox or OpCode.SetWindow => 4,
             OpCode.Choice => 1,
             OpCode.SystemCall => 1,
@@ -377,6 +377,7 @@ public static class CommandRegistry
             OpCode.UnlockChapter or OpCode.CharLoad => 1,
             OpCode.ChapterThumbnail or OpCode.ChapterProgress => 2,
             OpCode.ChapterCard => 5,
+            OpCode.ChapterScroll => 1,
             OpCode.CharShow or OpCode.CharHide => 1,
             OpCode.CharMove => 3,
             OpCode.CharExpression or OpCode.CharPose or OpCode.CharZ or OpCode.CharScale => 2,

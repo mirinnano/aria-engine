@@ -21,11 +21,13 @@ ui sprite:200, font_size, 36
 ui sprite:200, align, "center"
 ui sprite:200, color, "#e7e2d6"
 ui sprite:200, text_shadow, 0, 3, "#000000"
+ui sprite:200, z, 20
 
 ui_text 201, "SYSTEM SETTINGS", 640, 102
 ui sprite:201, font_size, 14
 ui sprite:201, align, "center"
 ui sprite:201, color, "#9aa18f"
+ui sprite:201, z, 20
 
 ui_rect 202, 168, 126, 944, 430
 ui sprite:202, fill, "#101417"

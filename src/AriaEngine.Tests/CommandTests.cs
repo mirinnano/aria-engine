@@ -83,6 +83,43 @@ public class CommandTests
     }
 
     [Fact]
+    public void NscrEffectAndPrint_DefineAndRunTransitionEffect()
+    {
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        var render = new RenderCommandHandler(vm);
+
+        render.Execute(new Instruction { Op = OpCode.Effect, Arguments = new List<string> { "12", "480", "wipe" }, SourceLine = 0 });
+        render.Execute(new Instruction { Op = OpCode.Print, Arguments = new List<string> { "12" }, SourceLine = 0 });
+
+        vm.State.Render.NscrEffects[12].DurationMs.Should().Be(480);
+        vm.State.Render.NscrEffects[12].Transition.Should().Be(TransitionType.WipeCircle);
+        vm.State.Render.IsFading.Should().BeTrue();
+        vm.State.Render.FadeProgress.Should().Be(0f);
+        vm.State.Render.FadeDurationMs.Should().Be(480);
+        vm.State.Render.TransitionStyle.Should().Be(TransitionType.WipeCircle);
+        vm.State.Execution.State.Should().Be(VmState.FadingIn);
+        vm.State.Render.ActiveEffects.Should().Contain("nscr:print:12");
+    }
+
+    [Fact]
+    public void ChapterScroll_AdjustsRenderedChapterCardOffset()
+    {
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        var compat = new CompatibilityCommandHandler(vm);
+        vm.ChapterManager.AddChapter(new ChapterInfo { Id = 1, Title = "One", Description = "First", IsUnlocked = true });
+
+        compat.Execute(new Instruction { Op = OpCode.ChapterSelect, Arguments = new List<string>(), SourceLine = 0 });
+        float initialY = vm.State.Render.Sprites[2000].Y;
+
+        compat.Execute(new Instruction { Op = OpCode.ChapterScroll, Arguments = new List<string> { "-48" }, SourceLine = 0 });
+
+        vm.State.SceneRuntime.SceneData["chapter_scroll_offset"].Should().Be(-48);
+        vm.State.Render.Sprites[2000].Y.Should().Be(initialY - 48);
+    }
+
+    [Fact]
     public void GetInfo_ReturnsCategoryAndMinArgs()
     {
         var mov = CommandRegistry.GetInfo("mov");
@@ -97,10 +134,10 @@ public class CommandTests
     }
 
     [Fact]
-    public void SubAlias_CurrentlyResolvesToDefsubCompatibilityBehavior()
+    public void SubCommand_ResolvesToArithmeticSub()
     {
         CommandRegistry.TryGet("sub", out var op).Should().BeTrue();
-        op.Should().Be(OpCode.Defsub);
+        op.Should().Be(OpCode.Sub);
     }
 
     [Fact]
@@ -197,6 +234,92 @@ public class CommandTests
 
         action.Should().NotThrow();
         vm.State.RegisterState.Arrays.Should().NotContainKey("arr");
+    }
+
+    [Fact]
+    public void GalleryPageText_UsesEmptyStateWhenGalleryHasNoEntries()
+    {
+        var reporter = new ErrorReporter();
+        var parser = new Parser(reporter);
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        var result = parser.Parse(new[]
+        {
+            "gallery_count %count",
+            "let %page = 0",
+            "let $pagestr = \"NO ENTRIES\"",
+            "let %totalpages = 0",
+            "if %count > 0",
+            "    let %totalpages = %count + 5",
+            "    div %totalpages, 6",
+            "    let $pagestr = \"PAGE \" + (%page + 1) + \" / \" + %totalpages",
+            "endif",
+            "end"
+        }, "gallery_empty.aria");
+
+        vm.LoadScript(result, "gallery_empty.aria");
+        vm.Step();
+
+        vm.State.RegisterState.StringRegisters["pagestr"].Should().Be("NO ENTRIES");
+    }
+
+    [Fact]
+    public void ConditionComparison_NamedZeroRegisterGreaterThanZero_IsFalse()
+    {
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        vm.SetGlobalRegister("%count", 0);
+
+        var condition = Condition.FromTokens(new[] { "%count", ">", "0" });
+
+        vm.EvaluateCondition(condition).Should().BeFalse();
+    }
+
+    [Fact]
+    public void BlockIfFalse_SkipsBody()
+    {
+        var reporter = new ErrorReporter();
+        var parser = new Parser(reporter);
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        var result = parser.Parse(new[]
+        {
+            "let %count = 0",
+            "if %count > 0",
+            "    let %hit = 1",
+            "endif",
+            "end"
+        }, "block_if_false.aria");
+
+        vm.LoadScript(result, "block_if_false.aria");
+        vm.Step();
+
+        vm.State.RegisterState.Registers.Should().NotContainKey("hit");
+    }
+
+    [Fact]
+    public void UiControls_RenderAboveDefaultPanels()
+    {
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        var handler = new UiCommandHandler(vm);
+
+        handler.Execute(new Instruction
+        {
+            Op = OpCode.UiSlider,
+            Arguments = new List<string> { "220", "500", "172", "420", "0", "100", "50" }
+        }).Should().BeTrue();
+        handler.Execute(new Instruction
+        {
+            Op = OpCode.UiCheckbox,
+            Arguments = new List<string> { "260", "230", "420", "SKIP UNREAD", "1" }
+        }).Should().BeTrue();
+
+        vm.State.Render.Sprites[220].Z.Should().BeGreaterThan(5);
+        vm.State.Render.Sprites[221].Z.Should().BeGreaterThan(5);
+        vm.State.Render.Sprites[222].Z.Should().BeGreaterThan(5);
+        vm.State.Render.Sprites[223].Z.Should().BeGreaterThan(5);
+        vm.State.Render.Sprites[260].Z.Should().BeGreaterThan(5);
+        vm.State.Render.Sprites[261].Z.Should().BeGreaterThan(5);
+        vm.State.Render.Sprites[262].Z.Should().BeGreaterThan(5);
     }
 
     [Fact]

@@ -4,6 +4,8 @@ namespace AriaEngine.Core.Commands;
 
 public sealed class UiCommandHandler : BaseCommandHandler
 {
+    private const int DefaultControlZ = 20;
+
     private static readonly HashSet<string> ReservedMenuActions = new(StringComparer.OrdinalIgnoreCase)
     {
         "save",
@@ -816,6 +818,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
             FillColor = "#444444",
             FillAlpha = 220,
             CornerRadius = trackH / 2,
+            Z = DefaultControlZ,
             IsButton = true,
             SliderMin = min,
             SliderMax = max,
@@ -835,7 +838,8 @@ public sealed class UiCommandHandler : BaseCommandHandler
             Height = trackH,
             FillColor = "#f5f5f5",
             FillAlpha = 200,
-            CornerRadius = trackH / 2
+            CornerRadius = trackH / 2,
+            Z = DefaultControlZ + 1
         };
 
         int thumbId = id + 2;
@@ -850,7 +854,8 @@ public sealed class UiCommandHandler : BaseCommandHandler
             Height = thumbR * 2,
             FillColor = "#ffffff",
             FillAlpha = 255,
-            CornerRadius = thumbR
+            CornerRadius = thumbR,
+            Z = DefaultControlZ + 2
         };
 
         int valueId = id + 3;
@@ -864,7 +869,8 @@ public sealed class UiCommandHandler : BaseCommandHandler
             Height = 20,
             Text = value.ToString(),
             FontSize = 14,
-            Color = "#cccccc"
+            Color = "#cccccc",
+            Z = DefaultControlZ + 2
         };
     }
 
@@ -885,6 +891,7 @@ public sealed class UiCommandHandler : BaseCommandHandler
             BorderWidth = 1,
             BorderOpacity = 180,
             CornerRadius = 3,
+            Z = DefaultControlZ,
             IsButton = true,
             CheckboxValue = value,
             CheckboxLabel = label
@@ -904,7 +911,8 @@ public sealed class UiCommandHandler : BaseCommandHandler
             FontSize = 14,
             Color = "#000000",
             TextAlign = TextAlignment.Center,
-            TextVAlign = TextVerticalAlignment.Center
+            TextVAlign = TextVerticalAlignment.Center,
+            Z = DefaultControlZ + 1
         };
 
         int labelId = id + 2;
@@ -918,7 +926,8 @@ public sealed class UiCommandHandler : BaseCommandHandler
             Height = boxSize,
             Text = label,
             FontSize = 16,
-            Color = "#f5f5f5"
+            Color = "#f5f5f5",
+            Z = DefaultControlZ + 1
         };
     }
 }

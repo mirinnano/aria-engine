@@ -4,7 +4,7 @@
 
 ## 仮想マシンの概要
 
-AriaEngineの仮想マシンは、カスタムスクリプト言語（.aria）を実行するためのエンジンです。NScripter互換の構文をサポートし、63種類のオペコードを実行できます。
+AriaEngineの仮想マシンは、カスタムスクリプト言語（.aria）を実行するためのエンジンです。NScripter互換の構文をサポートし、240件のscript-visible canonical commandsを実行できます。
 
 ### 主な役割
 
@@ -462,27 +462,28 @@ private void ReportError(string message, int sourceLine)
 
 ## パフォーマンスの最適化
 
-### ジャンプテーブル
+### ハンドラテーブル
 
 ```csharp
-private readonly Dictionary<OpCode, Action<Instruction>> _opcodeHandlers;
+private readonly ICommandHandler?[] _handlerTable;
+private readonly List<ICommandHandler> _commandHandlers;
 
 public VirtualMachine()
 {
-    _opcodeHandlers = new Dictionary<OpCode, Action<Instruction>>
+    _commandHandlers = new List<ICommandHandler>
     {
-        { OpCode.Text, ExecuteText },
-        { OpCode.Wait, ExecuteWait },
-        { OpCode.Lsp, ExecuteLsp },
-        // ... その他のオペコード
+        new CoreCommandHandler(this),
+        new RenderCommandHandler(this),
+        new TextCommandHandler(this),
+        // ... other command handlers
     };
 }
 
 private void ExecuteInstruction(Instruction instruction)
 {
-    if (_opcodeHandlers.TryGetValue(instruction.Op, out var handler))
+    if (_handlerTable[(int)instruction.Op] is { } handler)
     {
-        handler(instruction);
+        handler.Execute(instruction);
     }
 }
 ```

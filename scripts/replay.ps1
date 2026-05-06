@@ -9,7 +9,7 @@ if (-not (Test-Path $Spec)) {
     throw "Replay spec not found: $Spec"
 }
 
-New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+$OutputDir = (New-Item -ItemType Directory -Force -Path $OutputDir).FullName
 $payload = Get-Content -LiteralPath $Spec -Raw | ConvertFrom-Json
 $failures = @()
 $results = @()

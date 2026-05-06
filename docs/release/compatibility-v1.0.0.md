@@ -4,7 +4,8 @@
 
 - Production launch uses `data.pak` and `scripts/scripts.ariac`.
 - Raw `assets/` and `init.aria` are not required in normal release packages.
-- `manifest.json`, `checksums.txt`, and `release-notes.md` are part of the release payload.
+- Raw `.aria` source scripts are not included in normal production packages.
+- `README.md`, `manifest.json`, `checksums.txt`, and `release-notes.md` are part of the release payload.
 
 ## Saves
 
@@ -21,6 +22,7 @@
 
 ## Installer Compatibility
 
-- Default install path remains `%ProgramFiles%\ponkotusoft\umikaze`.
-- Installer receipt must record version, source, installed file count, encryption state, and signature state.
+- Default install path is `%LOCALAPPDATA%\Ponkotusoft\umikaze`.
+- Installer metadata must record version and Windows uninstall information.
 - Shortcuts must launch the release-mode packed payload.
+- Shortcuts must use the install directory as their working directory.

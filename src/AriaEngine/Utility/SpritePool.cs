@@ -110,8 +110,6 @@ public class SpritePool
         sprite.HoverFillColor = "";
         sprite.HoverScale = 1.0f;
         sprite.IsHovered = false;
-        sprite.IsDirty = true;
-        sprite.LastModified = DateTime.Now;
     }
 
     /// <summary>

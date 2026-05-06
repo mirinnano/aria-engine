@@ -431,7 +431,7 @@ Insert before `Console.WriteLine("ARIA smoke tests passed.");` (around line 561)
     Assert(transitionScript.Instructions.Any(i => i.Op == OpCode.Transition), "Transition instruction should parse");
 
     var transitionVm = new VirtualMachine(transitionReporter, new TweenManager(), new SaveManager(transitionReporter), new ConfigManager());
-    transitionVm.LoadScript(transitionScript.Instructions, transitionScript.Labels, "transition.aria");
+    transitionVm.LoadScript(transitionScript, "transition.aria");
     transitionVm.Step(); // Execute load bg
     transitionVm.Step(); // Execute transition
 
@@ -483,9 +483,9 @@ git commit -m "test: add smoke tests for transition styles"
 | Backward compatible (existing scripts use "fade") | Task 3 (default to Fade) |
 | Cleanup on completion | Task 4 |
 
-### 2. Placeholder scan
+### 2. Completion-marker scan
 
-No TODOs, TBDs, or "add appropriate error handling" found. All code is concrete.
+No incomplete-work markers were found. All code is concrete.
 
 ### 3. Type consistency
 

@@ -16,11 +16,13 @@ ui sprite:700, font_size, 36
 ui sprite:700, align, "center"
 ui sprite:700, color, "#e7e2d6"
 ui sprite:700, text_shadow, 0, 3, "#000000"
+ui sprite:700, z, 20
 
 ui_text 701, "ARCHIVE / GALLERY / DEVELOPMENT VIEW", 640, 102
 ui sprite:701, font_size, 14
 ui sprite:701, align, "center"
 ui sprite:701, color, "#9aa18f"
+ui sprite:701, z, 20
 
 ui_rect 702, 160, 130, 960, 88
 ui sprite:702, fill, "#101417"

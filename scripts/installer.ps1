@@ -6,7 +6,8 @@ param(
     [bool]$SingleFile = $true,
     [switch]$SkipRestore,
     [string]$OutputDir = "artifacts/installer",
-    [string]$InstallerProject = "src/AriaInstaller/AriaInstaller.csproj",
+    [string]$NsisScript = "installer/umikaze.nsi",
+    [string]$SetupFileName = "",
     [switch]$Sign
 )
 
@@ -36,6 +37,8 @@ function Initialize-AriaHostEnvironment {
 
 Initialize-AriaHostEnvironment
 
+$runtimeLabel = if ([string]::IsNullOrWhiteSpace($Runtime)) { "portable" } else { $Runtime }
+
 if ([string]::IsNullOrWhiteSpace($PackageDir)) {
     $packageArgs = @{
         Version = $Version
@@ -47,11 +50,15 @@ if ([string]::IsNullOrWhiteSpace($PackageDir)) {
     if ($SkipRestore) { $packageArgs.SkipRestore = $true }
     & "$PSScriptRoot\package.ps1" @packageArgs
     if ($LASTEXITCODE -ne 0) { throw "Package generation failed" }
-    $PackageDir = "artifacts/release/AriaEngine-$Version-$Runtime/app"
+    $PackageDir = "artifacts/release/AriaEngine-$Version-$runtimeLabel/app"
 }
 
 if (-not (Test-Path $PackageDir)) {
     throw "Package directory not found: $PackageDir"
+}
+
+if (-not (Test-Path $NsisScript)) {
+    throw "NSIS script not found: $NsisScript"
 }
 
 function Remove-InstallerPayloadExtras {
@@ -88,34 +95,54 @@ function Remove-InstallerPayloadExtras {
     }
 }
 
-$name = "AriaEngine-$Version-$Runtime-installer"
+function Resolve-Makensis {
+    $command = Get-Command makensis -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
+
+    $programRoots = @(${env:ProgramFiles(x86)}, $env:ProgramFiles) | Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_)
+    }
+    $candidates = foreach ($programRoot in $programRoots) {
+        Join-Path $programRoot "NSIS\makensis.exe"
+    }
+    foreach ($candidate in $candidates) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path $candidate)) {
+            return $candidate
+        }
+    }
+
+    throw "makensis was not found. Install NSIS 3.x and make makensis.exe available on PATH."
+}
+
+$name = "AriaEngine-$Version-$runtimeLabel-installer"
 $workDir = Join-Path $OutputDir $name
-$zipPath = "$workDir.zip"
+$zipPath = [IO.Path]::GetFullPath("$workDir.zip")
 if (Test-Path $workDir) { Remove-Item -LiteralPath $workDir -Recurse -Force }
 if (Test-Path $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
 New-Item -ItemType Directory -Force -Path $workDir | Out-Null
 
-$guiDir = Join-Path $workDir "gui"
-$guiPublishDir = Join-Path ([IO.Path]::GetTempPath()) ("aria-installer-publish-" + [Guid]::NewGuid().ToString("N"))
-$restoreArgs = @()
-if ($SkipRestore) { $restoreArgs += "--no-restore" }
-try {
-    dotnet publish $InstallerProject -c Release -r $Runtime --self-contained $SelfContained @restoreArgs -o $guiPublishDir /p:NuGetAudit=false /p:PublishSingleFile=$($SingleFile.ToString().ToLowerInvariant()) /p:IncludeNativeLibrariesForSelfExtract=true /p:DebugType=none /p:DebugSymbols=false
-    if ($LASTEXITCODE -ne 0) { throw "GUI installer publish failed" }
-    Copy-Item -LiteralPath $guiPublishDir -Destination $guiDir -Recurse -Force
-    Copy-Item -LiteralPath $PackageDir -Destination (Join-Path $guiDir "app") -Recurse -Force
-    Remove-InstallerPayloadExtras (Join-Path $guiDir "app")
-} finally {
-    if (Test-Path $guiPublishDir) {
-        Remove-Item -LiteralPath $guiPublishDir -Recurse -Force -ErrorAction SilentlyContinue
-    }
+$payloadDir = Join-Path $workDir "app"
+Copy-Item -LiteralPath $PackageDir -Destination $payloadDir -Recurse -Force
+Remove-InstallerPayloadExtras $payloadDir
+
+if ([string]::IsNullOrWhiteSpace($SetupFileName)) {
+    $safeVersion = ($Version -replace '[\\/:*?"<>|]', '-')
+    $safeRuntime = ($runtimeLabel -replace '[\\/:*?"<>|]', '-')
+    $SetupFileName = "umikaze-$safeVersion-$safeRuntime-setup.exe"
 }
+$setupPath = [IO.Path]::GetFullPath((Join-Path $workDir $SetupFileName))
+
+$makensis = Resolve-Makensis
+$nsisScriptPath = (Resolve-Path $NsisScript).Path
+$payloadPath = (Resolve-Path $payloadDir).Path
+
+& $makensis "/DAPPDIR=$payloadPath" "/DOUTFILE=$setupPath" "/DVERSION=$Version" $nsisScriptPath
+if ($LASTEXITCODE -ne 0) { throw "NSIS installer build failed" }
 
 if ($Sign) {
-    & "$PSScriptRoot\sign.ps1" -FilePath (Join-Path $guiDir "AriaInstaller.exe")
+    & "$PSScriptRoot\sign.ps1" -FilePath $setupPath
 }
 
-# Zip the contents of gui/ directory directly
-Compress-Archive -Path (Join-Path $guiDir "*") -DestinationPath $zipPath -Force
+Compress-Archive -Path $setupPath -DestinationPath $zipPath -Force
 Write-Host "Installer zip ready: $zipPath"
-Write-Host "GUI installer: $(Join-Path $guiDir 'AriaInstaller.exe')"
+Write-Host "NSIS installer: $setupPath"

@@ -1,0 +1,3 @@
+- Decision: Implement PakArchiveV3 using a binary manifest layout with EntryTable and PathStringPool as described. Use a 36-byte header with explicit fields. Defer encryption/compression for Phase 2.
+- Decision: PathHash uses a placeholder 64-bit hash (Fnv-1a) for now; replace with xxHash64 in later phases.
+- Decision: Ensure not to modify existing PakArchive.cs or PakModels.cs to preserve backward compatibility.

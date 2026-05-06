@@ -17,6 +17,7 @@
 - [ループ](#ループ)
 - [テキスト表示](#テキスト表示)
 - [複数ステートメント](#複数ステートメント)
+- [構造体](#構造体)
 - [定数とマクロ](#定数とマクロ)
 
 ---
@@ -482,6 +483,50 @@ bg "room.png", 0 : textclear : text "開始"
 
 ---
 
+## 構造体
+
+`struct` はv2向けの静的な整理機能です。実行時オブジェクトではなく、Parserが型付きフィールドを平坦なレジスタへ展開します。
+
+```aria
+struct Button
+    int x
+    int y
+    string text
+endstruct
+
+let %button, new Button { x = 80, y = 420, text = "START" }
+let $caption, $button.text
+```
+
+展開後の保存先はフィールド型で決まります。
+
+| フィールド型 | 保存先例 |
+|-------------|----------|
+| `int` / `bool` / `float` | `%button_x` |
+| `string` | `$button_text` |
+
+名前空間付きの型名も使用できます。
+
+```aria
+namespace Game {
+struct Point
+    int x
+endstruct
+}
+
+let %p, new Game.Point { x = 10 }
+```
+
+未指定フィールドは `0` または `""` で初期化されます。未知フィールド、重複フィールド、明らかな型不一致はエラーになります。
+
+非目標:
+
+1. メソッド、継承、ヒープ確保は持たない
+2. 入れ子構造体、参照、寿命推論はまだ持たない
+3. 描画やUI生成を暗黙に行わない
+
+---
+
 ## 定数とマクロ
 
 ### const
@@ -532,5 +577,8 @@ const TITLE = "My Game"
 | `${$var}` | 文字列補間 | `"${$name}さん"` |
 | `${%var}` | 数値補間 | `"${%hp}点"` |
 | `${expr}` | 式補間 | `"${%a + %b}"` |
+| `struct Name ... endstruct` | 構造体定義 | `struct Point ... endstruct` |
+| `new Name { field = value }` | 構造体初期化 | `let %p, new Point { x = 10 }` |
+| `%var.field` / `$var.field` | 構造体field参照 | `$button.text` |
 | `const NAME = val` | 定数定義 | `const MAX = 100` |
 | `#define NAME val` | マクロ定義 | `#define DEBUG 1` |
