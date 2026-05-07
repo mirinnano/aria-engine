@@ -137,22 +137,23 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             StartupTrace("asset-provider");
 
             CompiledScriptBundle? compiledBundle = TryLoadCompiledBundle(assetProvider, runOptions, reporter);
-            RunMode effectiveMode = runOptions.Mode == RunMode.Release && compiledBundle is not null ? RunMode.Release : RunMode.Dev;
+            // v3 split pak stores .aria scripts directly in scenario.aris; compiled bundle is optional
+            RunMode effectiveMode = runOptions.Mode == RunMode.Release ? RunMode.Release : RunMode.Dev;
             StartupTrace("compiled-bundle");
-            if (runOptions.Mode == RunMode.Release && effectiveMode == RunMode.Dev)
+            if (runOptions.Mode == RunMode.Release && compiledBundle is null)
             {
                 reporter.Report(new AriaError(
-                    "release実行に必要な暗号化済みスクリプトを読めなかったため、可能なら平文devロードへフォールバックします。",
+                    "release実行にコンパイル済みスクリプトバンドルがありません。v3 split pakではscenario.aris内の平文.ariaを直接使用します。",
                     level: AriaErrorLevel.Warning,
-                    code: "BOOT_RELEASE_FALLBACK",
-                    hint: "販売版ではdata.pakとscripts.ariacの収録、ARIA_PACK_KEY、--compiled指定を確認してください。"));
+                    code: "BOOT_RELEASE_NO_COMPILEDBUNDLE",
+                    hint: "v3 split pakではscripts.ariacは不要です。scenario.arisに.ariaスクリプトが含まれていることを確認してください。"));
             }
 
             var scriptLoader = new ScriptLoader(parser, assetProvider, effectiveMode, compiledBundle);
 
             var saves = new SaveManager(reporter);
             var tweens = new TweenManager();
-            var vm = new VirtualMachine(reporter, tweens, saves, configParams);
+            var vm = new VirtualMachine(reporter, tweens, saves, configParams, assetProvider);
             vmForShutdown = vm;
 
             // Wire ProductionMode based on resolved run mode (includes auto-detection from data.pak)
@@ -461,6 +462,18 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
         }
         catch (Exception ex)
         {
+            // v3 split fallback: compiled script may be stored as assets/scripts/scripts.ariac in scenario.aris
+            if (!options.CompiledPath.StartsWith("assets/", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    string fallbackPath = "assets/" + options.CompiledPath;
+                    using var compiledStream = provider.OpenRead(fallbackPath);
+                    return CompiledBundleCodec.Load(compiledStream, options.Key);
+                }
+                catch { /* ignore fallback failure, report original error */ }
+            }
+
             reporter.ReportException(
                 "BOOT_COMPILED_LOAD",
                 ex,

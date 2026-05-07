@@ -211,7 +211,7 @@ public static class AriaFlowCheckCommand
                 Path.Combine(runtimeRoot, "config.json"),
                 Path.Combine(runtimeRoot, "saves", "persistent.ariasav"));
             var saves = new SaveManager(reporter, Path.Combine(runtimeRoot, "saves"));
-            var vm = new VirtualMachine(reporter, new TweenManager(), saves, config, runtimeRoot);
+            var vm = new VirtualMachine(reporter, new TweenManager(), saves, config, null, runtimeRoot);
             vm.LoadScript(parseResult, main);
             vm.State.Execution.ProgramCounter = pc;
             vm.State.Execution.State = VmState.Running;

@@ -191,8 +191,9 @@ $pakOut = Join-Path $publishDir "data.pak"
 New-Item -ItemType Directory -Force -Path $compiledDir | Out-Null
 
 $pakEncrypted = -not [string]::IsNullOrWhiteSpace($env:ARIA_PACK_KEY)
+$initFullPath = Join-Path $engineDir $InitScript
 $compileArgs = @("aria-compile", "--init", $InitScript, "--main", $MainScript, "--out", "scripts/scripts.ariac")
-$packArgs = @("aria-pack", "build", "--input", "assets", "--compiled", "scripts/scripts.ariac", "--format", "v3", "--split", "--output", "data.pak")
+$packArgs = @("aria-pack", "build", "--input", "assets", "--init", $initFullPath, "--compiled", "scripts/scripts.ariac", "--format", "v3", "--split", "--output", "data.pak")
 if ($pakEncrypted) {
     $compileArgs += @("--key", $env:ARIA_PACK_KEY)
     $packArgs += @("--key", $env:ARIA_PACK_KEY)
@@ -204,8 +205,15 @@ if ([string]::IsNullOrWhiteSpace($cliAssembly)) {
         $cliAssembly = (Resolve-Path $publishedDll).Path
     }
 }
+# SingleFile publish produces AriaEngine.exe instead of AriaEngine.dll
 if ([string]::IsNullOrWhiteSpace($cliAssembly)) {
-    throw "AriaEngine.dll for CLI packaging was not found. Disable SingleFile or run restore/publish before packaging."
+    $publishedExe = Join-Path $publishDir "AriaEngine.exe"
+    if (Test-Path $publishedExe) {
+        $cliAssembly = (Resolve-Path $publishedExe).Path
+    }
+}
+if ([string]::IsNullOrWhiteSpace($cliAssembly)) {
+    throw "AriaEngine.dll or AriaEngine.exe for CLI packaging was not found. Disable SingleFile or run restore/publish before packaging."
 }
 $dotnetCompileArgs = @($cliAssembly) + $compileArgs
 $dotnetPackArgs = @($cliAssembly) + $packArgs
@@ -224,9 +232,10 @@ if (-not $KeepRawAssets) {
 
 Invoke-Checked dotnet $dotnetPackArgs $publishDir
 
-if (-not (Test-Path $compiledOut)) {
-    throw "Compiled script bundle was not generated."
-}
+# v3 split pak does not require compiled script bundle; .aria files are stored directly in scenario.aris
+# if (-not (Test-Path $compiledOut)) {
+#     throw "Compiled script bundle was not generated."
+# }
 $v3PakFiles = Get-ChildItem -Path $publishDir -Filter "*.ari?" -File
 if ($v3PakFiles.Count -eq 0) {
     throw "No v3 split pak files were generated."
@@ -276,8 +285,8 @@ $manifest = [ordered]@{
     packaging = [ordered]@{
         rawAssetsIncluded = [bool]$KeepRawAssets
         pakEncrypted = [bool]$pakEncrypted
-        compiledScripts = "scripts/scripts.ariac"
-        pak = "data.pak"
+        compiledScripts = $null
+        pak = "v3-split"
     }
     signing = [ordered]@{
         requested = [bool]$Sign
@@ -285,7 +294,7 @@ $manifest = [ordered]@{
         trusted = [bool]$allTrusted
         files = $signatureStatus
     }
-    productionRunArgs = @("--run-mode", "release", "--pak", "data.pak", "--compiled", "scripts/scripts.ariac")
+    productionRunArgs = @("--run-mode", "release")
     files = @()
 }
 

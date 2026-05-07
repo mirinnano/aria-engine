@@ -30,9 +30,9 @@ public sealed class ScriptLoader
     public ParseResult LoadScript(string path)
     {
         string normalized = ScriptPreprocessor.NormalizePath(path);
-        if (_mode == RunMode.Release)
+        // Use compiled bundle if available (v2 single-pak or explicit compiled bundle)
+        if (_mode == RunMode.Release && _bundle is not null)
         {
-            if (_bundle is null) throw new InvalidOperationException("Release mode requires compiled script bundle.");
             if (!_bundle.Scripts.TryGetValue(normalized, out var compiled))
                 throw new InvalidOperationException($"Compiled script not found in bundle: {normalized}");
 
@@ -51,6 +51,7 @@ public sealed class ScriptLoader
             };
         }
 
+        // v3 split pak: .aria scripts are stored directly in scenario.aris; parse plain text
         var expanded = ScriptPreprocessor.ExpandIncludes(normalized, _provider);
         return _parser.Parse(expanded.Lines, normalized);
     }

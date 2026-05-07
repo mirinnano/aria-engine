@@ -86,9 +86,34 @@ public class SpriteRenderer
     public Texture2D GetOrLoadTexture(string imagePath)
     {
         if (string.IsNullOrWhiteSpace(imagePath)) return default;
+        if (_failedTextures.Contains(imagePath)) return default;
+
+        // Direct disk files (screenshots, saves, etc.) take priority over pak lookup
+        if (File.Exists(imagePath))
+        {
+            if (_textureCache.TryGetValue(imagePath, out var diskTex) && diskTex.Id != 0) return diskTex;
+            try
+            {
+                diskTex = Raylib.LoadTexture(imagePath);
+                if (diskTex.Id != 0)
+                {
+                    ApplyTextureFilter(ref diskTex, CurrentTextureFilter());
+                    _textureCache.AddOrUpdate(imagePath, diskTex, diskTex.Width * diskTex.Height * 4);
+                    TotalTextureLoads++;
+                    return diskTex;
+                }
+            }
+            catch (Exception ex)
+            {
+                _failedTextures.Add(imagePath);
+                _reporter?.ReportException("RENDER_TEXTURE_LOAD", ex, $"テクスチャ '{imagePath}' のロードに失敗しました。", AriaErrorLevel.Warning);
+                return default;
+            }
+        }
+
+        if (!_assetProvider.Exists(imagePath)) return default;
         string resolved = _assetProvider.MaterializeToFile(imagePath);
         if (_textureCache.TryGetValue(resolved, out var tex) && tex.Id != 0) return tex;
-        if (_failedTextures.Contains(imagePath)) return default;
         try
         {
             tex = Raylib.LoadTexture(resolved);

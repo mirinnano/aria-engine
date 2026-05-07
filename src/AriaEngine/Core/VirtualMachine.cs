@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using AriaEngine.Assets;
 using AriaEngine.Core.Commands;
 using AriaEngine.Rendering;
 using AriaEngine.UI;
@@ -134,7 +135,7 @@ namespace AriaEngine.Core;
     // T20: ラベルアドレスセット（チャプターラベル検出用）
     private HashSet<int> _labelAddresses = new();
 
-    public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager saves, ConfigManager config, string? runtimeDataRoot = null)
+public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager saves, ConfigManager config, IAssetProvider? assetProvider = null, string? runtimeDataRoot = null)
     {
         _reporter = reporter;
         Tweens = tweens;
@@ -156,7 +157,7 @@ namespace AriaEngine.Core;
             new CoreCommandHandler(this),
             new ScriptCommandHandler(this),
             new InputCommandHandler(this),
-            new RenderCommandHandler(this),
+            new RenderCommandHandler(this, assetProvider!),
             new SpriteDecoratorCommandHandler(this),
             new TweenCommandHandler(this),
             new TextCommandHandler(this),

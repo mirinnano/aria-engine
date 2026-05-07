@@ -112,7 +112,7 @@ public sealed class PakAssetProviderV3 : IAssetProvider, IDisposable
         }
     }
 
-    public bool Exists(string path) => TryFindEntry(path, out _);
+    public bool Exists(string path) => TryFindEntry(path, out _, out _, out _, out _);
 
     public string[] ReadAllLines(string path)
     {
@@ -202,30 +202,15 @@ public sealed class PakAssetProviderV3 : IAssetProvider, IDisposable
                 return ceBoot.Data;
             }
         }
-        (PakArchiveV3Reader Reader, string Category)? chosen = null;
-        PakManifestEntryV3? entry = null;
-        foreach (var (reader, category) in _pakReaders)
-        {
-            try
-            {
-                var e = reader.FindEntry(normalizedPath);
-                if (e != null)
-                {
-                    chosen = (reader, category);
-                    entry = e;
-                    break;
-                }
-            }
-            catch { /* ignore */ }
-        }
-
-        if (chosen == null)
+        if (!TryFindEntry(path, out var entry, out string resolvedPath, out var foundReader, out string categoryForReader))
         {
             throw new FileNotFoundException($"Pak entry not found: {path}");
         }
 
-        var (readerChosen, categoryForReader) = chosen.Value;
-        byte[] data = readerChosen.ReadAllBytes(normalizedPath, verifyHash: true);
+        // Use the reader that TryFindEntry already found - no need to search again
+        var readerChosen = foundReader!;
+
+        byte[] data = readerChosen.ReadAllBytes(resolvedPath, verifyHash: true);
         bool compressed = false;
         try
         {
@@ -326,11 +311,23 @@ public sealed class PakAssetProviderV3 : IAssetProvider, IDisposable
     // (duplicate removed) DetermineCategoryFromExtension defined above
 
     // Try to locate a reader containing the given path and return the manifest entry if present
-    private bool TryFindEntry(string path, out PakManifestEntryV3? entry)
+    private bool TryFindEntry(string path, out PakManifestEntryV3? entry, out string resolvedPath, out PakArchiveV3Reader? foundReader, out string foundCategory)
     {
         string normalizedPath = PakArchive.NormalizePath(path);
+        string prefixedPath;
+        if (normalizedPath.StartsWith("assets/", StringComparison.OrdinalIgnoreCase))
+        {
+            prefixedPath = normalizedPath;
+        }
+        else
+        {
+            prefixedPath = PakArchive.NormalizePath("assets/" + path);
+        }
+        resolvedPath = normalizedPath;
         entry = null;
-        foreach (var (reader, _) in _pakReaders)
+        foundReader = null;
+        foundCategory = string.Empty;
+        foreach (var (reader, category) in _pakReaders)
         {
             try
             {
@@ -338,6 +335,17 @@ public sealed class PakAssetProviderV3 : IAssetProvider, IDisposable
                 if (e != null)
                 {
                     entry = e;
+                    foundReader = reader;
+                    foundCategory = category;
+                    return true;
+                }
+                e = reader.FindEntry(prefixedPath);
+                if (e != null)
+                {
+                    entry = e;
+                    resolvedPath = prefixedPath;
+                    foundReader = reader;
+                    foundCategory = category;
                     return true;
                 }
             }

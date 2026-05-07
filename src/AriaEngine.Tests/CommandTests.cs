@@ -87,7 +87,7 @@ public class CommandTests
     {
         var reporter = new ErrorReporter();
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-        var render = new RenderCommandHandler(vm);
+        var render = new RenderCommandHandler(vm, null!);
 
         render.Execute(new Instruction { Op = OpCode.Effect, Arguments = new List<string> { "12", "480", "wipe" }, SourceLine = 0 });
         render.Execute(new Instruction { Op = OpCode.Print, Arguments = new List<string> { "12" }, SourceLine = 0 });
@@ -376,7 +376,7 @@ public class CommandTests
     {
         var reporter = new ErrorReporter();
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-        var handler = new RenderCommandHandler(vm);
+        var handler = new RenderCommandHandler(vm, null!);
 
         // Mark %bg as owned
         vm.State.OwnedSprites.Add("%bg");
@@ -400,7 +400,7 @@ public class CommandTests
     {
         var reporter = new ErrorReporter();
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-        var render = new RenderCommandHandler(vm);
+        var render = new RenderCommandHandler(vm, null!);
         var flow = new FlowCommandHandler(vm);
 
         // Mark %bg as owned
@@ -430,7 +430,7 @@ public class CommandTests
     {
         var reporter = new ErrorReporter();
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-        var handler = new RenderCommandHandler(vm);
+        var handler = new RenderCommandHandler(vm, null!);
 
         // Create sprite at top level without owning
         handler.Execute(new Instruction
@@ -450,7 +450,7 @@ public class CommandTests
     {
         var reporter = new ErrorReporter();
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
-        var handler = new RenderCommandHandler(vm);
+        var handler = new RenderCommandHandler(vm, null!);
         var flow = new FlowCommandHandler(vm);
 
         vm.State.OwnedSprites.Add("%txt");

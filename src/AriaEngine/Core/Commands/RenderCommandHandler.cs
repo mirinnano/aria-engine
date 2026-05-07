@@ -1,9 +1,11 @@
-using System.IO;
+using AriaEngine.Assets;
 
 namespace AriaEngine.Core.Commands;
 
 public sealed class RenderCommandHandler : BaseCommandHandler
 {
+    private readonly IAssetProvider _assetProvider;
+
     public override IReadOnlySet<OpCode> HandledCodes { get; } = new HashSet<OpCode>
     {
         OpCode.Lsp,
@@ -36,8 +38,9 @@ public sealed class RenderCommandHandler : BaseCommandHandler
         OpCode.Clr
     };
 
-    public RenderCommandHandler(VirtualMachine vm) : base(vm)
+    public RenderCommandHandler(VirtualMachine vm, IAssetProvider assetProvider) : base(vm)
     {
+        _assetProvider = assetProvider;
     }
 
     public override bool Execute(Instruction inst)
@@ -334,22 +337,12 @@ public sealed class RenderCommandHandler : BaseCommandHandler
         return new Sprite { Id = 0, Type = SpriteType.Image, ImagePath = bgPath, Width = State.EngineSettings.WindowWidth, Height = State.EngineSettings.WindowHeight, Z = 0, BackgroundTimeOfDay = timeOfDay, BackgroundTimePreset = preset };
     }
 
-    private static bool BackgroundAssetExists(string path)
+    private bool BackgroundAssetExists(string path)
     {
-        // Mirror DiskAssetProvider resolution logic:
-        // 1. Check if path is rooted and exists directly
-        // 2. Check relative to current directory
-        // 3. Check under assets/ subdirectory
-        if (Path.IsPathRooted(path))
-        {
-            return File.Exists(path);
-        }
+        if (string.IsNullOrWhiteSpace(path)) return false;
 
-        string direct = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, path));
-        if (File.Exists(direct)) return true;
-
-        string prefixed = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "assets", path));
-        return File.Exists(prefixed);
+        // Delegate to IAssetProvider so pak-based assets are correctly detected in Release mode
+        return _assetProvider.Exists(path);
     }
 
     private void StartBackgroundFade(string bgPath, int durationMs, int timeOfDay = 0, string preset = "")

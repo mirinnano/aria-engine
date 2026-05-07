@@ -77,6 +77,7 @@ public static class AriaPackCommand
     private static int RunBuild(string[] args, bool verbose)
     {
         string inputDir = "assets";
+        string? initPath = null;
         string? compiledPath = null;
         string outputPath = Path.Combine("build", "data.pak");
         string? keyMaterial = Environment.GetEnvironmentVariable("ARIA_PACK_KEY");
@@ -91,6 +92,10 @@ public static class AriaPackCommand
                 case "--input":
                     if (i + 1 >= args.Length) throw new InvalidOperationException($"Missing value for argument {args[i]}");
                     inputDir = args[++i];
+                    break;
+                case "--init":
+                    if (i + 1 >= args.Length) throw new InvalidOperationException($"Missing value for argument {args[i]}");
+                    initPath = args[++i];
                     break;
                 case "--compiled":
                     if (i + 1 >= args.Length) throw new InvalidOperationException($"Missing value for argument {args[i]}");
@@ -143,10 +148,22 @@ public static class AriaPackCommand
             var streamEntries = new List<(string LogicalPath, byte[] Data)>();
             var voiceEntries = new List<(string LogicalPath, byte[] Data)>();
 
-            // Boot: init.aria if exists
-            if (File.Exists(bootPath))
+            // Boot: init.aria from --init arg first, then fallback to input dir
+            if (!string.IsNullOrWhiteSpace(initPath) && File.Exists(initPath))
+            {
+                string initLogical = Path.GetFileName(initPath).Replace('\\', '/');
+                bootEntries.Add((initLogical, File.ReadAllBytes(initPath)));
+            }
+            else if (File.Exists(bootPath))
             {
                 bootEntries.Add((bootLogical, File.ReadAllBytes(bootPath)));
+            }
+
+            // Scenario: compiled script from --compiled arg
+            if (!string.IsNullOrWhiteSpace(compiledPath) && File.Exists(compiledPath))
+            {
+                string compiledLogical = compiledPath.Replace('\\', '/');
+                scenarioEntries.Add((compiledLogical, File.ReadAllBytes(compiledPath)));
             }
 
             // Scan all files under input dir (recursively) and categorize
@@ -158,36 +175,40 @@ public static class AriaPackCommand
                 long size = new FileInfo(file).Length;
 
                 // Scenario: .aria or .ariac
+                // Prefix with "assets/" to match engine request paths (e.g. assets/scripts/main.aria)
                 if (ext == ".aria" || ext == ".ariac")
                 {
                     // Skip init.aria - it belongs exclusively to boot category
                     if (rel == bootLogical) continue;
-                    scenarioEntries.Add((rel, File.ReadAllBytes(file)));
+                    scenarioEntries.Add(("assets/" + rel, File.ReadAllBytes(file)));
                     continue;
                 }
 
-                // Data: image types
-                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".webp")
+                // Data: image types + fonts
+                // Prefix with "assets/" to match engine request paths (e.g. assets/fonts/NotoSansJP-Regular.ttf)
+                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".webp" || ext == ".ttf" || ext == ".otf")
                 {
-                    dataEntries.Add((rel, File.ReadAllBytes(file)));
+                    dataEntries.Add(("assets/" + rel, File.ReadAllBytes(file)));
                     continue;
                 }
 
                 // Stream: large media (.ogg, .wav, .mp3, .mp4, .webm, .avi) with size > 5MB
+                // Prefix with "assets/" to match engine request paths
                 if (ext == ".ogg" || ext == ".wav" || ext == ".mp3" || ext == ".mp4" || ext == ".webm" || ext == ".avi")
                 {
                     if (size > StreamVoiceSizeThreshold)
                     {
-                        streamEntries.Add((rel, File.ReadAllBytes(file)));
+                        streamEntries.Add(("assets/" + rel, File.ReadAllBytes(file)));
                         continue;
                     }
                     // smaller media could be voice; fall through to voice check
                 }
 
                 // Voice: audio formats with size <= 5MB
+                // Prefix with "assets/" to match engine request paths
                 if ((ext == ".ogg" || ext == ".wav" || ext == ".mp3") && size <= StreamVoiceSizeThreshold)
                 {
-                    voiceEntries.Add((rel, File.ReadAllBytes(file)));
+                    voiceEntries.Add(("assets/" + rel, File.ReadAllBytes(file)));
                     continue;
                 }
             }
