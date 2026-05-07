@@ -82,12 +82,27 @@ if (-not $SkipPackage) {
             Runtime = $Runtime
             InitScript = $InitScript
             MainScript = $MainScript
-            NoZip = $NoZip
+            NoZip = $true
         }
         if (-not [string]::IsNullOrWhiteSpace($ReleaseNotes)) { $packageArgs.ReleaseNotes = $ReleaseNotes }
         if ($Sign) { $packageArgs.Sign = $true }
         & ./scripts/package.ps1 @packageArgs
     }
+}
+
+Invoke-Step "installer" {
+    $runtimeLabel = if ([string]::IsNullOrWhiteSpace($Runtime)) { "portable" } else { $Runtime }
+    $packageDir = "artifacts/release/AriaEngine-$Version-$runtimeLabel/app"
+    if (-not (Test-Path $packageDir)) {
+        throw "Package directory not found: $packageDir"
+    }
+    $installerArgs = @{
+        PackageDir = $packageDir
+        Version = $Version
+        Runtime = $Runtime
+    }
+    if ($Sign) { $installerArgs.Sign = $true }
+    & ./scripts/installer.ps1 @installerArgs
 }
 
 Write-Host ""

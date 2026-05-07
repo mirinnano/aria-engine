@@ -19,7 +19,7 @@ SetCompressor /SOLID lzma
 !define PRODUCT_NAME "umikaze"
 !define PUBLISHER "Ponkotusoft"
 !define REGKEY "Software\${PUBLISHER}\${PRODUCT_NAME}"
-!define RUN_ARGS "--run-mode release --compiled scripts/scripts.ariac"
+!define RUN_ARGS "--run-mode release"
 
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "${PRODUCT_NAME} セットアップ"
