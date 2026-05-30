@@ -356,8 +356,8 @@ public sealed class MenuRuntimeState
     public bool ShowSystemLoadButton { get; set; }
     public int RightMenuWidth { get; set; } = 360;
     public string RightMenuAlign { get; set; } = "center";
-    public int SaveLoadColumns { get; set; } = 2;
-    public int SaveLoadWidth { get; set; } = 1100;
+    public int SaveLoadColumns { get; set; } = 5;
+    public int SaveLoadWidth { get; set; } = 1240;
     public int SaveLoadPage { get; set; } = 0;
     public int BacklogWidth { get; set; } = 860;
     public int SettingsWidth { get; set; } = 520;

@@ -243,7 +243,7 @@ public class MenuSystem
     private void UpdateSaveLoadClick()
     {
         var mouse = Raylib.GetMousePosition();
-        var panel = CenterPanel(Math.Min(_vm.State.MenuRuntime.SaveLoadWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+        var panel = GetSaveLoadPanel();
 
         var prevRect = new Rectangle(panel.X + 24, panel.Y + panel.Height - 40, 80, 24);
         var nextRect = new Rectangle(panel.X + panel.Width - 104, panel.Y + panel.Height - 40, 80, 24);
@@ -480,7 +480,7 @@ public class MenuSystem
     private void UpdateBacklogClick()
     {
         var mouse = Raylib.GetMousePosition();
-        var panel = CenterPanel(Math.Min(_vm.State.MenuRuntime.BacklogWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+        var panel = CenterPanel(Math.Min(_vm.State.MenuRuntime.BacklogWidth, Raylib.GetScreenWidth() - 72), Raylib.GetScreenHeight() - 64);
         var entries = GetFilteredBacklogEntries();
         int visible = Math.Max(1, ((int)panel.Height - 146) / 34);
         int maxStart = Math.Max(0, entries.Count - visible);
@@ -646,7 +646,7 @@ public class MenuSystem
 
     private void DrawSaveLoadMenu(SpriteRenderer renderer, bool isSave)
     {
-        var panel = CenterPanel(Math.Min(_vm.State.MenuRuntime.SaveLoadWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+        var panel = GetSaveLoadPanel();
         DrawOceanBackdrop(renderer);
         DrawOceanPanel(renderer, panel, isSave ? "SAVE" : "LOAD", isSave ? "WRITE THE CURRENT TIDE" : "RETURN TO A SAVED TIDE");
 
@@ -680,7 +680,7 @@ public class MenuSystem
 
     private void DrawBacklog(SpriteRenderer renderer)
     {
-        var panel = CenterPanel(Math.Min(_vm.State.MenuRuntime.BacklogWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+        var panel = CenterPanel(Math.Min(_vm.State.MenuRuntime.BacklogWidth, Raylib.GetScreenWidth() - 72), Raylib.GetScreenHeight() - 64);
         DrawPanel(renderer, panel, "BACKLOG");
 
         var entries = GetFilteredBacklogEntries();
@@ -1007,10 +1007,18 @@ public class MenuSystem
         return rows;
     }
 
+    private Rectangle GetSaveLoadPanel()
+    {
+        int columns = Math.Clamp(_vm.State.MenuRuntime.SaveLoadColumns, 1, 8);
+        int rowsCount = (SaveSlotCount + columns - 1) / columns;
+        int panelH = 60 + rowsCount * 100 + 44;
+        return CenterPanel(Math.Min(_vm.State.MenuRuntime.SaveLoadWidth, Raylib.GetScreenWidth() - 72), panelH);
+    }
+
     private Rectangle GetSaveSlotRect(int index)
     {
-        var panel = CenterPanel(Math.Min(_vm.State.MenuRuntime.SaveLoadWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
-        int columns = Math.Clamp(_vm.State.MenuRuntime.SaveLoadColumns, 1, 4);
+        var panel = GetSaveLoadPanel();
+        int columns = Math.Clamp(_vm.State.MenuRuntime.SaveLoadColumns, 1, 8);
         int col = index % columns;
         int row = index / columns;
         float slotW = (panel.Width - 48 - (columns - 1) * 24) / columns;
