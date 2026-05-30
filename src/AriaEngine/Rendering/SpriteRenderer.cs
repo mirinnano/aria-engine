@@ -2,6 +2,7 @@ using Raylib_cs;
 using System.Collections.Generic;
 using System.Linq;
 using AriaEngine.Core;
+using AriaEngine.Platform;
 using AriaEngine.Text;
 using AriaEngine.Utility;
 using AriaEngine.Assets;
@@ -133,7 +134,12 @@ public class SpriteRenderer
         return default;
     }
 
-    public void LoadFont(string fontPath, int atlasSize, string[] scriptLines, Raylib_cs.TextureFilter filter = Raylib_cs.TextureFilter.Bilinear)
+    public void LoadFont(
+        string fontPath,
+        int atlasSize,
+        string[] scriptLines,
+        AriaTextureFilter filter = AriaTextureFilter.Bilinear,
+        IEnumerable<string>? extraGlyphText = null)
     {
         var chars = new HashSet<int>();
         for (int c = 32; c < 127; c++) chars.Add(c);
@@ -142,6 +148,12 @@ public class SpriteRenderer
         foreach (var line in scriptLines)
             foreach (var c in line)
                 chars.Add(c);
+        if (extraGlyphText != null)
+        {
+            foreach (var text in extraGlyphText)
+                foreach (var c in text)
+                    chars.Add(c);
+        }
 
         int[] codepoints = chars.ToArray();
         string resolvedFontPath;
@@ -150,7 +162,7 @@ public class SpriteRenderer
             resolvedFontPath = _assetProvider.MaterializeToFile(fontPath);
             _resolvedFontPath = resolvedFontPath;
             _fontCodepoints = codepoints;
-            _fontFilter = filter;
+            _fontFilter = ToRaylibFilter(filter);
             _font = LoadSizedFont(SelectFontAtlasSize(atlasSize));
         }
         catch (Exception ex)
@@ -177,6 +189,16 @@ public class SpriteRenderer
         }
 
         _fontLoaded = true;
+    }
+
+    private static Raylib_cs.TextureFilter ToRaylibFilter(AriaTextureFilter filter)
+    {
+        return filter switch
+        {
+            AriaTextureFilter.Point => Raylib_cs.TextureFilter.Point,
+            AriaTextureFilter.Trilinear => Raylib_cs.TextureFilter.Trilinear,
+            _ => Raylib_cs.TextureFilter.Bilinear
+        };
     }
 
     public static int SelectFontAtlasSize(float requestedFontSize)
@@ -1264,7 +1286,7 @@ public class SpriteRenderer
         // テキストアウトライン（条件を強化）
         if (sp.TextOutlineSize > 0 && !string.IsNullOrEmpty(sp.TextOutlineColor) && sp.Opacity > 0)
         {
-            Color outColor = ParseColor(sp.TextOutlineColor, 255);
+            Color outColor = ParseColor(sp.TextOutlineColor, baseColor.A);
             if (outColor.A > 0)  // 完全に透明でない場合のみ描画
             {
                 int t = sp.TextOutlineSize;
@@ -1463,41 +1485,18 @@ public class SpriteRenderer
             }
         }
 
-        // Silver filled cursor with smooth double-bounce float animation
-        // Constant size, gentle 4px amplitude, 2 bounces per 2.4s loop
-        float loopDuration = 2.4f;
+        // Classic Nscripter style blinking square
+        // Strict ON/OFF blinking, no floating, no fading.
+        float blinkRate = 0.5f; // 500ms on, 500ms off
         float time = (float)Raylib.GetTime();
-        float t = (time % loopDuration) / loopDuration;
+        bool isVisible = (time % (blinkRate * 2f)) < blinkRate;
 
-        // Two gentle bounces using smooth sine composition
-        float bounce1 = MathF.Sin(t * MathF.PI * 2f);           // main bounce
-        float bounce2 = MathF.Sin(t * MathF.PI * 4f + 0.5f);    // secondary ripple
-        float combined = (bounce1 + bounce2 * 0.3f) / 1.3f;     // blend, keep range [-1, 1]
-
-        // Map to small upward float only (never dips below base position)
-        float floatOffset = -MathF.Abs(combined) * 4f; // max 4px up, smooth settle
-
-        float baseSize = state.UiRuntime.ClickCursorSize > 0 ? state.UiRuntime.ClickCursorSize : Math.Clamp(state.TextWindow.DefaultFontSize * ClickCursorConstants.DefaultSizeRatio, ClickCursorConstants.MinSize, ClickCursorConstants.MaxSize);
-        float s = baseSize; // constant size, no scale change
-
-        // Silver fill color
-        var silver = new Color(205, 205, 215, 255);
-        float cy = y + floatOffset;
-
-        // Simple filled downward triangle
-        Raylib.DrawTriangle(
-            new Vector2(x, cy),
-            new Vector2(x + s, cy),
-            new Vector2(x + s * 0.5f, cy + s * 1.1f),
-            silver);
-
-        // Subtle white highlight edge for depth
-        var highlight = new Color(230, 230, 240, 200);
-        Raylib.DrawTriangleLines(
-            new Vector2(x, cy),
-            new Vector2(x + s, cy),
-            new Vector2(x + s * 0.5f, cy + s * 1.1f),
-            highlight);
+        if (isVisible)
+        {
+            float baseSize = state.UiRuntime.ClickCursorSize > 0 ? state.UiRuntime.ClickCursorSize : Math.Clamp(state.TextWindow.DefaultFontSize * ClickCursorConstants.DefaultSizeRatio, ClickCursorConstants.MinSize, ClickCursorConstants.MaxSize);
+            var cursorColor = ParseColor(state.UiRuntime.ClickCursorColor, 255);
+            Raylib.DrawRectangle((int)x, (int)y, (int)baseSize, (int)baseSize, cursorColor);
+        }
     }
 
     private Vector2 GetTextEndCursorPosition(GameState state)

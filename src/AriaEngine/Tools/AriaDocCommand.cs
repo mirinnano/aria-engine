@@ -92,12 +92,7 @@ public static class AriaDocCommand
 
         // Output JSON
         string jsonPath = Path.Combine(outputDir, "doc.json");
-        var jsonOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
-        string json = JsonSerializer.Serialize(docOutput, jsonOptions);
+        string json = JsonSerializer.Serialize(docOutput, AriaDocJsonContext.Default.DocOutput);
         File.WriteAllText(jsonPath, json);
         Console.Error.WriteLine($"JSON: {jsonPath}");
 
@@ -210,4 +205,10 @@ internal class FieldDoc
 {
     public string Name { get; set; } = "";
     public string Type { get; set; } = "";
+}
+
+[JsonSourceGenerationOptions(WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(DocOutput))]
+internal sealed partial class AriaDocJsonContext : JsonSerializerContext
+{
 }

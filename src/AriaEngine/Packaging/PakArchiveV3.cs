@@ -192,15 +192,17 @@ public sealed class PakArchiveV3Reader : IDisposable
     private readonly Stream _stream;
     private MemoryMappedFile? _mmf;
     private MemoryMappedViewAccessor? _accessor;
+    private readonly bool _leaveOpen;
     private long _fileLength;
     public PakManifestV3 Manifest { get; }
     public List<string> PathStrings { get; }
     public List<PakManifestEntryV3> Entries { get; }
     public ulong PayloadOffset { get; }
 
-    public PakArchiveV3Reader(Stream stream, PakManifestV3 manifest, List<string> pathStrings, List<PakManifestEntryV3> entries, ulong payloadOffset, long manifestStart, int manifestLength, long fileLength = 0)
+    public PakArchiveV3Reader(Stream stream, PakManifestV3 manifest, List<string> pathStrings, List<PakManifestEntryV3> entries, ulong payloadOffset, long manifestStart, int manifestLength, long fileLength = 0, bool leaveOpen = false)
     {
         _stream = stream;
+        _leaveOpen = leaveOpen;
         Manifest = manifest;
         PathStrings = pathStrings;
         Entries = entries;
@@ -240,8 +242,15 @@ public sealed class PakArchiveV3Reader : IDisposable
         return reader;
     }
 
+    public static PakArchiveV3Reader Open(Stream stream, bool leaveOpen = false)
+    {
+        return Read(stream, leaveOpen);
+    }
+
     // Factory to open and read a PakArchiveV3 from a stream
-    public static PakArchiveV3Reader Read(Stream input)
+    public static PakArchiveV3Reader Read(Stream input) => Read(input, leaveOpen: false);
+
+    private static PakArchiveV3Reader Read(Stream input, bool leaveOpen)
     {
         if (input == null) throw new ArgumentNullException(nameof(input));
         input.Position = 0;
@@ -312,7 +321,7 @@ public sealed class PakArchiveV3Reader : IDisposable
         input.Position = 0;
         // Get file length if stream supports it (for bounds checking)
         long fileLength = input.CanSeek ? input.Length : 0;
-        return new PakArchiveV3Reader(input, manifest, pathStrings, entries, payloadOffset, (long)manifestOffset, (int)manifestSize, fileLength);
+        return new PakArchiveV3Reader(input, manifest, pathStrings, entries, payloadOffset, (long)manifestOffset, (int)manifestSize, fileLength, leaveOpen);
     }
 
     private long ManifestStart { get; }
@@ -383,7 +392,7 @@ public sealed class PakArchiveV3Reader : IDisposable
 
     public void Dispose()
     {
-        _stream?.Dispose();
+        if (!_leaveOpen) _stream?.Dispose();
         _accessor?.Dispose();
         _mmf?.Dispose();
     }

@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Linq;
-using Raylib_cs;
+using AriaEngine.Platform;
 
 namespace AriaEngine.Core.Commands;
 
@@ -334,7 +334,7 @@ public sealed class FlowCommandHandler : BaseCommandHandler
 
             case OpCode.Rnd:
                 if (!ValidateArgs(inst, 3)) return true;
-                SetReg(inst.Arguments[0], Raylib.GetRandomValue(GetVal(inst.Arguments[1]), GetVal(inst.Arguments[2])));
+                SetReg(inst.Arguments[0], PlatformServices.Random.NextInclusive(GetVal(inst.Arguments[1]), GetVal(inst.Arguments[2])));
                 return true;
 
             case OpCode.Inc:

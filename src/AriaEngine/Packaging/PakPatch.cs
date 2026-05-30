@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using AriaEngine.Core;
 
 namespace AriaEngine.Packaging;
 
@@ -48,7 +49,7 @@ public static class PakPatch
             Removed = removed
         };
 
-        byte[] manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, new JsonSerializerOptions { WriteIndented = false });
+        byte[] manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, AriaCoreJsonContext.Default.PakPatchManifest);
 
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath)) ?? ".");
         using var fs = File.Create(outputPath);
@@ -86,7 +87,7 @@ public static class PakPatch
 
         byte[] manifestBytes = new byte[manifestLen];
         fs.ReadExactly(manifestBytes);
-        var manifest = JsonSerializer.Deserialize<PakPatchManifest>(manifestBytes) ?? throw new InvalidOperationException("Patch manifest parse failed.");
+        var manifest = JsonSerializer.Deserialize(manifestBytes, AriaCoreJsonContext.Default.PakPatchManifest) ?? throw new InvalidOperationException("Patch manifest parse failed.");
 
         var entries = new List<(string LogicalPath, string Type, byte[] Data)>();
         var existing = baseReader.GetAllEntries().ToDictionary(e => PakArchive.NormalizePath(e.Path), StringComparer.OrdinalIgnoreCase);

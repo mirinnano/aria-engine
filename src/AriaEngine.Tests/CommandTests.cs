@@ -1,9 +1,12 @@
+using System;
 using System.Collections.Generic;
 using FluentAssertions;
 using Xunit;
 using AriaEngine.Core;
 using AriaEngine.Core.Commands;
+using AriaEngine.Platform;
 using AriaEngine.Rendering;
+using AriaEngine.Tests.TestSupport;
 
 namespace AriaEngine.Tests;
 
@@ -41,11 +44,224 @@ public class CommandTests
     }
 
     [Fact]
+    public void LocFormat_CommandWritesFormattedLocalizedString()
+    {
+        var provider = new InMemoryAssetProvider(new Dictionary<string, string>
+        {
+            ["assets/i18n/locales.json"] = """
+            { "defaultLanguage": "ja-JP", "fallbackLanguage": "ja-JP", "languages": ["ja-JP"], "resources": ["ui"] }
+            """,
+            ["assets/i18n/ui.ja-JP.json"] = """{ "confirm.load_slot": "スロット{0:00}をロードしますか？" }"""
+        });
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager())
+        {
+            Localization = LocalizationManager.Load(provider, "assets/i18n/locales.json")
+        };
+        var handler = new SystemCommandHandler(vm);
+
+        CommandRegistry.TryGet("loc_format", out var op).Should().BeTrue();
+        op.Should().Be(OpCode.LocFormat);
+        handler.Execute(new Instruction { Op = OpCode.LocFormat, Arguments = new List<string> { "$msg", "\"confirm.load_slot\"", "5" }, SourceLine = 1 });
+
+        vm.State.RegisterState.StringRegisters["msg"].Should().Be("スロット05をロードしますか？");
+
+        var parser = new Parser(reporter);
+        var parsedVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager())
+        {
+            Localization = LocalizationManager.Load(provider, "assets/i18n/locales.json")
+        };
+        var result = parser.Parse(new[] { "loc_format $msg, \"confirm.load_slot\", 5", "end" }, "loc_format.aria");
+        parsedVm.LoadScript(result, "loc_format.aria");
+        parsedVm.Step();
+
+        parsedVm.State.RegisterState.StringRegisters["msg"].Should().Be("スロット05をロードしますか？");
+    }
+
+    [Fact]
+    public void LanguageCommand_RequestsLocaleFontReload()
+    {
+        var provider = new InMemoryAssetProvider(new Dictionary<string, string>
+        {
+            ["assets/i18n/locales.json"] = """
+            {
+              "defaultLanguage": "ja-JP",
+              "fallbackLanguage": "ja-JP",
+              "languages": ["ja-JP", "en-US"],
+              "resources": ["ui"],
+              "fonts": {
+                "ja-JP": "assets/fonts/ja.ttf",
+                "en-US": "assets/fonts/en.ttf"
+              }
+            }
+            """,
+            ["assets/i18n/ui.ja-JP.json"] = """{ "menu.save": "保存" }""",
+            ["assets/i18n/ui.en-US.json"] = """{ "menu.save": "Save" }"""
+        });
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager())
+        {
+            Localization = LocalizationManager.Load(provider, "assets/i18n/locales.json")
+        };
+        vm.State.EngineSettings.FontPath = "assets/fonts/default.ttf";
+        string requestedFont = "";
+        string requestedGlyphs = "";
+        vm.FontReloadRequested += (fontPath, extraGlyphs) =>
+        {
+            requestedFont = fontPath;
+            requestedGlyphs = string.Join("", extraGlyphs);
+        };
+        var handler = new SystemCommandHandler(vm);
+
+        handler.Execute(new Instruction { Op = OpCode.Language, Arguments = new List<string> { "en-US" }, SourceLine = 1 });
+
+        vm.Localization.CurrentLanguage.Should().Be("en-US");
+        requestedFont.Should().Be("assets/fonts/en.ttf");
+        requestedGlyphs.Should().Contain("Save");
+    }
+
+    [Fact]
+    public void LanguageRuntimeState_ExposesAvailableLanguagesAndScriptCommands()
+    {
+        var provider = new InMemoryAssetProvider(new Dictionary<string, string>
+        {
+            ["assets/i18n/locales.json"] = """
+            {
+              "defaultLanguage": "ja-JP",
+              "fallbackLanguage": "ja-JP",
+              "languages": ["ja-JP", "en-US", "zh-CN", "zh-TW"],
+              "resources": ["ui"]
+            }
+            """,
+            ["assets/i18n/ui.ja-JP.json"] = """{ "menu.save": "保存" }""",
+            ["assets/i18n/ui.en-US.json"] = """{ "menu.save": "Save" }""",
+            ["assets/i18n/ui.zh-CN.json"] = """{ "menu.save": "保存" }""",
+            ["assets/i18n/ui.zh-TW.json"] = """{ "menu.save": "儲存" }"""
+        });
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager())
+        {
+            Localization = LocalizationManager.Load(provider, "assets/i18n/locales.json")
+        };
+        vm.SyncLocalizationRuntimeState();
+        var handler = new SystemCommandHandler(vm);
+
+        CommandRegistry.TryGet("lang_count", out var countOp).Should().BeTrue();
+        countOp.Should().Be(OpCode.LangCount);
+        CommandRegistry.TryGet("lang_at", out var atOp).Should().BeTrue();
+        atOp.Should().Be(OpCode.LangAt);
+
+        handler.Execute(new Instruction { Op = OpCode.LangCount, Arguments = new List<string> { "%1" }, SourceLine = 1 });
+        handler.Execute(new Instruction { Op = OpCode.LangAt, Arguments = new List<string> { "2", "$lang" }, SourceLine = 2 });
+
+        vm.State.Localization.AvailableLanguages.Should().Equal("ja-JP", "en-US", "zh-CN", "zh-TW");
+        vm.State.Localization.FallbackLanguage.Should().Be("ja-JP");
+        vm.State.RegisterState.Registers["1"].Should().Be(4);
+        vm.State.RegisterState.StringRegisters["lang"].Should().Be("zh-CN");
+    }
+
+    [Fact]
+    public void GetProfile_CommandExposesRuntimeProfileToScript()
+    {
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        vm.State.EngineSettings.RuntimeProfile = RuntimeProfile.Demo;
+        var handler = new SystemCommandHandler(vm);
+
+        CommandRegistry.TryGet("getprofile", out var op).Should().BeTrue();
+        op.Should().Be(OpCode.GetProfile);
+        handler.Execute(new Instruction { Op = OpCode.GetProfile, Arguments = new List<string> { "$profile" }, SourceLine = 1 });
+
+        vm.State.RegisterState.StringRegisters["profile"].Should().Be("demo");
+    }
+
+    [Fact]
+    public void DebugCommand_IsBlockedOutsideDebugProfile()
+    {
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        vm.State.EngineSettings.RuntimeProfile = RuntimeProfile.Release;
+        vm.State.EngineSettings.ProductionMode = true;
+        var handler = new CoreCommandHandler(vm);
+
+        handler.Execute(new Instruction { Op = OpCode.Debug, Arguments = new List<string> { "on" }, SourceLine = 1 });
+
+        vm.State.EngineSettings.DebugMode.Should().BeFalse();
+    }
+
+    [Fact]
+    public void BrowserOpen_RejectsUnsafeSchemesAndWritesResult()
+    {
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        var handler = new SystemCommandHandler(vm);
+
+        CommandRegistry.TryGet("browser_open", out var op).Should().BeTrue();
+        op.Should().Be(OpCode.BrowserOpen);
+        handler.Execute(new Instruction { Op = OpCode.BrowserOpen, Arguments = new List<string> { "\"javascript:alert(1)\"", "%1" }, SourceLine = 1 });
+
+        vm.State.RegisterState.Registers["1"].Should().Be(0);
+    }
+
+    [Fact]
+    public void BrowserOpen_UsesAllowlistAndPlatformService()
+    {
+        var original = PlatformServices.Browser;
+        var browser = new RecordingBrowserService();
+        PlatformServices.Browser = browser;
+        try
+        {
+            var reporter = new ErrorReporter();
+            var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+            vm.State.EngineSettings.BrowserOpenAllowlist.Add("store.steampowered.com");
+            var handler = new SystemCommandHandler(vm);
+
+            handler.Execute(new Instruction { Op = OpCode.BrowserOpen, Arguments = new List<string> { "\"https://example.com/demo\"", "%1" }, SourceLine = 1 });
+            handler.Execute(new Instruction { Op = OpCode.BrowserOpen, Arguments = new List<string> { "\"https://store.steampowered.com/app/000000\"", "%2" }, SourceLine = 2 });
+
+            vm.State.RegisterState.Registers["1"].Should().Be(0);
+            vm.State.RegisterState.Registers["2"].Should().Be(1);
+            browser.Opened.Should().Equal("https://store.steampowered.com/app/000000");
+        }
+        finally
+        {
+            PlatformServices.Browser = original;
+        }
+    }
+
+    private sealed class RecordingBrowserService : IBrowserService
+    {
+        public List<string> Opened { get; } = new();
+
+        public bool OpenExternal(Uri uri)
+        {
+            Opened.Add(uri.AbsoluteUri);
+            return true;
+        }
+    }
+
+    [Fact]
+    public void EaseCommand_SupportsExpandedEasingNames()
+    {
+        var reporter = new ErrorReporter();
+        var tweens = new TweenManager();
+        var vm = new VirtualMachine(reporter, tweens, new SaveManager(reporter), new ConfigManager());
+        var handler = new TweenCommandHandler(vm);
+
+        handler.Execute(new Instruction { Op = OpCode.Ease, Arguments = new List<string> { "\"bounce\"" }, SourceLine = 1 });
+        tweens.CurrentEaseType.Should().Be(EaseType.Bounce);
+
+        handler.Execute(new Instruction { Op = OpCode.Ease, Arguments = new List<string> { "\"spring\"" }, SourceLine = 2 });
+        tweens.CurrentEaseType.Should().Be(EaseType.Spring);
+    }
+
+    [Fact]
     public void ScopeEnterAndExit_DefersSpriteLifetimeCleanup()
     {
         var reporter = new ErrorReporter();
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
         var flow = new FlowCommandHandler(vm);
+        vm.State.OwnedSprites.Add("999");
 
         // enter a scope
         flow.Execute(new Instruction { Op = OpCode.ScopeEnter, Arguments = new List<string>(), SourceLine = 0 });
@@ -66,6 +282,8 @@ public class CommandTests
         var reporter = new ErrorReporter();
         var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
         var flow = new FlowCommandHandler(vm);
+        vm.State.OwnedSprites.Add("1001");
+        vm.State.OwnedSprites.Add("1002");
 
         // Enter scope
         flow.Execute(new Instruction { Op = OpCode.ScopeEnter, Arguments = new List<string>(), SourceLine = 0 });

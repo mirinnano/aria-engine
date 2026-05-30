@@ -797,6 +797,14 @@ public sealed class UiCommandHandler : BaseCommandHandler
             "in" or "easein" => EaseType.EaseIn,
             "out" or "easeout" or "outcubic" => EaseType.EaseOut,
             "inout" or "easeinout" => EaseType.EaseInOut,
+            "bounce" => EaseType.Bounce,
+            "elastic" => EaseType.Elastic,
+            "back" => EaseType.Back,
+            "spring" => EaseType.Spring,
+            "sine" or "sinewave" => EaseType.SineWave,
+            "cubic" => EaseType.Cubic,
+            "quart" => EaseType.Quart,
+            "expo" => EaseType.Expo,
             _ => EaseType.Linear
         };
     }

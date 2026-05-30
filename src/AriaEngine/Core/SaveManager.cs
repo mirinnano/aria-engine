@@ -19,11 +19,13 @@ public class SaveManager
     private static readonly byte[] SaveMagicV2 = Encoding.ASCII.GetBytes("ARIASAVE2");
     private readonly ErrorReporter _reporter;
     private readonly string _saveDir;
+    private readonly bool _usePortableJsonSaves;
 
-    public SaveManager(ErrorReporter reporter, string saveDir = "saves")
+    public SaveManager(ErrorReporter reporter, string saveDir = "saves", bool? usePortableJsonSaves = null)
     {
         _reporter = reporter;
         _saveDir = string.IsNullOrWhiteSpace(saveDir) ? "saves" : saveDir;
+        _usePortableJsonSaves = usePortableJsonSaves ?? false;
         Directory.CreateDirectory(_saveDir);
     }
 
@@ -56,12 +58,13 @@ public class SaveManager
                         ChapterTitle = state.SaveRuntime.CurrentChapter,
                         PreviewText = state.TextRuntime.CurrentTextBuffer.Length > 0 ? state.TextRuntime.CurrentTextBuffer[^Math.Min(80, state.TextRuntime.CurrentTextBuffer.Length)..] : "",
                         PlayTimeSeconds = (long)playTime.TotalSeconds,
-                        ThumbnailPath = screenshotData != null ? GetThumbnailPath(slot) : ""
+                        ThumbnailPath = screenshotData != null ? GetThumbnailPath(slot) : "",
+                        Language = state.Localization.CurrentLanguage
                     },
                     Runtime = state
                 };
 
-                WritePackedSave(GetSavePath(slot), file);
+                WriteSaveFile(GetSavePath(slot), file, _usePortableJsonSaves);
 
                 if (screenshotData != null)
                 {
@@ -91,18 +94,18 @@ public class SaveManager
             string json = File.ReadAllText(path);
             if (Path.GetExtension(path).Equals(".ariasav", StringComparison.OrdinalIgnoreCase))
             {
-                var packed = ReadPackedSave(path);
+                var packed = ReadSaveFile(path);
                 return (SaveData.FromSaveFile(packed), true);
             }
 
             if (Path.GetFileName(path).StartsWith("slot_", StringComparison.OrdinalIgnoreCase))
             {
-                var file = JsonSerializer.Deserialize<SaveFile>(json, CreateJsonOptions());
+                var file = JsonSerializer.Deserialize(json, AriaSaveJsonContext.Default.SaveFile);
                 if (file?.Runtime == null) return (null, false);
                 return (SaveData.FromSaveFile(file), true);
             }
 
-            var legacy = JsonSerializer.Deserialize<SaveData>(json, CreateJsonOptions());
+            var legacy = JsonSerializer.Deserialize(json, AriaSaveJsonContext.Default.SaveData);
             return (legacy, legacy != null);
         }
         catch (Exception ex)
@@ -192,18 +195,54 @@ public class SaveManager
         }
     }
 
-    private static JsonSerializerOptions CreateJsonOptions()
+    private static void WriteSaveFile(string path, SaveFile file, bool usePortableJsonSaves)
     {
-        return new JsonSerializerOptions
+        if (usePortableJsonSaves)
         {
-            WriteIndented = true,
-            ReferenceHandler = ReferenceHandler.IgnoreCycles
-        };
+            WriteJsonSave(path, file);
+            return;
+        }
+
+        WritePackedSave(path, file);
+    }
+
+    private static SaveFile ReadSaveFile(string path)
+    {
+        return LooksLikeJsonSave(path) ? ReadJsonSave(path) : ReadPackedSave(path);
+    }
+
+    private static void WriteJsonSave(string path, SaveFile file)
+    {
+        byte[] json = JsonSerializer.SerializeToUtf8Bytes(file, AriaSaveJsonContext.Default.SaveFile);
+        File.WriteAllBytes(path, json);
+    }
+
+    private static SaveFile ReadJsonSave(string path)
+    {
+        string json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize(json, AriaSaveJsonContext.Default.SaveFile) ?? throw new InvalidDataException("Broken Aria save payload.");
+    }
+
+    private static bool LooksLikeJsonSave(string path)
+    {
+        using var stream = File.OpenRead(path);
+        int value = stream.ReadByte();
+        if (value == 0xEF && stream.ReadByte() == 0xBB && stream.ReadByte() == 0xBF)
+        {
+            value = stream.ReadByte();
+        }
+
+        while (value == ' ' || value == '\r' || value == '\n' || value == '\t')
+        {
+            value = stream.ReadByte();
+        }
+
+        return value == '{';
     }
 
     private static void WritePackedSave(string path, SaveFile file)
     {
-        byte[] plainJson = JsonSerializer.SerializeToUtf8Bytes(file, CreateJsonOptions());
+        byte[] plainJson = JsonSerializer.SerializeToUtf8Bytes(file, AriaSaveJsonContext.Default.SaveFile);
         byte[] compressed = Compress(plainJson);
         using var aes = Aes.Create();
         aes.Key = DeriveSaveKey();
@@ -257,7 +296,7 @@ public class SaveManager
         using var decryptor = aes.CreateDecryptor();
         byte[] compressed = decryptor.TransformFinalBlock(cipher, 0, cipher.Length);
         byte[] json = Decompress(compressed);
-        var file = JsonSerializer.Deserialize<SaveFile>(json, CreateJsonOptions()) ?? throw new InvalidDataException("Broken Aria save payload.");
+        var file = JsonSerializer.Deserialize(json, AriaSaveJsonContext.Default.SaveFile) ?? throw new InvalidDataException("Broken Aria save payload.");
 
         if (version <= 2)
         {
@@ -324,6 +363,7 @@ public class SaveMeta
     public string PreviewText { get; set; } = "";
     public long PlayTimeSeconds { get; set; }
     public string ThumbnailPath { get; set; } = "";
+    public string Language { get; set; } = "ja-JP";
 }
 
 public class SaveData
@@ -336,6 +376,7 @@ public class SaveData
     public string ChapterTitle { get; set; } = "";
     public string PreviewText { get; set; } = "";
     public TimeSpan PlayTime { get; set; } = TimeSpan.Zero;
+    public string Language { get; set; } = "ja-JP";
     public int ThumbnailWidth { get; set; } = 320;
     public int ThumbnailHeight { get; set; } = 180;
     public byte[] ScreenshotData { get; set; } = Array.Empty<byte>();
@@ -353,6 +394,7 @@ public class SaveData
             PreviewText = file.Meta.PreviewText,
             PlayTime = TimeSpan.FromSeconds(file.Meta.PlayTimeSeconds),
             ScreenshotPath = file.Meta.ThumbnailPath,
+            Language = string.IsNullOrWhiteSpace(file.Meta.Language) ? file.Runtime.Localization.CurrentLanguage : file.Meta.Language,
             Declarations = file.Runtime.Declarations ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         };
     }

@@ -970,6 +970,8 @@ fx_focus()
 
 
 set_pflag chapter_05, 1
+getprofile $runtime_profile
+if $runtime_profile == "demo" { goto *demo_end }
 set_pflag chapter_06, 1
 clear_vflag in_scene
 fx_reset()

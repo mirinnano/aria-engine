@@ -4,6 +4,11 @@ param(
     [string]$Runtime = "win-x64",
     [bool]$SelfContained = $false,
     [bool]$SingleFile = $true,
+    [bool]$PublishTrimmed = $false,
+    [bool]$PublishAot = $false,
+    [string]$PublishFlavor = "",
+    [ValidateSet("Debug", "Demo", "Release")]
+    [string]$Profile = "Release",
     [switch]$SkipRestore,
     [string]$OutputDir = "artifacts/installer",
     [string]$NsisScript = "installer/umikaze.nsi",
@@ -38,14 +43,30 @@ function Initialize-AriaHostEnvironment {
 Initialize-AriaHostEnvironment
 
 $runtimeLabel = if ([string]::IsNullOrWhiteSpace($Runtime)) { "portable" } else { $Runtime }
+if ([string]::IsNullOrWhiteSpace($PublishFlavor)) {
+    $PublishFlavor = if ($PublishAot) {
+        "win-x64-aot-experimental"
+    } elseif ($PublishTrimmed) {
+        "win-x64-trimmed-experimental"
+    } elseif ($SelfContained) {
+        "win-x64-sc-singlefile"
+    } else {
+        "win-x64-fd-singlefile"
+    }
+}
+$artifactLabel = if ([string]::IsNullOrWhiteSpace($PublishFlavor)) { $runtimeLabel } else { $PublishFlavor }
 
 if ([string]::IsNullOrWhiteSpace($PackageDir)) {
     $packageArgs = @{
         Version = $Version
         Runtime = $Runtime
-        SelfContained = $SelfContained
+        PublishFlavor = $PublishFlavor
+        SelfContained = [bool]($SelfContained -or $PublishAot)
         SingleFile = $SingleFile
+        PublishTrimmed = $PublishTrimmed
+        PublishAot = $PublishAot
         NoZip = $true
+        Profile = $Profile
     }
     if ($SkipRestore) { $packageArgs.SkipRestore = $true }
     & "$PSScriptRoot\package.ps1" @packageArgs
@@ -114,7 +135,7 @@ function Resolve-Makensis {
     throw "makensis was not found. Install NSIS 3.x and make makensis.exe available on PATH."
 }
 
-$name = "AriaEngine-$Version-$runtimeLabel-installer"
+$name = "AriaEngine-$Version-$artifactLabel-installer"
 $workDir = Join-Path $OutputDir $name
 $zipPath = [IO.Path]::GetFullPath("$workDir.zip")
 if (Test-Path $workDir) { Remove-Item -LiteralPath $workDir -Recurse -Force }
@@ -127,7 +148,7 @@ Remove-InstallerPayloadExtras $payloadDir
 
 if ([string]::IsNullOrWhiteSpace($SetupFileName)) {
     $safeVersion = ($Version -replace '[\\/:*?"<>|]', '-')
-    $safeRuntime = ($runtimeLabel -replace '[\\/:*?"<>|]', '-')
+    $safeRuntime = ($artifactLabel -replace '[\\/:*?"<>|]', '-')
     $SetupFileName = "umikaze-$safeVersion-$safeRuntime-setup.exe"
 }
 $setupPath = [IO.Path]::GetFullPath((Join-Path $workDir $SetupFileName))
@@ -141,6 +162,7 @@ if ($LASTEXITCODE -ne 0) { throw "NSIS installer build failed" }
 
 if ($Sign) {
     & "$PSScriptRoot\sign.ps1" -FilePath $setupPath
+    & "$PSScriptRoot\verify-signing.ps1" -Path $setupPath -OutputPath (Join-Path $workDir "signature-audit.json") -RequireSigned
 }
 
 Compress-Archive -Path $setupPath -DestinationPath $zipPath -Force

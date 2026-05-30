@@ -19,6 +19,7 @@ public class AppConfig
     public bool IsFullscreen { get; set; } = false;
     public string TextMode { get; set; } = "adv"; // "adv" or "nvl"
     public bool SkipUnread { get; set; } = false;
+    public string Language { get; set; } = "ja-JP";
     public int AutoModeWaitTimeMs { get; set; } = 2000;
     public int WindowWidth { get; set; } = 1280;
     public int WindowHeight { get; set; } = 720;
@@ -42,13 +43,15 @@ public class ConfigManager
     private string _persistentPath = Path.Combine("saves", "persistent.ariasav");
     private static readonly byte[] PersistentMagic = Encoding.ASCII.GetBytes("ARIAPERSIST2");
     private readonly ErrorReporter? _reporter;
+    private readonly bool _usePortableJsonPersistent;
     public AppConfig Config { get; private set; } = new();
 
-    public ConfigManager(ErrorReporter? reporter = null, string configPath = "config.json", string? persistentPath = null)
+    public ConfigManager(ErrorReporter? reporter = null, string configPath = "config.json", string? persistentPath = null, bool? usePortableJsonPersistent = null)
     {
         _reporter = reporter;
         _configPath = configPath;
         _persistentPath = persistentPath ?? Path.Combine("saves", "persistent.ariasav");
+        _usePortableJsonPersistent = usePortableJsonPersistent ?? false;
     }
 
     public void Load()
@@ -58,7 +61,7 @@ public class ConfigManager
             try
             {
                 var json = File.ReadAllText(_configPath);
-                Config = JsonSerializer.Deserialize<AppConfig>(json) ?? new AppConfig();
+                Config = JsonSerializer.Deserialize(json, AriaCoreJsonContext.Default.AppConfig) ?? new AppConfig();
             }
             catch (Exception ex)
             {
@@ -71,8 +74,7 @@ public class ConfigManager
     {
         try
         {
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            var json = JsonSerializer.Serialize(Config, options);
+            var json = JsonSerializer.Serialize(Config, AriaCoreIndentedJsonContext.Default.AppConfig);
             File.WriteAllText(_configPath, json);
         }
         catch (Exception ex)
@@ -87,6 +89,13 @@ public class ConfigManager
 
         try
         {
+            if (LooksLikeJsonFile(_persistentPath))
+            {
+                var jsonData = JsonSerializer.Deserialize(File.ReadAllText(_persistentPath), AriaCoreJsonContext.Default.PersistentGameData) ?? new PersistentGameData();
+                MigratePersistentGameData(jsonData);
+                return jsonData;
+            }
+
             using var stream = File.OpenRead(_persistentPath);
             using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: false);
             byte[] magic = reader.ReadBytes(PersistentMagic.Length);
@@ -103,7 +112,7 @@ public class ConfigManager
             using var decryptor = aes.CreateDecryptor();
             byte[] compressed = decryptor.TransformFinalBlock(cipher, 0, cipher.Length);
             byte[] json = Decompress(compressed);
-            var data = JsonSerializer.Deserialize<PersistentGameData>(json) ?? new PersistentGameData();
+            var data = JsonSerializer.Deserialize(json, AriaCoreJsonContext.Default.PersistentGameData) ?? new PersistentGameData();
             MigratePersistentGameData(data);
             return data;
         }
@@ -132,7 +141,13 @@ public class ConfigManager
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_persistentPath) ?? ".");
-            byte[] json = JsonSerializer.SerializeToUtf8Bytes(data, new JsonSerializerOptions { WriteIndented = false });
+            byte[] json = JsonSerializer.SerializeToUtf8Bytes(data, AriaCoreJsonContext.Default.PersistentGameData);
+            if (_usePortableJsonPersistent)
+            {
+                File.WriteAllBytes(_persistentPath, json);
+                return;
+            }
+
             byte[] compressed = Compress(json);
 
             using var aes = Aes.Create();
@@ -156,6 +171,23 @@ public class ConfigManager
         {
             ReportConfigException("PERSISTENT_SAVE", ex, "永続データの保存に失敗しました。");
         }
+    }
+
+    private static bool LooksLikeJsonFile(string path)
+    {
+        using var stream = File.OpenRead(path);
+        int value = stream.ReadByte();
+        if (value == 0xEF && stream.ReadByte() == 0xBB && stream.ReadByte() == 0xBF)
+        {
+            value = stream.ReadByte();
+        }
+
+        while (value == ' ' || value == '\r' || value == '\n' || value == '\t')
+        {
+            value = stream.ReadByte();
+        }
+
+        return value == '{';
     }
 
     private void ReportConfigException(string code, Exception ex, string message)

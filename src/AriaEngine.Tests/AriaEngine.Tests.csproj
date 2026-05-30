@@ -7,6 +7,18 @@
     <ProjectReference Include="../AriaEngine/AriaEngine.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../AriaEngine.Web/Rendering/CanvasScaleMapper.cs" Link="Web/Rendering/CanvasScaleMapper.cs" />
+    <Compile Include="../AriaEngine.Web/Rendering/BrowserFontLoader.cs" Link="Web/Rendering/BrowserFontLoader.cs" />
+    <Compile Include="../AriaEngine.Web/Rendering/BrowserRenderer.cs" Link="Web/Rendering/BrowserRenderer.cs" />
+    <Compile Include="../AriaEngine.Web/Assets/PreloadedWebAssetProvider.cs" Link="Web/Assets/PreloadedWebAssetProvider.cs" />
+    <Compile Include="../AriaEngine.Web/Runtime/WebRuntimeHost.cs" Link="Web/Runtime/WebRuntimeHost.cs" />
+    <Compile Include="../AriaEngine.Web/Input/BrowserInputMapper.cs" Link="Web/Input/BrowserInputMapper.cs" />
+    <Compile Include="../AriaEngine.Web/Storage/BrowserStorageOperation.cs" Link="Web/Storage/BrowserStorageOperation.cs" />
+    <Compile Include="../AriaEngine.Web/Storage/IndexedDbSaveStore.cs" Link="Web/Storage/IndexedDbSaveStore.cs" />
+    <Compile Include="../AriaEngine.Web/Storage/OpfsAssetStore.cs" Link="Web/Storage/OpfsAssetStore.cs" />
+    <Compile Include="../AriaEngine.Web/Storage/SaveExportImport.cs" Link="Web/Storage/SaveExportImport.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="xunit" Version="2.8.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using AriaEngine.Core;
 
 namespace AriaEngine.Packaging;
 
@@ -39,7 +40,7 @@ public static class PakArchive
             offset += payload.Length;
         }
 
-        byte[] manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, new JsonSerializerOptions { WriteIndented = false });
+        byte[] manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, AriaCoreJsonContext.Default.PakManifest);
 
         using var fs = File.Create(outputPath);
         fs.Write(Magic, 0, Magic.Length);
@@ -64,7 +65,7 @@ public static class PakArchive
 
         byte[] manifestBytes = new byte[manifestLen];
         fs.ReadExactly(manifestBytes);
-        var manifest = JsonSerializer.Deserialize<PakManifest>(manifestBytes) ?? throw new InvalidOperationException("Failed to parse pak manifest. The file may be corrupted.");
+        var manifest = JsonSerializer.Deserialize(manifestBytes, AriaCoreJsonContext.Default.PakManifest) ?? throw new InvalidOperationException("Failed to parse pak manifest. The file may be corrupted.");
 
         long dataStart = Magic.Length + sizeof(int) + manifestLen;
         return new PakReader(pakPath, manifest, dataStart, decryptionKey);

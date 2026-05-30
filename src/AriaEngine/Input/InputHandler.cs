@@ -126,11 +126,16 @@ public class InputHandler
                 int bh = btn.ClickAreaH > 0 ? btn.ClickAreaH : Math.Max(btn.Height, 30);
 
                 Rectangle rect = new Rectangle(bx, by, bw * scaleX, bh * scaleY);
+                bool wasHovered = btn.IsHovered;
                 bool mouseHovered = Raylib.CheckCollisionPointRec(mousePoint, rect);
                 if (mouseHovered)
                 {
                     vm.State.Interaction.FocusedButtonId = btn.Id;
                     mouseHoverFound = true;
+                    if (!wasHovered)
+                    {
+                        vm.PlayUiSe(UiSeType.Hover);
+                    }
                 }
 
                 btn.IsHovered = mouseHovered || btn.Id == vm.State.Interaction.FocusedButtonId;
@@ -189,6 +194,7 @@ public class InputHandler
                     vm.SetReg($"%{clickedButton.Id}", clickedButton.CheckboxValue ? 1 : 0);
                     UpdateCheckboxVisuals(vm.State, clickedButton);
                 }
+                vm.PlayUiSe(UiSeType.Click);
                 vm.ResumeFromButton(clickedButton.Id);
                 return;
             }
@@ -291,6 +297,8 @@ public class InputHandler
     {
         return Raylib.IsKeyPressed(KeyboardKey.Down) ||
                Raylib.IsKeyPressed(KeyboardKey.Right) ||
+               IsGamepadButtonPressed(GamepadButton.LeftFaceDown) ||
+               IsGamepadButtonPressed(GamepadButton.LeftFaceRight) ||
                (Raylib.IsKeyPressed(KeyboardKey.Tab) && !Raylib.IsKeyDown(KeyboardKey.LeftShift) && !Raylib.IsKeyDown(KeyboardKey.RightShift));
     }
 
@@ -298,6 +306,8 @@ public class InputHandler
     {
         return Raylib.IsKeyPressed(KeyboardKey.Up) ||
                Raylib.IsKeyPressed(KeyboardKey.Left) ||
+               IsGamepadButtonPressed(GamepadButton.LeftFaceUp) ||
+               IsGamepadButtonPressed(GamepadButton.LeftFaceLeft) ||
                (Raylib.IsKeyPressed(KeyboardKey.Tab) && (Raylib.IsKeyDown(KeyboardKey.LeftShift) || Raylib.IsKeyDown(KeyboardKey.RightShift)));
     }
 
@@ -305,12 +315,41 @@ public class InputHandler
     {
         return Raylib.IsKeyPressed(KeyboardKey.Enter) ||
                Raylib.IsKeyPressed(KeyboardKey.KpEnter) ||
-               Raylib.IsKeyPressed(KeyboardKey.Space);
+               Raylib.IsKeyPressed(KeyboardKey.Space) ||
+               IsGamepadButtonPressed(GamepadButton.RightFaceDown);
     }
 
     private static bool IsForceSkipHeld()
     {
-        return Raylib.IsKeyDown(KeyboardKey.LeftControl) || Raylib.IsKeyDown(KeyboardKey.RightControl);
+        return Raylib.IsKeyDown(KeyboardKey.LeftControl) ||
+               Raylib.IsKeyDown(KeyboardKey.RightControl) ||
+               IsGamepadButtonDown(GamepadButton.RightTrigger1);
+    }
+
+    private static bool IsGamepadButtonPressed(GamepadButton button)
+    {
+        for (int pad = 0; pad < 4; pad++)
+        {
+            if (Raylib.IsGamepadAvailable(pad) && Raylib.IsGamepadButtonPressed(pad, button))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsGamepadButtonDown(GamepadButton button)
+    {
+        for (int pad = 0; pad < 4; pad++)
+        {
+            if (Raylib.IsGamepadAvailable(pad) && Raylib.IsGamepadButtonDown(pad, button))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool CanAdvanceTextAnimation(GameState state)

@@ -1,4 +1,4 @@
-using Raylib_cs;
+﻿using Raylib_cs;
 using AriaEngine.Core;
 using AriaEngine.Rendering;
 using System.IO;
@@ -243,13 +243,32 @@ public class MenuSystem
     private void UpdateSaveLoadClick()
     {
         var mouse = Raylib.GetMousePosition();
+        var panel = CenterPanel(Math.Min(_vm.State.MenuRuntime.SaveLoadWidth, Raylib.GetScreenWidth() - 72), Math.Min(560, Raylib.GetScreenHeight() - 64));
+
+        var prevRect = new Rectangle(panel.X + 24, panel.Y + panel.Height - 40, 80, 24);
+        var nextRect = new Rectangle(panel.X + panel.Width - 104, panel.Y + panel.Height - 40, 80, 24);
+
+        if (Raylib.CheckCollisionPointRec(mouse, prevRect) && _vm.State.MenuRuntime.SaveLoadPage > 0)
+        {
+            _vm.State.MenuRuntime.SaveLoadPage--;
+            _vm.PlayUiSe(UiSeType.Click);
+            return;
+        }
+        if (Raylib.CheckCollisionPointRec(mouse, nextRect) && _vm.State.MenuRuntime.SaveLoadPage < 4)
+        {
+            _vm.State.MenuRuntime.SaveLoadPage++;
+            _vm.PlayUiSe(UiSeType.Click);
+            return;
+        }
+
         for (int i = 0; i < SaveSlotCount; i++)
         {
             if (!Raylib.CheckCollisionPointRec(mouse, GetSaveSlotRect(i))) continue;
-            if (_currentState == MenuState.Save) _vm.SaveGame(i);
+            int slotIndex = _vm.State.MenuRuntime.SaveLoadPage * SaveSlotCount + i;
+            if (_currentState == MenuState.Save) _vm.SaveGame(slotIndex);
             else
             {
-                RequestConfirmation("load_slot", _currentState, i);
+                RequestConfirmation("load_slot", _currentState, slotIndex);
                 return;
             }
             CloseMenu();
@@ -635,9 +654,28 @@ public class MenuSystem
         for (int i = 0; i < SaveSlotCount; i++)
         {
             var slotRect = GetSaveSlotRect(i);
-            DrawSaveSlot(renderer, i, slotRect, Raylib.CheckCollisionPointRec(mouse, slotRect), isSave);
+            int slotIndex = _vm.State.MenuRuntime.SaveLoadPage * SaveSlotCount + i;
+            DrawSaveSlot(renderer, slotIndex, slotRect, Raylib.CheckCollisionPointRec(mouse, slotRect), isSave);
         }
-        DrawText(renderer, "CLICK SLOT / ESC  BACK", (int)panel.X + 24, (int)(panel.Y + panel.Height - 28), 12, new Color(128, 180, 190, 210));
+
+        var prevRect = new Rectangle(panel.X + 24, panel.Y + panel.Height - 40, 80, 24);
+        var nextRect = new Rectangle(panel.X + panel.Width - 104, panel.Y + panel.Height - 40, 80, 24);
+        bool prevHover = Raylib.CheckCollisionPointRec(mouse, prevRect);
+        bool nextHover = Raylib.CheckCollisionPointRec(mouse, nextRect);
+
+        if (_vm.State.MenuRuntime.SaveLoadPage > 0)
+        {
+            DrawRect(prevRect, prevHover, _vm.State.MenuRuntime.MenuLineColor);
+            DrawCenteredText(renderer, "< PREV", (int)prevRect.X, (int)prevRect.Y + 4, (int)prevRect.Width, 14, prevHover ? White : Gray);
+        }
+        if (_vm.State.MenuRuntime.SaveLoadPage < 4)
+        {
+            DrawRect(nextRect, nextHover, _vm.State.MenuRuntime.MenuLineColor);
+            DrawCenteredText(renderer, "NEXT >", (int)nextRect.X, (int)nextRect.Y + 4, (int)nextRect.Width, 14, nextHover ? White : Gray);
+        }
+
+        DrawCenteredText(renderer, $"PAGE {_vm.State.MenuRuntime.SaveLoadPage + 1} / 5", (int)panel.X, (int)(panel.Y + panel.Height - 34), (int)panel.Width, 16, White);
+        DrawText(renderer, "CLICK SLOT / ESC  BACK", (int)panel.X + 116, (int)(panel.Y + panel.Height - 34), 12, new Color(128, 180, 190, 210));
     }
 
     private void DrawBacklog(SpriteRenderer renderer)

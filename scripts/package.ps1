@@ -6,14 +6,21 @@ param(
     [string]$OutputRoot = "artifacts/release",
     [string]$InitScript = "init.aria",
     [string]$MainScript = "assets/scripts/main.aria",
+    [string]$PublishFlavor = "win-x64-fd-singlefile",
+    [ValidateSet("Debug", "Demo", "Release")]
+    [string]$Profile = "Release",
     [bool]$SelfContained = $false,
     [bool]$SingleFile = $true,
+    [bool]$PublishTrimmed = $false,
+    [bool]$PublishAot = $false,
     [switch]$KeepRawAssets,
     [switch]$SkipRestore,
     [switch]$SkipPublish,
     [switch]$NoZip,
     [string]$ReleaseNotes = "",
-    [switch]$Sign
+    [switch]$Sign,
+    [switch]$SteamBuild,
+    [string]$SteamAppId = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +28,7 @@ $ErrorActionPreference = "Stop"
 function Initialize-AriaHostEnvironment {
     $userProfile = if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) { "C:\Users\Default" } else { $env:USERPROFILE }
     if ([string]::IsNullOrWhiteSpace($env:SystemRoot)) { $env:SystemRoot = "C:\WINDOWS" }
+    if ([string]::IsNullOrWhiteSpace($env:OS)) { $env:OS = "Windows_NT" }
     if ([string]::IsNullOrWhiteSpace($env:windir)) { $env:windir = $env:SystemRoot }
     if ([string]::IsNullOrWhiteSpace($env:ComSpec)) { $env:ComSpec = Join-Path $env:SystemRoot "system32\cmd.exe" }
     if ([string]::IsNullOrWhiteSpace($env:HOMEDRIVE)) { $env:HOMEDRIVE = Split-Path -Qualifier $userProfile }
@@ -61,11 +69,42 @@ function Invoke-Checked {
     }
 }
 
+function Invoke-AriaCli {
+    param([string]$CliPath, [string[]]$Arguments, [string]$WorkingDirectory = "")
+
+    if ([IO.Path]::GetExtension($CliPath).Equals(".dll", [StringComparison]::OrdinalIgnoreCase)) {
+        Invoke-Checked dotnet (@($CliPath) + $Arguments) $WorkingDirectory
+        return
+    }
+
+    Write-Host ("$CliPath " + ($Arguments -join " "))
+    if ([string]::IsNullOrWhiteSpace($WorkingDirectory)) {
+        $process = Start-Process -FilePath $CliPath -ArgumentList $Arguments -Wait -PassThru
+    } else {
+        $process = Start-Process -FilePath $CliPath -ArgumentList $Arguments -WorkingDirectory $WorkingDirectory -Wait -PassThru
+    }
+    if ($process.ExitCode -ne 0) {
+        throw "Command failed: $CliPath $($Arguments -join ' ')"
+    }
+}
+
 function Copy-IfExists {
     param([string]$Path, [string]$Destination)
     if (Test-Path $Path) {
         Copy-Item -LiteralPath $Path -Destination $Destination -Recurse -Force
     }
+}
+
+function Remove-WindowsPackageNoise {
+    param([string]$Root)
+
+    foreach ($name in @("libzstd.dylib", "libzstd.so")) {
+        Get-ChildItem -LiteralPath $Root -Recurse -File -Filter $name -ErrorAction SilentlyContinue |
+            ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
+    }
+
+    Get-ChildItem -LiteralPath $Root -Recurse -File -Filter "*.pdb" -ErrorAction SilentlyContinue |
+        ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
 }
 
 function Resolve-AriaCliAssembly {
@@ -114,6 +153,18 @@ $releaseDir = Join-Path $OutputRoot $releaseName
 $publishDir = Join-Path $releaseDir "app"
 $distDir = Join-Path $releaseDir "dist"
 $zipPath = Join-Path $distDir "$releaseName.zip"
+$effectiveSelfContained = [bool]($SelfContained -or $PublishAot)
+$effectivePublishTrimmed = [bool]($PublishTrimmed -or $PublishAot)
+$publishSingleFileForSdk = [bool]($SingleFile -and -not $PublishAot)
+$artifactSingleFile = [bool]($SingleFile -or $PublishAot)
+$profileLabel = $Profile.ToLowerInvariant()
+$profileProductionMode = -not $Profile.Equals("Debug", [StringComparison]::OrdinalIgnoreCase)
+$browserOpenAllowlist = @(
+    "store.steampowered.com",
+    "twitter.com",
+    "x.com",
+    "ponkotsu-soft.vercel.app"
+)
 
 if (Test-Path $releaseDir) {
     Remove-Item -LiteralPath $releaseDir -Recurse -Force
@@ -130,14 +181,37 @@ if (-not $SkipPublish) {
             }
             Invoke-Checked dotnet @("publish", $Project, "-c", $Configuration, "--no-restore", "-o", $publishStageDir, "/p:AriaCompileOnPublish=false", "/p:NuGetAudit=false", "/p:DebugType=none", "/p:DebugSymbols=false")
         } else {
-            $selfContainedValue = $SelfContained.ToString().ToLowerInvariant()
+            $selfContainedValue = $effectiveSelfContained.ToString().ToLowerInvariant()
             if (-not $SkipRestore) {
-                Invoke-Checked dotnet @("restore", $Project, "-r", $Runtime, "/p:NuGetAudit=false")
+                $restoreArgs = @("restore", $Project, "-r", $Runtime, "/p:NuGetAudit=false")
+                if ($PublishAot) {
+                    $restoreArgs += "/p:PublishAot=true"
+                }
+                Invoke-Checked dotnet $restoreArgs
             }
-            Invoke-Checked dotnet @("publish", $Project, "-c", $Configuration, "-r", $Runtime, "--self-contained", $selfContainedValue, "--no-restore", "-o", $publishStageDir, "/p:AriaCompileOnPublish=false", "/p:NuGetAudit=false", "/p:PublishSingleFile=$($SingleFile.ToString().ToLowerInvariant())", "/p:IncludeNativeLibrariesForSelfExtract=true", "/p:DebugType=none", "/p:DebugSymbols=false")
+            $publishArgs = @(
+                "publish", $Project,
+                "-c", $Configuration,
+                "-r", $Runtime,
+                "--self-contained", $selfContainedValue,
+                "--no-restore",
+                "-o", $publishStageDir,
+                "/p:AriaCompileOnPublish=false",
+                "/p:NuGetAudit=false",
+                "/p:PublishSingleFile=$($publishSingleFileForSdk.ToString().ToLowerInvariant())",
+                "/p:PublishTrimmed=$($effectivePublishTrimmed.ToString().ToLowerInvariant())",
+                "/p:PublishAot=$($PublishAot.ToString().ToLowerInvariant())",
+                "/p:IncludeNativeLibrariesForSelfExtract=true",
+                "/p:DebugType=none",
+                "/p:DebugSymbols=false"
+            )
+            Invoke-Checked dotnet $publishArgs
         }
 
         Copy-Item -Path (Join-Path $publishStageDir "*") -Destination $publishDir -Recurse -Force
+        if ($PublishAot -and (Test-Path (Join-Path $publishDir "coreclr.dll"))) {
+            throw "NativeAOT publish did not produce native output. Run restore with /p:PublishAot=true on a matching Windows host before packaging."
+        }
     }
     finally {
         if (Test-Path $publishStageDir) {
@@ -176,6 +250,10 @@ if (Test-Path $configSource) {
     Copy-Item -LiteralPath $configSource -Destination (Join-Path $publishDir "config.template.json") -Force
 }
 
+if ($SteamBuild -and -not [string]::IsNullOrWhiteSpace($SteamAppId)) {
+    Set-Content -Path (Join-Path $publishDir "steam_appid.txt") -Value $SteamAppId -Encoding ASCII
+}
+
 $engineExecutable = Join-Path $publishDir "AriaEngine.exe"
 if (-not (Test-Path $engineExecutable)) {
     $engineExecutable = Join-Path $publishDir "AriaEngine.dll"
@@ -198,26 +276,20 @@ if ($pakEncrypted) {
     $compileArgs += @("--key", $env:ARIA_PACK_KEY)
     $packArgs += @("--key", $env:ARIA_PACK_KEY)
 }
-$cliAssembly = Resolve-AriaCliAssembly $engineDir $Configuration $Runtime
-if ([string]::IsNullOrWhiteSpace($cliAssembly)) {
-    $publishedDll = Join-Path $publishDir "AriaEngine.dll"
-    if (Test-Path $publishedDll) {
-        $cliAssembly = (Resolve-Path $publishedDll).Path
-    }
+$publishedDll = Join-Path $publishDir "AriaEngine.dll"
+$publishedExe = Join-Path $publishDir "AriaEngine.exe"
+$cliHostFile = ""
+if (Test-Path $publishedDll) {
+    $cliHostFile = (Resolve-Path $publishedDll).Path
+} elseif (Test-Path $publishedExe) {
+    $cliHostFile = (Resolve-Path $publishedExe).Path
+} else {
+    $cliHostFile = Resolve-AriaCliAssembly $engineDir $Configuration $Runtime
 }
-# SingleFile publish produces AriaEngine.exe instead of AriaEngine.dll
-if ([string]::IsNullOrWhiteSpace($cliAssembly)) {
-    $publishedExe = Join-Path $publishDir "AriaEngine.exe"
-    if (Test-Path $publishedExe) {
-        $cliAssembly = (Resolve-Path $publishedExe).Path
-    }
-}
-if ([string]::IsNullOrWhiteSpace($cliAssembly)) {
+if ([string]::IsNullOrWhiteSpace($cliHostFile)) {
     throw "AriaEngine.dll or AriaEngine.exe for CLI packaging was not found. Disable SingleFile or run restore/publish before packaging."
 }
-$dotnetCompileArgs = @($cliAssembly) + $compileArgs
-$dotnetPackArgs = @($cliAssembly) + $packArgs
-Invoke-Checked dotnet $dotnetCompileArgs $publishDir
+Invoke-AriaCli $cliHostFile $compileArgs $publishDir
 
 if (-not $KeepRawAssets) {
     $rawScriptsOut = Join-Path $publishDir "assets\scripts"
@@ -230,7 +302,26 @@ if (-not $KeepRawAssets) {
     }
 }
 
-Invoke-Checked dotnet $dotnetPackArgs $publishDir
+$localizationManifest = Join-Path $publishDir "assets\i18n\locales.json"
+if (-not (Test-Path $localizationManifest)) {
+    throw "Localization manifest was not found: assets\i18n\locales.json"
+}
+$localizationConfig = Get-Content -Raw -LiteralPath $localizationManifest | ConvertFrom-Json
+$localizationLanguages = @($localizationConfig.languages)
+$scenarioFiles = @($localizationConfig.scenarioFiles)
+$scenarioStatus = [ordered]@{}
+if ($localizationConfig.scenarioStatus) {
+    foreach ($property in $localizationConfig.scenarioStatus.PSObject.Properties) {
+        $scenarioStatus[$property.Name] = [string]$property.Value
+    }
+}
+$steamSubtitleLanguages = @(
+    $scenarioStatus.GetEnumerator() |
+        Where-Object { $_.Value -eq "source" -or $_.Value -eq "complete" } |
+        ForEach-Object { $_.Key }
+)
+
+Invoke-AriaCli $cliHostFile $packArgs $publishDir
 
 # v3 split pak does not require compiled script bundle; .aria files are stored directly in scenario.aris
 # if (-not (Test-Path $compiledOut)) {
@@ -254,6 +345,8 @@ if ($Sign) {
     }
 }
 
+Remove-WindowsPackageNoise $publishDir
+
 $signatureFiles = Get-ChildItem -Path $publishDir -Include "*.exe","*.dll" -Recurse -File | Sort-Object FullName
 $signatureStatus = @()
 foreach ($file in $signatureFiles) {
@@ -270,7 +363,7 @@ $allTrusted = $signatureStatus.Count -gt 0 -and ($signatureStatus | Where-Object
 $manifest = [ordered]@{
     name = "AriaEngine"
     version = $Version
-    runtime = $runtimeLabel
+    targetRuntime = $runtimeLabel
     configuration = $Configuration
     generatedAtUtc = (Get-Date).ToUniversalTime().ToString("o")
     initScript = $InitScript
@@ -282,11 +375,48 @@ $manifest = [ordered]@{
         configSchema = 1
         reservedEngineActions = @("save", "load", "backlog", "lookback", "rmenu")
     }
+    profile = $Profile.ToLowerInvariant()
+    content = [ordered]@{
+        isDemo = $Profile.Equals("Demo", [StringComparison]::OrdinalIgnoreCase)
+        demoEndLabel = "demo_end"
+        lastDemoScenario = "scenario_05"
+    }
+    runtime = [ordered]@{
+        runMode = "release"
+        productionMode = [bool]$profileProductionMode
+        devHotkeys = -not $profileProductionMode
+    }
+    security = [ordered]@{
+        browserOpenPolicy = [ordered]@{
+            schemes = @("https", "http")
+            allowlist = $browserOpenAllowlist
+        }
+    }
     packaging = [ordered]@{
+        publishFlavor = $PublishFlavor
+        selfContained = [bool]$effectiveSelfContained
+        singleFile = [bool]$artifactSingleFile
+    publishTrimmed = [bool]$effectivePublishTrimmed
+        publishAot = [bool]$PublishAot
         rawAssetsIncluded = [bool]$KeepRawAssets
         pakEncrypted = [bool]$pakEncrypted
         compiledScripts = $null
         pak = "v3-split"
+    }
+    localization = [ordered]@{
+        manifest = "assets/i18n/locales.json"
+        defaultLanguage = $localizationConfig.defaultLanguage
+        languages = $localizationLanguages
+        scenarioRoot = $localizationConfig.scenarioRoot
+        scenarioFiles = $scenarioFiles
+        scenarioStatus = $scenarioStatus
+        steamSubtitleLanguages = $steamSubtitleLanguages
+    }
+    steam = [ordered]@{
+        steamCompatible = [bool]$SteamBuild
+        appId = $SteamAppId
+        appIdFile = if ($SteamBuild -and -not [string]::IsNullOrWhiteSpace($SteamAppId)) { "steam_appid.txt" } else { "" }
+        cloudSavePath = "saves/"
     }
     signing = [ordered]@{
         requested = [bool]$Sign
@@ -294,7 +424,7 @@ $manifest = [ordered]@{
         trusted = [bool]$allTrusted
         files = $signatureStatus
     }
-    productionRunArgs = @("--run-mode", "release")
+    productionRunArgs = @("--run-mode", "release", "--profile", $Profile.ToLowerInvariant())
     files = @()
 }
 

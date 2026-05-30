@@ -53,7 +53,7 @@ public class CharacterManager
         try
         {
             string json = File.ReadAllText(path);
-            var data = JsonSerializer.Deserialize<CharacterData>(json);
+            var data = JsonSerializer.Deserialize(json, AriaCoreJsonContext.Default.CharacterData);
             if (data != null && data.Characters != null)
             {
                 _characters = data.Characters;

@@ -54,6 +54,17 @@ public sealed class CoreCommandHandler : BaseCommandHandler
                 return true;
 
             case OpCode.Debug:
+                if (State.EngineSettings.RuntimeProfile != RuntimeProfile.Debug || State.EngineSettings.ProductionMode)
+                {
+                    State.EngineSettings.DebugMode = false;
+                    Reporter.Report(new AriaError(
+                        "debug command is disabled outside Debug profile.",
+                        inst.SourceLine,
+                        CurrentScriptFile,
+                        AriaErrorLevel.Warning,
+                        "PROFILE_DEBUG_BLOCKED"));
+                    return true;
+                }
                 State.EngineSettings.DebugMode = inst.Arguments.Count > 0 && inst.Arguments[0] == "on";
                 return true;
 

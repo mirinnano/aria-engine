@@ -72,7 +72,7 @@ public static class AriaFlowCheckCommand
             CheckFlow(expanded.Lines, parseResult, chapterCount, issues);
             if (execute && issues.Count == 0)
             {
-                ExecuteFlow(parseResult, main, chapterCount, Math.Max(1, maxSteps), issues);
+                ExecuteFlow(parseResult, main, rootPath, chapterCount, Math.Max(1, maxSteps), issues);
             }
         }
         catch (Exception ex)
@@ -183,7 +183,7 @@ public static class AriaFlowCheckCommand
         return Regex.IsMatch(label, @"^scenario_\d{2}$", RegexOptions.IgnoreCase);
     }
 
-    private static void ExecuteFlow(ParseResult parseResult, string main, int chapterCount, int maxSteps, List<string> issues)
+    private static void ExecuteFlow(ParseResult parseResult, string main, string rootPath, int chapterCount, int maxSteps, List<string> issues)
     {
         for (int i = 1; i <= chapterCount; i++)
         {
@@ -194,11 +194,11 @@ public static class AriaFlowCheckCommand
                 continue;
             }
 
-            ExecuteScenario(parseResult, main, scenario, pc, maxSteps, issues);
+            ExecuteScenario(parseResult, main, rootPath, scenario, pc, maxSteps, issues);
         }
     }
 
-    private static void ExecuteScenario(ParseResult parseResult, string main, string scenario, int pc, int maxSteps, List<string> issues)
+    private static void ExecuteScenario(ParseResult parseResult, string main, string rootPath, string scenario, int pc, int maxSteps, List<string> issues)
     {
         string runtimeRoot = Path.Combine(Path.GetTempPath(), "aria-flowcheck-runtime-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(runtimeRoot);
@@ -211,7 +211,7 @@ public static class AriaFlowCheckCommand
                 Path.Combine(runtimeRoot, "config.json"),
                 Path.Combine(runtimeRoot, "saves", "persistent.ariasav"));
             var saves = new SaveManager(reporter, Path.Combine(runtimeRoot, "saves"));
-            var vm = new VirtualMachine(reporter, new TweenManager(), saves, config, null, runtimeRoot);
+            var vm = new VirtualMachine(reporter, new TweenManager(), saves, config, new DiskAssetProvider(rootPath), runtimeRoot);
             vm.LoadScript(parseResult, main);
             vm.State.Execution.ProgramCounter = pc;
             vm.State.Execution.State = VmState.Running;
@@ -291,6 +291,10 @@ public static class AriaFlowCheckCommand
         message = string.IsNullOrWhiteSpace(error.Code)
             ? error.Message
             : $"{error.Code}: {error.Message}";
+        if (!string.IsNullOrWhiteSpace(error.Details))
+        {
+            message += $" ({error.Details})";
+        }
         return true;
     }
 

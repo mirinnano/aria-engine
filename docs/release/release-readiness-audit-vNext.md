@@ -7,7 +7,7 @@
 | 要件 | 成功条件 | 現在の証拠 | 状態 |
 | --- | --- | --- | --- |
 | デッドコード削除 | 旧 C# installer / Rust installer / 旧 `LoadScript` overload が実装経路から消えている | `src/AriaInstaller/`、`src/aria-installer/`、`scripts/update-installer.ps1`、旧 `LoadScript` overload を削除。grep では廃止確認用テストの否定チェックのみ検出 | 完了 |
-| release build 品質 | Release build、test、smoke、doctor が通る | `dotnet test src\AriaEngine.Tests\AriaEngine.Tests.csproj --no-restore -c Release` は 232 passed。`scripts\smoke.ps1` は `ARIA smoke tests passed.`。strict doctor は 0 warnings | 完了 |
+| release build 品質 | Release build、test、smoke、doctor が通る | `dotnet test src\AriaEngine.Tests\AriaEngine.Tests.csproj --no-restore` は 292 passed。`scripts\smoke.ps1` は `ARIA smoke tests passed.`。strict doctor は 0 warnings | 完了 |
 | NScripter 品質 | `main.aria` compile/lint、smoke、compat重要機能が通る | strict doctor が `Compiled scripts: 2` と `Linted 1 file(s): 0 error(s), 0 warning(s)`。`automode_time`、`effect`/`print`、`chapter_scroll`、block `if` false分岐、script-owned settings/gallery/save/load/backlog、chapter select、NVL、ADV の visual coverage と6章route/runtime flowcheckを追加済み | 完了 |
 | Windows 配布 | package、release zip、NSIS setup zip を生成できる | `scripts\package.ps1 -Version v1.0.0 -Runtime win-x64`、`scripts\installer.ps1 -Version v1.0.0 -Runtime win-x64 ...`、latest setup の silent install/uninstall が成功 | 完了 |
 | runtime crash 抑制 | test / smoke / doctor で重大例外なし | test / smoke / strict doctor / package / installer がすべて exit 0 | 完了 |
@@ -15,7 +15,7 @@
 
 ## Verified Commands
 
-2026-05-06 に以下を確認済み。
+2026-05-23 に以下を確認済み。
 
 ```powershell
 dotnet test src\AriaEngine.Tests\AriaEngine.Tests.csproj --no-restore -c Release

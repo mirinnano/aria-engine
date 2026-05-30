@@ -9,7 +9,15 @@ public enum EaseType
     Linear,
     EaseIn,
     EaseOut,
-    EaseInOut
+    EaseInOut,
+    Bounce,
+    Elastic,
+    Back,
+    Spring,
+    SineWave,
+    Cubic,
+    Quart,
+    Expo
 }
 
 public enum TweenProperty
@@ -113,7 +121,36 @@ public class TweenManager
             EaseType.EaseIn => p * p,
             EaseType.EaseOut => p * (2f - p),
             EaseType.EaseInOut => p < 0.5f ? 2f * p * p : -1f + (4f - 2f * p) * p,
+            EaseType.Bounce => EaseOutBounce(p),
+            EaseType.Elastic => p is 0f or 1f ? p : MathF.Pow(2f, -10f * p) * MathF.Sin((p * 10f - 0.75f) * (2f * MathF.PI / 3f)) + 1f,
+            EaseType.Back => 1f + 2.70158f * MathF.Pow(p - 1f, 3f) + 1.70158f * MathF.Pow(p - 1f, 2f),
+            EaseType.Spring => 1f - MathF.Exp(-6f * p) * MathF.Cos(12f * p),
+            EaseType.SineWave => (1f - MathF.Cos(p * MathF.PI)) * 0.5f,
+            EaseType.Cubic => 1f - MathF.Pow(1f - p, 3f),
+            EaseType.Quart => 1f - MathF.Pow(1f - p, 4f),
+            EaseType.Expo => p >= 1f ? 1f : 1f - MathF.Pow(2f, -10f * p),
             _ => p
         };
+    }
+
+    private static float EaseOutBounce(float p)
+    {
+        const float n1 = 7.5625f;
+        const float d1 = 2.75f;
+
+        if (p < 1f / d1) return n1 * p * p;
+        if (p < 2f / d1)
+        {
+            p -= 1.5f / d1;
+            return n1 * p * p + 0.75f;
+        }
+        if (p < 2.5f / d1)
+        {
+            p -= 2.25f / d1;
+            return n1 * p * p + 0.9375f;
+        }
+
+        p -= 2.625f / d1;
+        return n1 * p * p + 0.984375f;
     }
 }

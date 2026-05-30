@@ -1,4 +1,4 @@
-using Raylib_cs;
+using AriaEngine.Platform;
 
 namespace AriaEngine.Core.Commands;
 
@@ -25,7 +25,15 @@ public sealed class SystemCommandHandler : BaseCommandHandler
         OpCode.GalleryInfo,
         OpCode.GetConfig,
         OpCode.SetConfig,
-        OpCode.SaveConfig
+        OpCode.SaveConfig,
+        OpCode.Language,
+        OpCode.GetLanguage,
+        OpCode.LocGet,
+        OpCode.LocFormat,
+        OpCode.LangCount,
+        OpCode.LangAt,
+        OpCode.GetProfile,
+        OpCode.BrowserOpen
     };
 
     public SystemCommandHandler(VirtualMachine vm) : base(vm)
@@ -108,14 +116,74 @@ public sealed class SystemCommandHandler : BaseCommandHandler
                 State.UiRuntime.RequestClose = true;
                 return true;
 
+            case OpCode.Language:
+                if (!ValidateArgs(inst, 1)) return true;
+                {
+                    string language = GetString(inst.Arguments[0]);
+                    Localization.SetLanguage(language);
+                    Config.Config.Language = Localization.CurrentLanguage;
+                    Vm.SyncLocalizationRuntimeState();
+                    Config.Save();
+                    Vm.RequestFontReloadForCurrentLanguage();
+                }
+                return true;
+
+            case OpCode.GetLanguage:
+                if (!ValidateArgs(inst, 1)) return true;
+                SetStr(inst.Arguments[0], Localization.CurrentLanguage);
+                return true;
+
+            case OpCode.LocGet:
+                if (!ValidateArgs(inst, 2)) return true;
+                SetStr(inst.Arguments[0], Localization.Get(GetString(inst.Arguments[1])));
+                return true;
+
+            case OpCode.LocFormat:
+                if (!ValidateArgs(inst, 3)) return true;
+                SetStr(inst.Arguments[0], Localization.Format(
+                    GetString(inst.Arguments[1]).Trim('"'),
+                    inst.Arguments.Skip(2).Select(ResolveFormatArgument).ToArray()));
+                return true;
+
+            case OpCode.LangCount:
+                if (!ValidateArgs(inst, 1)) return true;
+                SetReg(GetString(inst.Arguments[0]), Localization.GetAvailableLanguages().Count);
+                return true;
+
+            case OpCode.LangAt:
+                if (!ValidateArgs(inst, 2)) return true;
+                {
+                    int index = GetVal(inst.Arguments[0]);
+                    var languages = Localization.GetAvailableLanguages();
+                    string language = index >= 0 && index < languages.Count ? languages[index] : "";
+                    SetStr(inst.Arguments[1], language);
+                }
+                return true;
+
+            case OpCode.GetProfile:
+                if (!ValidateArgs(inst, 1)) return true;
+                SetStr(inst.Arguments[0], State.EngineSettings.RuntimeProfile.ToString().ToLowerInvariant());
+                return true;
+
+            case OpCode.BrowserOpen:
+                if (!ValidateArgs(inst, 1)) return true;
+                {
+                    int result = TryOpenBrowser(GetString(inst.Arguments[0]).Trim('"')) ? 1 : 0;
+                    if (inst.Arguments.Count > 1)
+                    {
+                        SetReg(inst.Arguments[1], result);
+                    }
+                }
+                return true;
+
             case OpCode.FontFilter:
                 if (!ValidateArgs(inst, 1)) return true;
                 State.EngineSettings.FontFilter = GetString(inst.Arguments[0]).ToLowerInvariant() switch
                 {
-                    "trilinear" => TextureFilter.Trilinear,
-                    "point" => TextureFilter.Point,
-                    "anisotropic" => TextureFilter.Trilinear,
-                    _ => TextureFilter.Bilinear
+                    "trilinear" => AriaTextureFilter.Trilinear,
+                    "point" => AriaTextureFilter.Point,
+                    "anisotropic" => AriaTextureFilter.Trilinear,
+                    _ => AriaTextureFilter.Bilinear
                 };
                 return true;
 
@@ -445,5 +513,74 @@ public sealed class SystemCommandHandler : BaseCommandHandler
 
         State.Interaction.ButtonResultRegister = "0";
         State.Execution.State = VmState.WaitingForButton;
+    }
+
+    private object ResolveFormatArgument(string token)
+    {
+        string trimmed = token.Trim();
+        if (trimmed.StartsWith("$", StringComparison.Ordinal))
+        {
+            return GetString(trimmed);
+        }
+
+        if (trimmed.StartsWith("%", StringComparison.Ordinal) ||
+            int.TryParse(trimmed, out _))
+        {
+            return GetVal(trimmed);
+        }
+
+        return GetString(trimmed);
+    }
+
+    private bool TryOpenBrowser(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        if (uri.Scheme is not ("https" or "http"))
+        {
+            return false;
+        }
+
+        if (!IsBrowserOpenAllowlisted(uri))
+        {
+            return false;
+        }
+
+        try
+        {
+            return PlatformServices.Browser.OpenExternal(uri);
+        }
+        catch (Exception ex)
+        {
+            Reporter.ReportException(
+                "BROWSER_OPEN",
+                ex,
+                "外部ブラウザを開けませんでした。",
+                AriaErrorLevel.Warning,
+                hint: "URLとOSの既定ブラウザ設定を確認してください。");
+            return false;
+        }
+    }
+
+    private bool IsBrowserOpenAllowlisted(Uri uri)
+    {
+        if (State.EngineSettings.BrowserOpenAllowlist.Count == 0)
+        {
+            return true;
+        }
+
+        string absolute = uri.AbsoluteUri;
+        foreach (string rawEntry in State.EngineSettings.BrowserOpenAllowlist)
+        {
+            string entry = rawEntry.Trim();
+            if (entry.Length == 0) continue;
+            if (absolute.StartsWith(entry, StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(uri.Host, entry, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+
+        return false;
     }
 }

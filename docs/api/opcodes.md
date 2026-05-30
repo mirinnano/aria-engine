@@ -6,9 +6,9 @@
 
 | 項目 | 件数 |
 | --- | ---: |
-| Script-visible canonical commands | 240 |
-| Script-visible token names including aliases | 253 |
-| Registered executable opcodes | 239 |
+| Script-visible canonical commands | 252 |
+| Script-visible token names including aliases | 268 |
+| Registered executable opcodes | 251 |
 | Internal parser opcodes | 3 |
 
 Internal parser opcodes are `Text`, `JumpIfFalse`, and `Let`。`Text` は会話行パーサー、`JumpIfFalse` は制御構文展開、`Let` は `let x = y` 形式の内部表現に使われます。
@@ -24,8 +24,8 @@ Internal parser opcodes are `Text`, `JumpIfFalse`, and `Let`。`Text` は会話�
 
 ## Category Index
 
-### Audio (15)
-`bgmfade` (BgmFade), `bgmvol` (BgmVol), `dwave` (Dwave), `dwaveloop` (DwaveLoop), `dwavestop` (DwaveStop), `mp3fadeout` (Mp3FadeOut), `mp3vol` (Mp3Vol), `play_bgm` (PlayBgm; alias: bgm), `play_mp3` (PlayMp3; alias: mp3loop), `play_se` (PlaySe), `sevol` (SeVol), `stop_bgm` (StopBgm), `voice` (Voice), `voice_stop` (VoiceStop), `voice_wait` (VoiceWait)
+### Audio (18)
+`bgmfade` (BgmFade), `bgmvol` (BgmVol), `dwave` (Dwave), `dwaveloop` (DwaveLoop), `dwavestop` (DwaveStop), `mp3fadeout` (Mp3FadeOut), `mp3vol` (Mp3Vol), `play_bgm` (PlayBgm; alias: bgm), `play_mp3` (PlayMp3; alias: mp3loop), `play_se` (PlaySe), `sevol` (SeVol), `stop_bgm` (StopBgm), `ui_se_cancel` (UiSeCancel), `ui_se_click` (UiSeClick), `ui_se_hover` (UiSeHover), `voice` (Voice), `voice_stop` (VoiceStop), `voice_wait` (VoiceWait)
 
 ### Compatibility (33)
 `bg` (Bg), `change_scene` (ChangeScene), `chapter_card` (ChapterCard), `chapter_desc` (ChapterDesc), `chapter_id` (ChapterId), `chapter_progress` (ChapterProgress), `chapter_script` (ChapterScript), `chapter_scroll` (ChapterScroll), `chapter_select` (ChapterSelect), `chapter_thumbnail` (ChapterThumbnail), `chapter_title` (ChapterTitle), `char_expression` (CharExpression), `char_hide` (CharHide), `char_load` (CharLoad), `char_move` (CharMove), `char_pose` (CharPose), `char_scale` (CharScale), `char_show` (CharShow), `char_z` (CharZ), `clr` (Clr), `compat_mode` (CompatMode), `defchapter` (DefChapter), `effect` (Effect), `endchapter` (EndChapter), `get_scene_data` (GetSceneData), `hide_ch` (HideCh), `load_bg` (LoadBg), `load_ch` (LoadCh), `print` (Print), `return_scene` (ReturnScene), `set_scene_data` (SetSceneData), `show_ch` (ShowCh), `unlock_chapter` (UnlockChapter)
@@ -48,11 +48,11 @@ Internal parser opcodes are `Text`, `JumpIfFalse`, and `Let`。`Text` は会話�
 ### Script (8)
 `defsub` (Defsub), `getparam` (Getparam), `gosub` (Gosub; alias: call), `include` (Include), `numalias` (Alias; alias: alias), `return` (Return; alias: ret), `returnvalue` (ReturnValue), `script` (Script; alias: include)
 
-### System (21)
-`automode_time` (AutoModeTime), `backlog_count` (BacklogCount), `backlog_entry` (BacklogEntry), `caption` (Caption), `cgunlock` (CgUnlock), `debug` (Debug), `end` (End), `end_scope` (ScopeExit), `gallery_count` (GalleryCount), `gallery_entry` (GalleryEntry), `gallery_info` (GalleryInfo), `getconfig` (GetConfig), `mesbox` (MesBox), `saveconfig` (SaveConfig), `scope` (ScopeEnter), `setconfig` (SetConfig), `system_button` (SystemButton), `systemcall` (SystemCall), `window` (Window), `window_title` (WindowTitle), `yesnobox` (YesNoBox)
+### System (29)
+`automode_time` (AutoModeTime), `backlog_count` (BacklogCount), `backlog_entry` (BacklogEntry), `browser_open` (BrowserOpen), `caption` (Caption), `cgunlock` (CgUnlock), `debug` (Debug), `end` (End), `end_scope` (ScopeExit), `gallery_count` (GalleryCount), `gallery_entry` (GalleryEntry), `gallery_info` (GalleryInfo), `getconfig` (GetConfig), `getlanguage` (GetLanguage), `getprofile` (GetProfile; alias: get_profile), `lang_at` (LangAt), `lang_count` (LangCount), `language` (Language; alias: setlanguage), `loc_format` (LocFormat), `loc_get` (LocGet; alias: tr), `mesbox` (MesBox), `saveconfig` (SaveConfig), `scope` (ScopeEnter), `setconfig` (SetConfig), `system_button` (SystemButton), `systemcall` (SystemCall), `window` (Window), `window_title` (WindowTitle), `yesnobox` (YesNoBox)
 
-### Text (32)
-`@` (WaitClick), `\` (WaitClickClear), `backlog` (Backlog), `br` (Br), `choice` (Choice), `choice_style` (ChoiceStyle), `clickcursor` (ClickCursor), `defaultspeed` (DefaultSpeed), `erasetextwindow` (EraseTextWindow), `font` (Font), `font_atlas_size` (FontAtlasSize), `font_filter` (FontFilter), `fontsize` (Fontsize), `kidokumode` (KidokuMode), `lookback_off` (LookbackOff), `lookback_on` (LookbackOn), `setwindow` (SetWindow), `skipmode` (SkipMode), `text_target` (TextTarget), `textbox` (Textbox), `textbox_color` (TextboxColor), `textbox_hide` (TextboxHide), `textbox_show` (TextboxShow), `textbox_style` (TextboxStyle), `textclear` (TextClear), `textcolor` (Textcolor), `textfx` (TextFx), `textmode` (TextMode), `textspeed` (TextSpeed), `ui_motion` (UiMotion), `ui_quality` (UiQuality), `ui_theme` (UiTheme)
+### Text (33)
+`@` (WaitClick), `\` (WaitClickClear), `backlog` (Backlog), `br` (Br), `choice` (Choice), `choice_style` (ChoiceStyle), `clickcursor` (ClickCursor), `defaultspeed` (DefaultSpeed), `erasetextwindow` (EraseTextWindow), `font` (Font), `font_atlas_size` (FontAtlasSize), `font_filter` (FontFilter), `fontsize` (Fontsize), `kidokumode` (KidokuMode), `lookback_off` (LookbackOff), `lookback_on` (LookbackOn), `readid` (ReadId; alias: read_id), `setwindow` (SetWindow), `skipmode` (SkipMode), `text_target` (TextTarget), `textbox` (Textbox), `textbox_color` (TextboxColor), `textbox_hide` (TextboxHide), `textbox_show` (TextboxShow), `textbox_style` (TextboxStyle), `textclear` (TextClear), `textcolor` (Textcolor), `textfx` (TextFx), `textmode` (TextMode), `textspeed` (TextSpeed), `ui_motion` (UiMotion), `ui_quality` (UiQuality), `ui_theme` (UiTheme)
 
 ### Ui (24)
 `ui` (Ui), `ui_anchor` (UiAnchor), `ui_button` (UiButton), `ui_checkbox` (UiCheckbox), `ui_fade` (UiFade), `ui_group` (UiGroup), `ui_group_add` (UiGroupAdd), `ui_group_clear` (UiGroupClear), `ui_group_hide` (UiGroupHide), `ui_group_show` (UiGroupShow), `ui_hotkey` (UiHotkey), `ui_image` (UiImage), `ui_layout` (UiLayout), `ui_move` (UiMove), `ui_on` (UiOn), `ui_pack` (UiPack), `ui_rect` (UiRect), `ui_scale` (UiScale), `ui_slider` (UiSlider), `ui_state` (UiState), `ui_state_style` (UiStateStyle), `ui_style` (UiStyle), `ui_text` (UiText), `ui_tween` (UiTween)

@@ -3,6 +3,7 @@ using System.IO;
 using System;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AriaEngine.Core;
 
@@ -117,28 +118,28 @@ public class ErrorReporter
 
     private void WriteJsonLog(string path)
     {
-        var payload = new
+        var payload = new ErrorLogPayload
         {
-            time = DateTimeOffset.Now,
-            os = Environment.OSVersion.ToString(),
-            dotnet = Environment.Version.ToString(),
-            workingDirectory = Environment.CurrentDirectory,
-            droppedCount = _droppedCount,
-            errors = _errors.Select(e => new
+            Time = DateTimeOffset.Now,
+            Os = Environment.OSVersion.ToString(),
+            Dotnet = Environment.Version.ToString(),
+            WorkingDirectory = Environment.CurrentDirectory,
+            DroppedCount = _droppedCount,
+            Errors = _errors.Select(e => new ErrorLogEntry
             {
-                e.Level,
-                e.Code,
-                e.Message,
-                e.ScriptFile,
-                e.LineNumber,
-                e.Hint,
-                e.ExceptionType,
-                e.Details,
-                e.Timestamp
-            })
+                Level = e.Level,
+                Code = e.Code,
+                Message = e.Message,
+                ScriptFile = e.ScriptFile,
+                LineNumber = e.LineNumber,
+                Hint = e.Hint,
+                ExceptionType = e.ExceptionType,
+                Details = e.Details,
+                Timestamp = e.Timestamp
+            }).ToList()
         };
 
-        File.WriteAllText(path, JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(path, JsonSerializer.Serialize(payload, AriaCoreIndentedJsonContext.Default.ErrorLogPayload));
     }
 
     public void Clear()
@@ -147,4 +148,33 @@ public class ErrorReporter
         _dedupe.Clear();
         _droppedCount = 0;
     }
+}
+
+internal sealed class ErrorLogPayload
+{
+    [JsonPropertyName("time")]
+    public DateTimeOffset Time { get; set; }
+    [JsonPropertyName("os")]
+    public string Os { get; set; } = "";
+    [JsonPropertyName("dotnet")]
+    public string Dotnet { get; set; } = "";
+    [JsonPropertyName("workingDirectory")]
+    public string WorkingDirectory { get; set; } = "";
+    [JsonPropertyName("droppedCount")]
+    public int DroppedCount { get; set; }
+    [JsonPropertyName("errors")]
+    public List<ErrorLogEntry> Errors { get; set; } = new();
+}
+
+internal sealed class ErrorLogEntry
+{
+    public AriaErrorLevel Level { get; set; }
+    public string Code { get; set; } = "";
+    public string Message { get; set; } = "";
+    public string ScriptFile { get; set; } = "";
+    public int LineNumber { get; set; }
+    public string Hint { get; set; } = "";
+    public string ExceptionType { get; set; } = "";
+    public string Details { get; set; } = "";
+    public DateTime Timestamp { get; set; }
 }

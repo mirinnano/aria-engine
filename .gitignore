@@ -154,6 +154,8 @@ saves/
 src/AriaEngine/aria_error.log
 src/AriaEngine/aria_error_ai.*
 *.png
+!src/AriaEngine.Web/wwwroot/favicon.png
+!src/AriaEngine.Web/wwwroot/icon-192.png
 !src/AriaEngine/assets/bg/ui_title_menu_ocean.png
 !src/AriaEngine/assets/bg/ui_save_load_ocean.png
 !src/AriaEngine/assets/bg/ui_chapter_select_ocean.png

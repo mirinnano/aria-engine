@@ -18,6 +18,7 @@ public abstract class BaseCommandHandler : ICommandHandler
     protected ConfigManager Config => Vm.Config;
     protected TweenManager Tweens => Vm.Tweens;
     protected ErrorReporter Reporter => Vm.Reporter;
+    protected LocalizationManager Localization => Vm.Localization;
     protected string CurrentScriptFile => Vm.CurrentScriptFile;
     protected bool ValidateArgs(Instruction inst, int minArgs) => Vm.ValidateArgs(inst, minArgs);
     protected bool EvaluateCondition(Condition condition) => Vm.EvaluateCondition(condition);

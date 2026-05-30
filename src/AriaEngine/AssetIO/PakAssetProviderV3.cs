@@ -123,15 +123,19 @@ public sealed class PakAssetProviderV3 : IAssetProvider, IDisposable
 
     public string ReadAllText(string path)
     {
-        byte[] bytes = ReadAllBytesInternal(path);
+        byte[] bytes = ReadAllBytes(path);
         return Encoding.UTF8.GetString(bytes);
     }
 
+    public byte[] ReadAllBytes(string path) => ReadAllBytesInternal(path);
+
     public Stream OpenRead(string path)
     {
-        byte[] bytes = ReadAllBytesInternal(path);
+        byte[] bytes = ReadAllBytes(path);
         return new MemoryStream(bytes, writable: false);
     }
+
+    public bool CanMaterializeToFile => true;
 
     public string MaterializeToFile(string path)
     {

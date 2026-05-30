@@ -20,11 +20,82 @@ permissions:
   contents: write
 
 jobs:
+  profile-gates:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [Debug, Demo, Release]
+    env:
+      DOTNET_NOLOGO: true
+      ProgramData: C:\ProgramData
+      ALLUSERSPROFILE: C:\ProgramData
+      ProgramFiles: C:\Program Files
+      ProgramFiles(x86): C:\Program Files (x86)
+      CommonProgramFiles: C:\Program Files\Common Files
+      CommonProgramFiles(x86): C:\Program Files (x86)\Common Files
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore src/AriaEngine/AriaEngine.csproj /p:NuGetAudit=false
+
+      - name: Run profile tests
+        shell: pwsh
+        run: >
+          dotnet test src/AriaEngine.Tests/AriaEngine.Tests.csproj
+          --no-restore
+          --filter "FullyQualifiedName~RuntimeProfileTests|FullyQualifiedName~DemoFlowScriptTests|FullyQualifiedName~CommandTests"
+          /p:NuGetAudit=false
+
+      - name: Run localization gate
+        shell: pwsh
+        run: >
+          dotnet run --project src/AriaEngine/AriaEngine.csproj --
+          aria-i18n-check
+          --root src/AriaEngine
+          --scripts assets/scripts
+          --code Core
+          --code UI
+
+      - name: Package profile artifact
+        shell: pwsh
+        run: >
+          ./scripts/package.ps1
+          -Project src/AriaEngine/AriaEngine.csproj
+          -Version profile-${{ matrix.profile }}-${{ github.run_number }}
+          -Runtime win-x64
+          -Profile ${{ matrix.profile }}
+          -SkipRestore
+          -NoZip
+
+      - name: Verify profile runtime args
+        shell: pwsh
+        run: |
+          $manifest = Get-ChildItem artifacts/release -Recurse -File -Filter manifest.json |
+            Where-Object { $_.FullName -like "*profile-${{ matrix.profile }}-${{ github.run_number }}*" } |
+            Select-Object -First 1
+          if (-not $manifest) { throw "profile manifest was not created" }
+          $json = Get-Content -Raw -LiteralPath $manifest.FullName | ConvertFrom-Json
+          if ($json.profile -ne "${{ matrix.profile }}".ToLowerInvariant()) { throw "profile mismatch in manifest" }
+          if (($json.productionRunArgs -join " ") -notmatch "--profile") { throw "productionRunArgs missing --profile" }
+
   build-and-package:
     runs-on: windows-latest
     env:
       DOTNET_NOLOGO: true
       ARIA_PACK_KEY: ${{ secrets.ARIA_PACK_KEY }}
+      WINDOWS_CODESIGN_PFX_BASE64: ${{ secrets.WINDOWS_CODESIGN_PFX_BASE64 }}
+      WINDOWS_CODESIGN_PFX_PASSWORD: ${{ secrets.WINDOWS_CODESIGN_PFX_PASSWORD }}
+      ARIA_SIGN_TIMESTAMP_URL: ${{ vars.ARIA_SIGN_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
       ProgramData: C:\ProgramData
       ALLUSERSPROFILE: C:\ProgramData
       ProgramFiles: C:\Program Files
@@ -73,35 +144,119 @@ jobs:
             ./scripts/cicd.ps1 -Project src/AriaEngine/AriaEngine.csproj -OutDir artifacts/publish -InitScript init.aria -MainScript assets/scripts/main.aria -SkipPackage
           }
 
-      - name: Build release package
-        shell: pwsh
-        run: |
-          $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "run-${{ github.run_number }}" }
-          $notes = "docs/release/release-notes-$version.md"
-          if (-not (Test-Path $notes)) { $notes = "docs/release/release-notes-template.md" }
-          ./scripts/release.ps1 -Version $version -Runtime win-x64 -ReleaseNotes $notes -Sign
-          New-Item -ItemType Directory -Force -Path artifacts/dist | Out-Null
-          Copy-Item "artifacts/release/AriaEngine-$version-win-x64/dist/AriaEngine-$version-win-x64.zip" artifacts/dist/ -Force
-
       - name: Setup NSIS
         shell: pwsh
         run: |
           choco install nsis -y --no-progress
           "${env:ProgramFiles(x86)}\NSIS" >> $env:GITHUB_PATH
 
+      - name: Build release package
+        shell: pwsh
+        run: |
+          $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "run-${{ github.run_number }}" }
+          $isReleaseBuild = ("${{ github.ref_type }}" -eq "tag") -or ("${{ inputs.create_release }}" -eq "true")
+          $notes = "docs/release/release-notes-$version.md"
+          if (-not (Test-Path $notes)) { $notes = "docs/release/release-notes-template.md" }
+          $releaseArgs = @("-Version", $version, "-Runtime", "win-x64", "-ReleaseNotes", $notes, "-SkipInstaller")
+          if ($isReleaseBuild) { $releaseArgs += "-Sign" }
+          ./scripts/release.ps1 @releaseArgs
+          New-Item -ItemType Directory -Force -Path artifacts/dist | Out-Null
+          Copy-Item "artifacts/release/AriaEngine-$version-win-x64/dist/AriaEngine-$version-win-x64.zip" artifacts/dist/ -Force
+
+      - name: Verify signed release package
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.create_release
+        shell: pwsh
+        run: |
+          $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "run-${{ github.run_number }}" }
+          ./scripts/verify-signing.ps1 -Path "artifacts/release/AriaEngine-$version-win-x64/app" -OutputPath "artifacts/dist/signature-audit-release.json" -RequireSigned
+
+      - name: Build NativeAOT readiness package
+        shell: pwsh
+        run: |
+          $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "run-${{ github.run_number }}" }
+          $nativeAotArgs = @{
+            Project = "src/AriaEngine/AriaEngine.csproj"
+            Version = $version
+            Runtime = "win-x64"
+            OutputRoot = "artifacts/nativeaot"
+            PublishFlavor = "win-x64-aot-experimental"
+            SelfContained = $true
+            SingleFile = $true
+            PublishTrimmed = $true
+            PublishAot = $true
+            NoZip = $true
+          }
+          ./scripts/package.ps1 @nativeAotArgs
+
+      - name: Package Web/PWA readiness package
+        shell: pwsh
+        run: |
+          $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "run-${{ github.run_number }}" }
+          ./scripts/package-web.ps1 -Version $version -OutputRoot artifacts/web
+
+      - name: Run Web/PWA readiness QA
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "run-${{ github.run_number }}" }
+          ./scripts/web-device-qa.ps1 -WebPackageDir "artifacts/web/AriaEngine-$version-web" -OutputDir artifacts/release/readiness -NativeCaptureDir artifacts/visual/native -WebCaptureDir artifacts/visual/web -AllowMissingCaptures -InstallBrowsers
+
       - name: Create installer zip
         shell: pwsh
         run: |
           $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "run-${{ github.run_number }}" }
-          ./scripts/installer.ps1 -PackageDir "artifacts/release/AriaEngine-$version-win-x64/app" -OutputDir artifacts/installer -Version $version -Runtime win-x64 -Sign
-          Move-Item -Path "artifacts/installer/AriaEngine-$version-win-x64-installer.zip" -Destination "artifacts/dist/" -Force
+          $isReleaseBuild = ("${{ github.ref_type }}" -eq "tag") -or ("${{ inputs.create_release }}" -eq "true")
+          $installerArgs = @("-PackageDir", "artifacts/release/AriaEngine-$version-win-x64/app", "-OutputDir", "artifacts/installer", "-Version", $version, "-Runtime", "win-x64")
+          if ($isReleaseBuild) { $installerArgs += "-Sign" }
+          ./scripts/installer.ps1 @installerArgs
+          $installerZip = Get-ChildItem artifacts/installer -Recurse -File -Filter "*-installer.zip" | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          if (-not $installerZip) { throw "Installer zip was not created." }
+          Move-Item -Path $installerZip.FullName -Destination "artifacts/dist/" -Force
+
+      - name: Verify signed installer
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.create_release
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem artifacts/installer -Recurse -File -Filter "*-setup.exe" | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          if (-not $setup) { throw "Installer setup executable was not created." }
+          ./scripts/verify-signing.ps1 -Path $setup.FullName -OutputPath "artifacts/dist/signature-audit-installer.json" -RequireSigned
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: aria-win-x64
-          path: artifacts/dist/*.zip
+          path: |
+            artifacts/dist/*.zip
+            artifacts/dist/*signature-audit*.json
+            artifacts/web/dist/*.zip
           if-no-files-found: error
+
+      - name: Prepare release readiness report
+        if: always()
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "run-${{ github.run_number }}" }
+          New-Item -ItemType Directory -Force -Path artifacts/release/readiness | Out-Null
+          $readinessArgs = @{
+            ReleasePackageDir = "artifacts/release/AriaEngine-$version-win-x64/app"
+            NativePackageDir = "artifacts/nativeaot/AriaEngine-$version-win-x64/app"
+            WebPackageDir = "artifacts/web/AriaEngine-$version-web"
+            WebDeviceQaManifest = "artifacts/release/readiness/web-device-qa-manifest.json"
+            WebVisualCompareManifest = "artifacts/release/readiness/web-native-visual-compare.json"
+            SignatureAudit = "artifacts/release/readiness/signature-audit-release.json"
+            OutputPath = "artifacts/release/readiness/release-readiness-audit.json"
+            ReportPath = "artifacts/release/readiness/release-readiness-report.md"
+          }
+          ./scripts/prepare-release-evidence.ps1 @readinessArgs
+
+      - name: Upload release readiness report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-readiness-report
+          path: artifacts/release/readiness/**
+          if-no-files-found: warn
 
       - name: Resolve release metadata
         id: release
@@ -124,5 +279,7 @@ jobs:
         with:
           tag_name: ${{ steps.release.outputs.tag }}
           name: ${{ steps.release.outputs.name }}
-          files: artifacts/dist/*.zip
+          files: |
+            artifacts/dist/*.zip
+            artifacts/web/dist/*.zip
           fail_on_unmatched_files: true

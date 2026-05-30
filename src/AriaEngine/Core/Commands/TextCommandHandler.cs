@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using AriaEngine.Platform;
 using AriaEngine.Text;
 
 namespace AriaEngine.Core.Commands;
@@ -31,7 +32,8 @@ public sealed class TextCommandHandler : BaseCommandHandler
         OpCode.WaitClickClear,
         OpCode.Text,
         OpCode.Wait,
-        OpCode.Choice
+        OpCode.Choice,
+        OpCode.ReadId
     };
 
     public TextCommandHandler(VirtualMachine vm) : base(vm)
@@ -42,6 +44,11 @@ public sealed class TextCommandHandler : BaseCommandHandler
     {
         switch (inst.Op)
         {
+            case OpCode.ReadId:
+                if (!ValidateArgs(inst, 1)) return true;
+                State.TextRuntime.NextReadId = GetString(inst.Arguments[0]);
+                return true;
+
             case OpCode.Textbox:
             case OpCode.SetWindow:
                 if (!ValidateArgs(inst, 4)) return true;
@@ -255,7 +262,7 @@ public sealed class TextCommandHandler : BaseCommandHandler
         var segments = _textEffectParser.Parse(State.TextRuntime.CurrentTextBuffer);
         
         // フェードエフェクトの開始時刻を設定
-        float now = (float)Raylib_cs.Raylib.GetTime() * 1000f;
+        float now = PlatformServices.Clock.NowMilliseconds;
         foreach (var seg in segments)
         {
             if (seg.Style.FadeDuration.HasValue && seg.Style.FadeDuration.Value > 0)
@@ -498,7 +505,7 @@ public sealed class TextCommandHandler : BaseCommandHandler
             State.UiQuality.HighQualityTextures = true;
             State.UiQuality.RoundedRectSegments = 96;
             State.UiQuality.MotionResponse = 16f;
-            State.EngineSettings.FontFilter = Raylib_cs.TextureFilter.Trilinear;
+            State.EngineSettings.FontFilter = AriaTextureFilter.Trilinear;
             return;
         }
 
@@ -510,7 +517,7 @@ public sealed class TextCommandHandler : BaseCommandHandler
             State.UiQuality.HighQualityTextures = true;
             State.UiQuality.RoundedRectSegments = 48;
             State.UiQuality.MotionResponse = 12f;
-            State.EngineSettings.FontFilter = Raylib_cs.TextureFilter.Bilinear;
+            State.EngineSettings.FontFilter = AriaTextureFilter.Bilinear;
             return;
         }
 
@@ -521,7 +528,7 @@ public sealed class TextCommandHandler : BaseCommandHandler
             State.UiQuality.HighQualityTextures = false;
             State.UiQuality.RoundedRectSegments = 24;
             State.UiQuality.MotionResponse = 40f;
-            State.EngineSettings.FontFilter = Raylib_cs.TextureFilter.Bilinear;
+            State.EngineSettings.FontFilter = AriaTextureFilter.Bilinear;
             return;
         }
 
@@ -531,7 +538,7 @@ public sealed class TextCommandHandler : BaseCommandHandler
         State.UiQuality.HighQualityTextures = true;
         State.UiQuality.RoundedRectSegments = 64;
         State.UiQuality.MotionResponse = 14f;
-        State.EngineSettings.FontFilter = Raylib_cs.TextureFilter.Bilinear;
+        State.EngineSettings.FontFilter = AriaTextureFilter.Bilinear;
     }
 
     private void ApplyUiMotion(Instruction inst)

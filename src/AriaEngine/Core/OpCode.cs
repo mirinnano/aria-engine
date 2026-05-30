@@ -68,7 +68,7 @@ public enum OpCode
     UiCheckbox,
 
     // オーディオ
-    PlayBgm, StopBgm, PlaySe, PlayMp3, FadeIn, FadeOut,
+    PlayBgm, StopBgm, PlaySe, PlayMp3, UiSeHover, UiSeClick, UiSeCancel, FadeIn, FadeOut,
     BgmVol, SeVol, Mp3Vol, BgmFade, Mp3FadeOut, Dwave, DwaveLoop, DwaveStop,
 
     // Init用
@@ -93,8 +93,9 @@ public enum OpCode
     // チャプターデータ定義（スクリプト主導）
     DefChapter, ChapterId, ChapterTitle, ChapterDesc, ChapterScript, EndChapter,
 
-    // フォント設定
-    FontFilter,
+    // フォント・多言語設定
+    FontFilter, Language, GetLanguage, LocGet, LocFormat, LangCount, LangAt, ReadId,
+    GetProfile, BrowserOpen,
     // Scope control (explicit scope blocks)
     ScopeEnter, ScopeExit
 }

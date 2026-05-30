@@ -32,6 +32,33 @@ public class BacklogTests
     }
 
     [Fact]
+    public void BacklogEntry_RecordsLanguageAndStableReadId()
+    {
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        var result = new ParseResult
+        {
+            Instructions = new List<Instruction>
+            {
+                new() { Op = OpCode.ReadId, Arguments = new List<string> { "intro.opening.001" }, SourceLine = 1 },
+                new() { Op = OpCode.Text, Arguments = new List<string> { "Displayed text" }, SourceLine = 2 },
+                new() { Op = OpCode.Wait, Arguments = new List<string>(), SourceLine = 3 }
+            }
+        };
+
+        vm.State.Localization.CurrentLanguage = "en-US";
+        vm.LoadScript(result, "scene.aria");
+        vm.Step();
+
+        vm.State.TextRuntime.TextHistory.Should().ContainSingle();
+        var entry = vm.State.TextRuntime.TextHistory[0];
+        entry.Text.Should().Be("Displayed text");
+        entry.Language.Should().Be("en-US");
+        entry.TextKey.Should().Be("readid:intro.opening.001");
+        entry.StableReadId.Should().Be("intro.opening.001");
+    }
+
+    [Fact]
     public void BacklogEntry_VoicePathClearedAfterEntry()
     {
         var reporter = new ErrorReporter();

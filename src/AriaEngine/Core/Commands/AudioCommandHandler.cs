@@ -7,6 +7,9 @@ public sealed class AudioCommandHandler : BaseCommandHandler
         OpCode.PlayBgm,
         OpCode.StopBgm,
         OpCode.PlaySe,
+        OpCode.UiSeHover,
+        OpCode.UiSeClick,
+        OpCode.UiSeCancel,
         OpCode.PlayMp3,
         OpCode.Dwave,
         OpCode.DwaveLoop,
@@ -45,6 +48,21 @@ public sealed class AudioCommandHandler : BaseCommandHandler
             case OpCode.PlaySe:
                 if (!ValidateArgs(inst, 1)) return true;
                 QueueSound(inst.Arguments.Count > 1 ? GetString(inst.Arguments[1]) : GetString(inst.Arguments[0]));
+                return true;
+
+            case OpCode.UiSeHover:
+                if (!ValidateArgs(inst, 1)) return true;
+                State.Audio.UiSeHoverPath = GetString(inst.Arguments[0]);
+                return true;
+
+            case OpCode.UiSeClick:
+                if (!ValidateArgs(inst, 1)) return true;
+                State.Audio.UiSeClickPath = GetString(inst.Arguments[0]);
+                return true;
+
+            case OpCode.UiSeCancel:
+                if (!ValidateArgs(inst, 1)) return true;
+                State.Audio.UiSeCancelPath = GetString(inst.Arguments[0]);
                 return true;
 
             case OpCode.Dwave:

@@ -909,7 +909,16 @@ public static class AriaLintCommand
             case OpCode.BacklogCount:
             case OpCode.GalleryCount:
             case OpCode.GetConfig:
+            case OpCode.GetLanguage:
+            case OpCode.LocGet:
+            case OpCode.LocFormat:
+            case OpCode.LangCount:
+            case OpCode.GetProfile:
                 yield return 0;
+                break;
+
+            case OpCode.LangAt:
+                yield return 1;
                 break;
 
             case OpCode.Getparam:

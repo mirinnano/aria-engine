@@ -212,6 +212,9 @@ public static class CommandRegistry
         Register(CommandCategory.Audio, OpCode.PlayBgm, "play_bgm", "bgm");
         Register(CommandCategory.Audio, OpCode.StopBgm, "stop_bgm");
         Register(CommandCategory.Audio, OpCode.PlaySe, "play_se");
+        Register(CommandCategory.Audio, OpCode.UiSeHover, "ui_se_hover");
+        Register(CommandCategory.Audio, OpCode.UiSeClick, "ui_se_click");
+        Register(CommandCategory.Audio, OpCode.UiSeCancel, "ui_se_cancel");
         Register(CommandCategory.Audio, OpCode.PlayMp3, "play_mp3", "mp3loop");
         Register(CommandCategory.Render, OpCode.FadeIn, "fade_in");
         Register(CommandCategory.Render, OpCode.FadeOut, "fade_out");
@@ -289,6 +292,15 @@ public static class CommandRegistry
         Register(CommandCategory.System, OpCode.GetConfig, "getconfig");
         Register(CommandCategory.System, OpCode.SetConfig, "setconfig");
         Register(CommandCategory.System, OpCode.SaveConfig, "saveconfig");
+        Register(CommandCategory.System, OpCode.Language, "language", "setlanguage");
+        Register(CommandCategory.System, OpCode.GetLanguage, "getlanguage");
+        Register(CommandCategory.System, OpCode.LocGet, "loc_get", "tr");
+        Register(CommandCategory.System, OpCode.LocFormat, "loc_format");
+        Register(CommandCategory.System, OpCode.LangCount, "lang_count");
+        Register(CommandCategory.System, OpCode.LangAt, "lang_at");
+        Register(CommandCategory.System, OpCode.GetProfile, "getprofile", "get_profile");
+        Register(CommandCategory.System, OpCode.BrowserOpen, "browser_open");
+        Register(CommandCategory.Text, OpCode.ReadId, "readid", "read_id");
     }
 
     public static IReadOnlyDictionary<string, CommandInfo> All => Commands;
@@ -368,7 +380,7 @@ public static class CommandRegistry
             OpCode.SystemCall => 1,
             OpCode.YesNoBox => 3,
             OpCode.Save or OpCode.Load => 1,
-            OpCode.PlayBgm or OpCode.PlaySe or OpCode.Dwave => 1,
+            OpCode.PlayBgm or OpCode.PlaySe or OpCode.UiSeHover or OpCode.UiSeClick or OpCode.UiSeCancel or OpCode.Dwave => 1,
             OpCode.BgmVol or OpCode.SeVol => 1,
             OpCode.SystemButton => 2,
             OpCode.Rnd => 3,
@@ -425,6 +437,15 @@ public static class CommandRegistry
             OpCode.Voice => 1,
             OpCode.VoiceWait or OpCode.VoiceStop => 0,
             OpCode.SpCursor => 2,
+            OpCode.Language => 1,
+            OpCode.GetLanguage => 1,
+            OpCode.LocGet => 2,
+            OpCode.LocFormat => 3,
+            OpCode.LangCount => 1,
+            OpCode.LangAt => 2,
+            OpCode.ReadId => 1,
+            OpCode.GetProfile => 1,
+            OpCode.BrowserOpen => 1,
             _ => 0
         };
     }

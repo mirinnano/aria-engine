@@ -68,12 +68,20 @@ public sealed class TweenCommandHandler : BaseCommandHandler
 
             case OpCode.Ease:
                 if (!ValidateArgs(inst, 1)) return true;
-                string easeName = GetString(inst.Arguments[0]).ToLowerInvariant();
+                string easeName = GetString(inst.Arguments[0]).Trim('"').ToLowerInvariant();
                 Tweens.CurrentEaseType = easeName switch
                 {
-                    "easein" => EaseType.EaseIn,
-                    "easeout" => EaseType.EaseOut,
-                    "easeinout" => EaseType.EaseInOut,
+                    "in" or "easein" => EaseType.EaseIn,
+                    "out" or "easeout" => EaseType.EaseOut,
+                    "inout" or "easeinout" => EaseType.EaseInOut,
+                    "bounce" => EaseType.Bounce,
+                    "elastic" => EaseType.Elastic,
+                    "back" => EaseType.Back,
+                    "spring" => EaseType.Spring,
+                    "sine" or "sinewave" => EaseType.SineWave,
+                    "cubic" => EaseType.Cubic,
+                    "quart" => EaseType.Quart,
+                    "expo" => EaseType.Expo,
                     _ => EaseType.Linear
                 };
                 return true;

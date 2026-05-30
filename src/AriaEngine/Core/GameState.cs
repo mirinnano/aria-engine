@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -153,6 +153,9 @@ public sealed class AudioState
     public List<string> PendingSe { get; set; } = new();
     public int BgmVolume { get; set; } = 100;
     public int SeVolume { get; set; } = 100;
+    public string UiSeHoverPath { get; set; } = "";
+    public string UiSeClickPath { get; set; } = "";
+    public string UiSeCancelPath { get; set; } = "";
     public float BgmFadeOutDurationMs { get; set; }
     public float BgmFadeOutTimerMs { get; set; }
     public string LastVoicePath { get; set; } = "";
@@ -217,6 +220,9 @@ public sealed class BacklogStateSnapshot
     public string CurrentBgm { get; set; } = "";
     public int BgmVolume { get; set; } = 100;
     public int SeVolume { get; set; } = 100;
+    public string UiSeHoverPath { get; set; } = "";
+    public string UiSeClickPath { get; set; } = "";
+    public string UiSeCancelPath { get; set; } = "";
 }
 
 /// <summary>
@@ -293,6 +299,7 @@ public sealed class TextRuntimeState
     public string CurrentTextBuffer { get; set; } = "";
     public List<TextSegment>? CurrentTextSegments { get; set; }
     public int DisplayedTextLength { get; set; }
+    public string NextReadId { get; set; } = "";
     public string TextAdvanceMode { get; set; } = "complete";
     public float TextAdvanceRatio { get; set; } = 1.0f;
     public float TextTimerMs { get; set; }
@@ -350,7 +357,8 @@ public sealed class MenuRuntimeState
     public int RightMenuWidth { get; set; } = 360;
     public string RightMenuAlign { get; set; } = "center";
     public int SaveLoadColumns { get; set; } = 2;
-    public int SaveLoadWidth { get; set; } = 760;
+    public int SaveLoadWidth { get; set; } = 1100;
+    public int SaveLoadPage { get; set; } = 0;
     public int BacklogWidth { get; set; } = 860;
     public int SettingsWidth { get; set; } = 520;
     public string MenuFillColor { get; set; } = UIThemeDefaults.MenuFillColor;
@@ -395,7 +403,9 @@ public sealed class EngineSettingsState
     public string MainScript { get; set; } = "assets/scripts/main.aria";
     public bool DebugMode { get; set; }
     public bool ProductionMode { get; set; }
-    public TextureFilter FontFilter { get; set; } = TextureFilter.Bilinear;
+    public RuntimeProfile RuntimeProfile { get; set; } = RuntimeProfile.Debug;
+    public List<string> BrowserOpenAllowlist { get; set; } = new();
+    public AriaEngine.Platform.AriaTextureFilter FontFilter { get; set; } = AriaEngine.Platform.AriaTextureFilter.Bilinear;
 }
 
 public sealed class UiQualityState
@@ -458,6 +468,7 @@ public class GameState
     public UiRuntimeState UiRuntime { get; set; } = new();
     public UiCompositionState UiComposition { get; set; } = new();
     public EngineSettingsState EngineSettings { get; set; } = new();
+    public LocalizationRuntimeState Localization { get; set; } = new();
     public UiQualityState UiQuality { get; set; } = new();
     public SceneRuntimeState SceneRuntime { get; set; } = new();
     public SaveRuntimeState SaveRuntime { get; set; } = new();
@@ -508,4 +519,13 @@ public class GameState
     // T13: Owned sprite/resource declarations
     // Variables declared with `owned sprite %id` are auto-cleaned up when their scope exits
     public HashSet<string> OwnedSprites { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public enum RuntimeProfile { Debug, Demo, Release }
+public enum UiSeType { Hover, Click, Cancel }
+public sealed class LocalizationRuntimeState
+{
+    public string CurrentLanguage { get; set; } = "ja-JP";
+    public string FallbackLanguage { get; set; } = "ja-JP";
+    public List<string> AvailableLanguages { get; set; } = new();
 }

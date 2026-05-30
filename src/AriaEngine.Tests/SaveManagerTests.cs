@@ -10,6 +10,7 @@ using AriaEngine.Core;
 using AriaEngine.Rendering;
 using AriaEngine.Scripting;
 using AriaEngine.Assets;
+using AriaEngine.Web.Storage;
 
 namespace AriaEngine.Tests;
 
@@ -50,6 +51,66 @@ public sealed class SaveManagerTests : IDisposable
     }
 
     [Fact]
+    public void PortableJsonSaveMode_WritesJsonToAriaSavePathAndLoadsIt()
+    {
+        var reporter = new ErrorReporter();
+        var saves = new SaveManager(reporter, "portable-saves", usePortableJsonSaves: true);
+        var state = CreateState();
+        state.Execution.ProgramCounter = 61;
+        state.TextRuntime.CurrentTextBuffer = "portable save";
+        state.Localization.CurrentLanguage = "zh-TW";
+
+        saves.Save(1, state, "portable.aria");
+
+        string path = Path.Combine("portable-saves", "slot_01.ariasav");
+        File.Exists(path).Should().BeTrue();
+        File.ReadAllBytes(path)[0].Should().Be((byte)'{');
+
+        var (data, success) = saves.Load(1);
+        success.Should().BeTrue();
+        data.Should().NotBeNull();
+        data!.ScriptFile.Should().Be("portable.aria");
+        data.State.Execution.ProgramCounter.Should().Be(61);
+        data.Language.Should().Be("zh-TW");
+    }
+
+    [Fact]
+    public void BrowserStorageContracts_RouteSavesSettingsLargeFilesAndBackupsToExpectedWebStores()
+    {
+        BrowserStorageOperation save = IndexedDbSaveStore.WriteSave(slot: 5, json: """{"slot":5}""");
+        BrowserStorageOperation settings = IndexedDbSaveStore.WriteSetting("config", """{"volume":80}""");
+        BrowserStorageOperation asset = OpfsAssetStore.WriteFile("bg/opening.png", new byte[] { 1, 2, 3, 4 });
+        BrowserStorageOperation export = SaveExportImport.CreateExport("slot_05.ariasav", """{"slot":5}""");
+        BrowserStorageOperation import = SaveExportImport.CreateImportRequest(".ariasav");
+
+        save.Area.Should().Be(BrowserStorageArea.IndexedDb);
+        save.Kind.Should().Be(BrowserStorageOperationKind.Write);
+        save.DatabaseName.Should().Be("aria-engine");
+        save.StoreName.Should().Be("saves");
+        save.Key.Should().Be("save:005");
+        save.Payload.Should().Be("""{"slot":5}""");
+
+        settings.Area.Should().Be(BrowserStorageArea.IndexedDb);
+        settings.StoreName.Should().Be("settings");
+        settings.Key.Should().Be("settings:config");
+
+        asset.Area.Should().Be(BrowserStorageArea.Opfs);
+        asset.StoreName.Should().Be("assets");
+        asset.Key.Should().Be("assets/bg/opening.png");
+        asset.ContentLength.Should().Be(4);
+
+        export.Area.Should().Be(BrowserStorageArea.Download);
+        export.Kind.Should().Be(BrowserStorageOperationKind.Export);
+        export.Key.Should().Be("slot_05.ariasav");
+        export.Payload.Should().Be("""{"slot":5}""");
+        export.MimeType.Should().Be("application/vnd.aria.save+json");
+
+        import.Area.Should().Be(BrowserStorageArea.FilePicker);
+        import.Kind.Should().Be(BrowserStorageOperationKind.Import);
+        import.Key.Should().Be(".ariasav");
+    }
+
+    [Fact]
     public void Load_ExistingSave_RestoresRuntimeAndMetadata()
     {
         var state = CreateState();
@@ -77,6 +138,21 @@ public sealed class SaveManagerTests : IDisposable
         data.State.RegisterState.Registers.Should().NotContainKey("volatile.temp");
         data.State.RegisterState.StringRegisters["$name"].Should().Be("Player");
         data.State.FlagRuntime.SaveFlags["route_a"].Should().BeTrue();
+    }
+
+    [Fact]
+    public void SaveFile_RecordsLanguage()
+    {
+        var state = CreateState();
+        state.Localization.CurrentLanguage = "en-US";
+
+        _saveManager.Save(9, state, "language.aria");
+        var (data, success) = _saveManager.Load(9);
+
+        success.Should().BeTrue();
+        data.Should().NotBeNull();
+        data!.Language.Should().Be("en-US");
+        data.State.Localization.CurrentLanguage.Should().Be("en-US");
     }
 
     [Fact]

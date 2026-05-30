@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 
 namespace AriaEngine.Assets;
 
@@ -16,11 +17,15 @@ public sealed class DiskAssetProvider : IAssetProvider
 
     public bool Exists(string path) => TryResolveExisting(path, out _);
 
-    public string[] ReadAllLines(string path) => File.ReadAllLines(ResolveRequired(path));
+    public string[] ReadAllLines(string path) => File.ReadAllLines(ResolveRequired(path), Encoding.UTF8);
 
-    public string ReadAllText(string path) => File.ReadAllText(ResolveRequired(path));
+    public string ReadAllText(string path) => File.ReadAllText(ResolveRequired(path), Encoding.UTF8);
+
+    public byte[] ReadAllBytes(string path) => File.ReadAllBytes(ResolveRequired(path));
 
     public Stream OpenRead(string path) => File.OpenRead(ResolveRequired(path));
+
+    public bool CanMaterializeToFile => true;
 
     public string MaterializeToFile(string path) => ResolveRequired(path);
 

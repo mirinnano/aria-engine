@@ -47,7 +47,7 @@ public class ChapterManager
         try
         {
             string json = File.ReadAllText(_dataPath);
-            var data = JsonSerializer.Deserialize<ChapterData>(json);
+            var data = JsonSerializer.Deserialize(json, AriaCoreJsonContext.Default.ChapterData);
             if (data != null && data.Chapters != null)
             {
                 _chapters = data.Chapters;
@@ -65,7 +65,7 @@ public class ChapterManager
         try
         {
             var data = new ChapterData { Chapters = _chapters };
-            string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+            string json = JsonSerializer.Serialize(data, AriaCoreIndentedJsonContext.Default.ChapterData);
             File.WriteAllText(_dataPath, json);
         }
         catch (Exception ex)

@@ -168,7 +168,7 @@ public class FastSpriteDictionaryJsonConverter : JsonConverter<FastSpriteDiction
 {
     public override FastSpriteDictionary? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        var dict = JsonSerializer.Deserialize<Dictionary<int, Sprite>>(ref reader, options);
+        var dict = JsonSerializer.Deserialize(ref reader, AriaSaveJsonContext.Default.DictionaryInt32Sprite);
         var result = new FastSpriteDictionary();
         if (dict != null)
         {
@@ -187,6 +187,6 @@ public class FastSpriteDictionaryJsonConverter : JsonConverter<FastSpriteDiction
         {
             dict[kvp.Key] = kvp.Value;
         }
-        JsonSerializer.Serialize(writer, dict, options);
+        JsonSerializer.Serialize(writer, dict, AriaSaveJsonContext.Default.DictionaryInt32Sprite);
     }
 }

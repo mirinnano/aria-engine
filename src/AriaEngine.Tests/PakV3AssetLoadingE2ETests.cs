@@ -33,10 +33,12 @@ public class PakV3AssetLoadingE2ETests
 
         using var scenarioFs = File.OpenRead(scenarioAris);
         var scenarioReader = PakArchiveV3Reader.Read(scenarioFs);
-        // Scenario entries should NOT have assets/ prefix
+        // Scenario entries may be compiled output under scripts/ or source scripts under assets/.
         foreach (var path in scenarioReader.PathStrings)
         {
-            Assert.DoesNotContain("assets/", path);
+            Assert.True(
+                path.StartsWith("assets/") || path.StartsWith("scripts/"),
+                $"unexpected scenario path prefix: {path}");
         }
 
         using var voiceFs = File.OpenRead(voiceAriv);

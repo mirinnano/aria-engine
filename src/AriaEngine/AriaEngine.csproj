@@ -1,20 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType Condition="'$(Configuration)' == 'Release'">WinExe</OutputType>
-    <OutputType Condition="'$(Configuration)' != 'Release'">Exe</OutputType>
+    <OutputType Condition="'$(AriaEngineAsLibrary)' == 'true'">Library</OutputType>
+    <OutputType Condition="'$(AriaEngineAsLibrary)' != 'true' and '$(Configuration)' == 'Release'">WinExe</OutputType>
+    <OutputType Condition="'$(AriaEngineAsLibrary)' != 'true' and '$(Configuration)' != 'Release'">Exe</OutputType>
 
     <!-- Release: framework-dependent (requires .NET 8 runtime installed by installer) -->
     <SelfContained Condition="'$(Configuration)' == 'Release'">false</SelfContained>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AriaCompileOnPublish>true</AriaCompileOnPublish>
+    <AriaCompileOnPublish Condition="'$(AriaEngineAsLibrary)' != 'true'">true</AriaCompileOnPublish>
+    <AriaCompileOnPublish Condition="'$(AriaEngineAsLibrary)' == 'true'">false</AriaCompileOnPublish>
     <AriaCompiledOutput>build\scripts.ariac</AriaCompiledOutput>
     <AriaPakOutput>data.pak</AriaPakOutput>
     <AriaPackKey Condition="'$(AriaPackKey)'=='' and '$(ARIA_PACK_KEY)'!=''">$(ARIA_PACK_KEY)</AriaPackKey>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>assets\branding\umikaze.ico</ApplicationIcon>
+    <ApplicationManifest Condition="'$(AriaEngineAsLibrary)' != 'true'">app.manifest</ApplicationManifest>
+    <ApplicationIcon Condition="'$(AriaEngineAsLibrary)' != 'true'">assets\branding\umikaze.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <IsAotCompatible Condition="'$(PublishAot)' == 'true'">true</IsAotCompatible>
+    <JsonSerializerIsReflectionEnabledByDefault Condition="'$(PublishAot)' == 'true'">true</JsonSerializerIsReflectionEnabledByDefault>
+    <TrimmerSingleWarn Condition="'$(PublishTrimmed)' == 'true'">false</TrimmerSingleWarn>
   </PropertyGroup>
 
   <!-- アセンブリメタデータ -->

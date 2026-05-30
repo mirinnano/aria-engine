@@ -95,20 +95,25 @@ public class TextEffectParser
                 }
 
                 // 開始タグ/単独タグ
-                if (currentText.Length > 0)
-                {
-                    segments.Add(new TextSegment(currentText.ToString(), _styleStack.Peek().Clone()));
-                    currentText.Clear();
-                }
-
                 var newStyle = ParseTag(tagContent);
                 if (newStyle != null)
                 {
+                    if (currentText.Length > 0)
+                    {
+                        segments.Add(new TextSegment(currentText.ToString(), _styleStack.Peek().Clone()));
+                        currentText.Clear();
+                    }
                     _styleStack.Push(_styleStack.Peek().Merge(newStyle));
+                    i = closeIndex + 1;
+                    continue;
                 }
-
-                i = closeIndex + 1;
-                continue;
+                else
+                {
+                    // 無効なタグの場合は単なる文字として処理
+                    currentText.Append(text[i]);
+                    i++;
+                    continue;
+                }
             }
 
             // 通常文字

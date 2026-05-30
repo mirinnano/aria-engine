@@ -1,3 +1,4 @@
+using AriaEngine.Assets;
 using AriaEngine.Core;
 using AriaEngine.Input;
 using AriaEngine.Rendering;
@@ -78,6 +79,27 @@ try
     automodeVm.Step();
     Assert(automodeVm.State.Playback.AutoModeWaitTimeMs == 3500, "automode_time should update auto-mode wait milliseconds");
     Assert(automodeVm.Config.Config.AutoModeWaitTimeMs == 3500, "automode_time should persist through config state");
+
+    var locScript = parser.Parse(new[]
+    {
+        "language \"en-US\"",
+        "getlanguage $lang",
+        "loc_get $label, \"menu.save\"",
+        "readid \"intro.opening.001\"",
+        "text $label",
+        "@"
+    }, "loc.aria");
+    var locVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+    locVm.Localization = LocalizationManager.Load(new DiskAssetProvider(Path.Combine(originalCwd, "src", "AriaEngine")), "assets/i18n/locales.json");
+    locVm.LoadScript(locScript, "loc.aria");
+    locVm.Step();
+    locVm.Step();
+    locVm.Step();
+    locVm.Step();
+    locVm.Step();
+    Assert(locVm.State.RegisterState.StringRegisters.TryGetValue("lang", out var lang) && lang == "en-US", "getlanguage should return the active language");
+    Assert(locVm.State.RegisterState.StringRegisters.TryGetValue("label", out var label) && label == "Save", "loc_get should resolve current language text");
+    Assert(locVm.State.TextRuntime.ReadKeys.Contains("readid:intro.opening.001"), "readid should mark a stable read key for the next instruction");
 
     var waitClickScript = parser.Parse(new[] { "compat_mode on", "textspeed 40", "最後の一文", "@" }, "wait-click.aria");
     var waitClickVm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());

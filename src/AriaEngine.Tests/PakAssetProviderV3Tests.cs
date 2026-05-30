@@ -2,8 +2,10 @@ using System;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.IO;
 using Xunit;
 using AriaEngine.Assets;
+using AriaEngine.Packaging;
 using System.Linq;
 
 namespace AriaEngine.Tests
@@ -189,6 +191,58 @@ namespace AriaEngine.Tests
             // Assert: returns the cached string without touching disk
             // Since _pakReaders is empty, any disk access would throw FileNotFoundException
             Assert.Equal("cached content from data cache", result);
+        }
+
+        [Fact]
+        public void ReadAllBytes_ReturnsCachedBytes_WithoutMaterializingFile()
+        {
+            var provider = new PakAssetProviderV3(new string[] { }, null);
+            string path = "cached/data/file.bin";
+            byte[] cachedBytes = { 1, 2, 3, 4 };
+            var t = typeof(PakAssetProviderV3);
+            var dataCacheField = t.GetField("_dataCache", BindingFlags.NonPublic | BindingFlags.Instance);
+            var dataCache = dataCacheField.GetValue(provider);
+            var ceType = t.GetNestedType("CacheEntry", BindingFlags.NonPublic);
+            var ce = Activator.CreateInstance(ceType);
+            ceType.GetField("Data").SetValue(ce, cachedBytes);
+            dataCache.GetType().GetMethod("Add", BindingFlags.Instance | BindingFlags.Public)
+                .Invoke(dataCache, new object[] { path, ce });
+
+            byte[] result = provider.ReadAllBytes(path);
+
+            Assert.Equal(cachedBytes, result);
+            Assert.True(provider.CanMaterializeToFile);
+        }
+
+        [Fact]
+        public void PakArchiveV3_CanReadWithoutMemoryMappedFile()
+        {
+            const string path = "assets/scripts/main.aria";
+            byte[] payload = System.Text.Encoding.UTF8.GetBytes("*start\ntext \"hello\"\n");
+            using var stream = new MemoryStream();
+            var manifest = new PakManifestV3
+            {
+                Entries = new List<PakManifestEntryV3>
+                {
+                    new()
+                    {
+                        PathHash = PakArchiveV3Reader.PathHash64(path),
+                        Offset = 0,
+                        Size = (uint)payload.Length,
+                        OriginalSize = (uint)payload.Length,
+                        Flags = 0
+                    }
+                },
+                PathStrings = new List<string> { path }
+            };
+            PakArchiveV3.Write(stream, manifest, new[] { payload }, PakArchiveV3.Category.Scenario);
+            stream.Position = 0;
+
+            using var reader = PakArchiveV3Reader.Open(stream, leaveOpen: true);
+            byte[] bytes = reader.ReadAllBytes(path, verifyHash: true);
+
+            Assert.Equal(payload, bytes);
+            Assert.True(stream.CanRead);
         }
     }
 }

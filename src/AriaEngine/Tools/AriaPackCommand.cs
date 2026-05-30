@@ -186,6 +186,12 @@ public static class AriaPackCommand
 
                 // Data: image types + fonts
                 // Prefix with "assets/" to match engine request paths (e.g. assets/fonts/NotoSansJP-Regular.ttf)
+                if (rel.StartsWith("i18n/", StringComparison.OrdinalIgnoreCase) && ext == ".json")
+                {
+                    dataEntries.Add(("assets/" + rel, File.ReadAllBytes(file)));
+                    continue;
+                }
+
                 if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".webp" || ext == ".ttf" || ext == ".otf")
                 {
                     dataEntries.Add(("assets/" + rel, File.ReadAllBytes(file)));

@@ -308,7 +308,7 @@ public sealed class PackTests : IDisposable
         {
             scenarioReader.Entries.Should().NotContain(e => e.PathHash == PakArchiveV3Reader.PathHash64("init.aria"),
                 "init.aria should NOT appear in scenario category");
-            scenarioReader.Entries.Should().Contain(e => e.PathHash == PakArchiveV3Reader.PathHash64("scene.aria"),
+            scenarioReader.Entries.Should().Contain(e => e.PathHash == PakArchiveV3Reader.PathHash64("assets/scene.aria"),
                 "scene.aria should appear in scenario category");
         }
 }

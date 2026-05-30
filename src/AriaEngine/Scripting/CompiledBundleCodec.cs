@@ -14,7 +14,7 @@ public static class CompiledBundleCodec
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath)) ?? ".");
 
-        byte[] json = JsonSerializer.SerializeToUtf8Bytes(bundle);
+        byte[] json = JsonSerializer.SerializeToUtf8Bytes(bundle, AriaScriptJsonContext.Default.CompiledScriptBundle);
         bool enc = !string.IsNullOrWhiteSpace(keyMaterial);
         byte[] payload = enc ? CryptoHelper.Encrypt(json, CryptoHelper.DeriveKey(keyMaterial!)) : json;
 
@@ -51,7 +51,7 @@ public static class CompiledBundleCodec
             plain = CryptoHelper.Decrypt(payload, CryptoHelper.DeriveKey(keyMaterial!));
         }
 
-        return JsonSerializer.Deserialize<CompiledScriptBundle>(plain)
+        return JsonSerializer.Deserialize(plain, AriaScriptJsonContext.Default.CompiledScriptBundle)
             ?? throw new InvalidOperationException("Failed to deserialize ARIAC.");
     }
 }

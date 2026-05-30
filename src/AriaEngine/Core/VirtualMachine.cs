@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -16,6 +16,7 @@ namespace AriaEngine.Core;
     private List<Instruction> _instructions = new();
     private Dictionary<string, int> _labels = new(StringComparer.OrdinalIgnoreCase);
     public GameState State { get; set; }
+    public bool _pendingThumbnail = false;
     private readonly ErrorReporter _reporter;
     private string _currentScriptFile = "";
     private string _currentReadKeyPrefix = "";
@@ -56,6 +57,11 @@ namespace AriaEngine.Core;
     {
         string path = type == UiSeType.Click ? "assets/se/sys_click.wav" : "assets/se/sys_hover.wav";
         State.Audio.PendingSe.Add(path);
+    }
+
+    public void PrepareThumbnail()
+    {
+        _pendingThumbnail = true;
     }
 
     // Scope management helpers (for T5)

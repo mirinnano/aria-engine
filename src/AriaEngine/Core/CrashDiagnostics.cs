@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AriaEngine.Core;
 
@@ -17,27 +18,27 @@ public static class CrashDiagnostics
         if (Directory.Exists(workDir)) Directory.Delete(workDir, recursive: true);
         Directory.CreateDirectory(workDir);
 
-        var summary = new
+        var summary = new CrashDiagnosticsSummary
         {
-            generatedAt = DateTimeOffset.Now,
-            workingDirectory = Environment.CurrentDirectory,
-            os = Environment.OSVersion.ToString(),
-            dotnet = Environment.Version.ToString(),
-            exception = exception?.ToString(),
-            state = state == null ? null : new
+            GeneratedAt = DateTimeOffset.Now,
+            WorkingDirectory = Environment.CurrentDirectory,
+            Os = Environment.OSVersion.ToString(),
+            Dotnet = Environment.Version.ToString(),
+            Exception = exception?.ToString(),
+            State = state == null ? null : new CrashDiagnosticsState
             {
-                state.Execution.ProgramCounter,
-                state.Execution.State,
-                state.EngineSettings.MainScript,
-                state.SaveRuntime.CurrentChapter,
-                state.SaveRuntime.CurrentProgress,
-                state.EngineSettings.ProductionMode,
+                ProgramCounter = state.Execution.ProgramCounter,
+                State = state.Execution.State,
+                MainScript = state.EngineSettings.MainScript,
+                CurrentChapter = state.SaveRuntime.CurrentChapter,
+                CurrentProgress = state.SaveRuntime.CurrentProgress,
+                ProductionMode = state.EngineSettings.ProductionMode,
                 SpriteCount = state.Render.Sprites.Count,
                 TextLength = state.TextRuntime.CurrentTextBuffer.Length
             }
         };
 
-        File.WriteAllText(Path.Combine(workDir, "summary.json"), JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(Path.Combine(workDir, "summary.json"), JsonSerializer.Serialize(summary, AriaCoreIndentedJsonContext.Default.CrashDiagnosticsSummary));
         CopyIfExists("aria_error.log", workDir);
         CopyIfExists("aria_error_ai.txt", workDir);
         CopyIfExists("aria_error_ai.json", workDir);
@@ -70,4 +71,32 @@ public static class CrashDiagnostics
             File.Copy(file, dest, overwrite: true);
         }
     }
+}
+
+internal sealed class CrashDiagnosticsSummary
+{
+    [JsonPropertyName("generatedAt")]
+    public DateTimeOffset GeneratedAt { get; set; }
+    [JsonPropertyName("workingDirectory")]
+    public string WorkingDirectory { get; set; } = "";
+    [JsonPropertyName("os")]
+    public string Os { get; set; } = "";
+    [JsonPropertyName("dotnet")]
+    public string Dotnet { get; set; } = "";
+    [JsonPropertyName("exception")]
+    public string? Exception { get; set; }
+    [JsonPropertyName("state")]
+    public CrashDiagnosticsState? State { get; set; }
+}
+
+internal sealed class CrashDiagnosticsState
+{
+    public int ProgramCounter { get; set; }
+    public VmState State { get; set; }
+    public string MainScript { get; set; } = "";
+    public string CurrentChapter { get; set; } = "";
+    public int CurrentProgress { get; set; }
+    public bool ProductionMode { get; set; }
+    public int SpriteCount { get; set; }
+    public int TextLength { get; set; }
 }

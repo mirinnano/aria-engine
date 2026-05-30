@@ -4,11 +4,22 @@ param(
     [string]$Project = "src/AriaEngine/AriaEngine.csproj",
     [string]$InitScript = "init.aria",
     [string]$MainScript = "assets/scripts/main.aria",
+    [string]$PublishFlavor = "",
+    [ValidateSet("Debug", "Demo", "Release")]
+    [string]$Profile = "Release",
+    [switch]$SelfContained,
+    [switch]$SingleFile,
+    [switch]$PublishTrimmed,
+    [switch]$PublishAot,
     [switch]$SkipSmoke,
     [switch]$SkipDoctor,
     [switch]$SkipPackage,
+    [switch]$SkipInstaller,
+    [switch]$FullQA,
     [switch]$NoZip,
     [string]$ReleaseNotes = "",
+    [switch]$SteamBuild,
+    [string]$SteamAppId = "",
     [switch]$Sign
 )
 
@@ -36,6 +47,20 @@ function Invoke-Step {
 }
 
 Initialize-AriaHostEnvironment
+
+if ([string]::IsNullOrWhiteSpace($PublishFlavor)) {
+    $PublishFlavor = if ($PublishAot) {
+        "win-x64-aot-experimental"
+    } elseif ($PublishTrimmed) {
+        "win-x64-trimmed-experimental"
+    } elseif ($SelfContained) {
+        "win-x64-sc-singlefile"
+    } else {
+        "win-x64-fd-singlefile"
+    }
+}
+$singleFileEnabled = if ($PSBoundParameters.ContainsKey("SingleFile")) { [bool]$SingleFile } else { $true }
+$selfContainedEnabled = [bool]($SelfContained -or $PublishAot)
 
 Invoke-Step "release metadata" {
     Write-Host "Version: $Version"
@@ -82,27 +107,50 @@ if (-not $SkipPackage) {
             Runtime = $Runtime
             InitScript = $InitScript
             MainScript = $MainScript
+            PublishFlavor = $PublishFlavor
+            Profile = $Profile
+            SelfContained = $selfContainedEnabled
+            SingleFile = $SingleFile
+            PublishTrimmed = $PublishTrimmed
+            PublishAot = $PublishAot
             NoZip = $true
         }
+        $packageArgs.SingleFile = $singleFileEnabled
         if (-not [string]::IsNullOrWhiteSpace($ReleaseNotes)) { $packageArgs.ReleaseNotes = $ReleaseNotes }
+        if ($SteamBuild) { $packageArgs.SteamBuild = $true }
+        if (-not [string]::IsNullOrWhiteSpace($SteamAppId)) { $packageArgs.SteamAppId = $SteamAppId }
         if ($Sign) { $packageArgs.Sign = $true }
         & ./scripts/package.ps1 @packageArgs
     }
 }
 
-Invoke-Step "installer" {
-    $runtimeLabel = if ([string]::IsNullOrWhiteSpace($Runtime)) { "portable" } else { $Runtime }
-    $packageDir = "artifacts/release/AriaEngine-$Version-$runtimeLabel/app"
-    if (-not (Test-Path $packageDir)) {
-        throw "Package directory not found: $packageDir"
+if (-not $SkipInstaller) {
+    Invoke-Step "installer" {
+        $runtimeLabel = if ([string]::IsNullOrWhiteSpace($Runtime)) { "portable" } else { $Runtime }
+        $packageDir = "artifacts/release/AriaEngine-$Version-$runtimeLabel/app"
+        if (-not (Test-Path $packageDir)) {
+            throw "Package directory not found: $packageDir"
+        }
+        $installerArgs = @{
+            PackageDir = $packageDir
+            Version = $Version
+            Runtime = $Runtime
+            SelfContained = [bool]$selfContainedEnabled
+            SingleFile = [bool]$singleFileEnabled
+            PublishTrimmed = [bool]$PublishTrimmed
+            PublishAot = [bool]$PublishAot
+            PublishFlavor = $PublishFlavor
+            Profile = $Profile
+        }
+        if ($Sign) { $installerArgs.Sign = $true }
+        & ./scripts/installer.ps1 @installerArgs
     }
-    $installerArgs = @{
-        PackageDir = $packageDir
-        Version = $Version
-        Runtime = $Runtime
+}
+
+if ($FullQA) {
+    Invoke-Step "full qa replay" {
+        & ./scripts/replay.ps1 -Spec "tests/replay/release-smoke.json" -OutputDir "artifacts/replay/release"
     }
-    if ($Sign) { $installerArgs.Sign = $true }
-    & ./scripts/installer.ps1 @installerArgs
 }
 
 Write-Host ""

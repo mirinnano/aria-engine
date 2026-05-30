@@ -9,10 +9,17 @@ scripts/package.ps1 -Version <version> -Runtime win-x64
 scripts/installer.ps1 -Version <version> -Runtime win-x64 -PackageDir artifacts/release/AriaEngine-<version>-win-x64/app
 ```
 
+NativeAOT installer candidate:
+
+```powershell
+scripts/installer.ps1 -Version <version> -Runtime win-x64 -PublishAot:$true -PublishFlavor win-x64-aot-experimental
+```
+
 Requirements:
 
 - NSIS 3.x
 - `makensis.exe` available on `PATH` or installed under `%ProgramFiles(x86)%\NSIS` / `%ProgramFiles%\NSIS`
+- Code signing uses `scripts/sign.ps1` after NSIS when `-Sign` is provided, then `scripts/verify-signing.ps1 -RequireSigned` must accept the setup exe.
 
 ## Output
 
@@ -23,6 +30,14 @@ artifacts/installer/AriaEngine-<version>-installer.zip
 The zip contains:
 
 - `umikaze-<version>-<runtime>-setup.exe`
+- `signature-audit.json` when the setup is signed through `scripts/installer.ps1 -Sign`
+
+Audit an unsigned or signed setup manually:
+
+```powershell
+scripts/verify-signing.ps1 -Path artifacts/installer/<candidate>/umikaze-<version>-<runtime>-setup.exe
+scripts/verify-signing.ps1 -Path artifacts/installer/<candidate>/umikaze-<version>-<runtime>-setup.exe -RequireSigned
+```
 
 ## NSIS Installer
 

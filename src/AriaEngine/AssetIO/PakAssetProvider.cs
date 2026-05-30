@@ -40,15 +40,19 @@ public sealed class PakAssetProvider : IAssetProvider
 
     public string ReadAllText(string path)
     {
-        byte[] bytes = _pak.ReadAllBytes(ResolveRequired(path));
+        byte[] bytes = ReadAllBytes(path);
         return Encoding.UTF8.GetString(bytes);
     }
 
+    public byte[] ReadAllBytes(string path) => _pak.ReadAllBytes(ResolveRequired(path));
+
     public Stream OpenRead(string path)
     {
-        byte[] bytes = _pak.ReadAllBytes(ResolveRequired(path));
+        byte[] bytes = ReadAllBytes(path);
         return new MemoryStream(bytes, writable: false);
     }
+
+    public bool CanMaterializeToFile => true;
 
     public string MaterializeToFile(string path)
     {

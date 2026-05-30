@@ -27,10 +27,20 @@ class Program
     private const double StartupSplashHoldSeconds = 1.35;
     private const double StartupSplashFadeOutSeconds = 0.65;
     private const double StartupSplashSkipFadeSeconds = 0.25;
+    private const string WindowIconPath = "assets/branding/umikaze-icon-master.png";
+    private static readonly string[] DefaultBrowserOpenAllowlist =
+    {
+        "store.steampowered.com",
+        "twitter.com",
+        "x.com",
+        "ponkotsu-soft.vercel.app"
+    };
 
-    private sealed class RunOptions
+    internal sealed class RunOptions
     {
         public RunMode Mode { get; set; } = RunMode.Dev;
+        public RuntimeProfile Profile { get; set; } = RuntimeProfile.Debug;
+        public bool ProfileExplicit { get; set; }
         public string InitPath { get; set; } = "init.aria";
         public string? PakPath { get; set; }
         public string? Key { get; set; } = Environment.GetEnvironmentVariable("ARIA_PACK_KEY");
@@ -65,6 +75,12 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
         if (args.Length > 0 && args[0].Equals("aria-lint", StringComparison.OrdinalIgnoreCase))
         {
             Environment.ExitCode = AriaLintCommand.Run(args[1..]);
+            return;
+        }
+
+        if (args.Length > 0 && args[0].Equals("aria-i18n-check", StringComparison.OrdinalIgnoreCase))
+        {
+            Environment.ExitCode = AriaI18nCheckCommand.Run(args[1..]);
             return;
         }
 
@@ -124,6 +140,10 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                     StartupTrace(v3Detected ? "auto-release: v3 split paks detected" : "auto-release: data.pak detected");
                 }
             }
+            if (!runOptions.ProfileExplicit && runOptions.Mode == RunMode.Release)
+            {
+                runOptions.Profile = RuntimeProfile.Release;
+            }
 
             // StringBuilderプールの初期化（パフォーマンス最適化）
             StringHelper.InitializeStringBuilderPool(32, 256);
@@ -149,18 +169,31 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                     hint: "v3 split pakではscripts.ariacは不要です。scenario.arisに.ariaスクリプトが含まれていることを確認してください。"));
             }
 
+            StartupTrace("before-script-loader");
             var scriptLoader = new ScriptLoader(parser, assetProvider, effectiveMode, compiledBundle);
 
+            StartupTrace("before-runtime-state");
             var saves = new SaveManager(reporter);
             var tweens = new TweenManager();
             var vm = new VirtualMachine(reporter, tweens, saves, configParams, assetProvider);
+            StartupTrace("after-runtime-state");
+            if (assetProvider.Exists("assets/i18n/locales.json"))
+            {
+                StartupTrace("before-localization");
+                vm.Localization = LocalizationManager.Load(assetProvider, "assets/i18n/locales.json");
+                StartupTrace("localization-loaded");
+                vm.Localization.SetLanguage(configParams.Config.Language);
+                vm.SyncLocalizationRuntimeState();
+                StartupTrace("localization-synced");
+            }
             vmForShutdown = vm;
 
-            // Wire ProductionMode based on resolved run mode (includes auto-detection from data.pak)
-            vm.State.EngineSettings.ProductionMode = (runOptions.Mode == RunMode.Release);
+            ApplyRuntimeProfilePolicy(vm.State.EngineSettings, runOptions);
 
             string initScriptPath = runOptions.InitPath;
+            StartupTrace("before-init-load");
             var initLoaded = TryLoadScript(scriptLoader, parser, initScriptPath, assetProvider, effectiveMode, reporter, fallbackMessage: "");
+            StartupTrace($"after-init-load {initLoaded.Instructions.Count}");
             if (initLoaded.Instructions.Count > 0)
             {
                 vm.LoadScript(initLoaded, initScriptPath);
@@ -176,6 +209,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             NormalizeWindowSettings(vm.State, reporter);
             StartupTrace($"before-window {vm.State.EngineSettings.WindowWidth}x{vm.State.EngineSettings.WindowHeight} title={vm.State.EngineSettings.Title}");
             Raylib.InitWindow(vm.State.EngineSettings.WindowWidth, vm.State.EngineSettings.WindowHeight, "AriaEngine");
+            SafeStartup("WINDOW_ICON", () => TrySetWindowIcon(assetProvider, reporter), reporter, "ウィンドウアイコンの設定に失敗しました。既定アイコンで続行します。");
             Raylib.SetExitKey((KeyboardKey)0);
             windowReady = true;
             StartupTrace("after-window");
@@ -205,10 +239,29 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                 reporter,
                 fallbackMessage: $"Error: 指定されたスクリプト {vm.State.EngineSettings.MainScript} が見つかりません。aria_error_ai.txtを確認してください。");
 
+            vm.FontReloadRequested += (fontPath, extraGlyphText) =>
+            {
+                renderer!.LoadFont(
+                    fontPath,
+                    vm.State.EngineSettings.FontAtlasSize,
+                    loaded.SourceLines,
+                    vm.State.EngineSettings.FontFilter,
+                    extraGlyphText);
+            };
+
             if (!string.IsNullOrEmpty(vm.State.EngineSettings.FontPath))
             {
                 StartupTrace("before-font");
-                renderer.LoadFont(vm.State.EngineSettings.FontPath, vm.State.EngineSettings.FontAtlasSize, loaded.SourceLines, vm.State.EngineSettings.FontFilter);
+                string? localeFontPath = vm.Localization.GetFontForLanguage(vm.Localization.CurrentLanguage);
+                string fontPath = string.IsNullOrWhiteSpace(localeFontPath)
+                    ? vm.State.EngineSettings.FontPath
+                    : localeFontPath;
+                renderer.LoadFont(
+                    fontPath,
+                    vm.State.EngineSettings.FontAtlasSize,
+                    loaded.SourceLines,
+                    vm.State.EngineSettings.FontFilter,
+                    vm.Localization.EnumerateTextForGlyphs());
                 StartupTrace("after-font");
             }
             else
@@ -231,7 +284,9 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             });
 
             // 開発モードかつディスクロード時のみライブリロードを有効化
-            if (effectiveMode == RunMode.Dev && assetProvider is DiskAssetProvider diskProvider)
+            if (effectiveMode == RunMode.Dev &&
+                runOptions.Profile == RuntimeProfile.Debug &&
+                assetProvider is DiskAssetProvider diskProvider)
             {
                 liveReload = new LiveReloadManager(vm, scriptLoader, reporter, renderer, diskProvider.Root);
             }
@@ -327,7 +382,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
         }
     }
 
-    private static RunOptions ParseRunOptions(string[] args, ErrorReporter reporter)
+    internal static RunOptions ParseRunOptions(string[] args, ErrorReporter reporter)
     {
         var options = new RunOptions();
         int i = 0;
@@ -339,6 +394,14 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                 case "--run-mode":
                     i++;
                     if (i < args.Length) options.Mode = string.Equals(args[i], "release", StringComparison.OrdinalIgnoreCase) ? RunMode.Release : RunMode.Dev;
+                    break;
+                case "--profile":
+                    i++;
+                    if (i < args.Length)
+                    {
+                        options.ProfileExplicit = true;
+                        options.Profile = ParseRuntimeProfile(args[i], reporter);
+                    }
                     break;
                 case "--pak":
                     i++;
@@ -367,7 +430,9 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             i++;
         }
 
-        if (options.Mode == RunMode.Release && string.IsNullOrWhiteSpace(options.PakPath))
+        if (options.Mode == RunMode.Release &&
+            string.IsNullOrWhiteSpace(options.PakPath) &&
+            !HasDistributionPakInBaseDirectory())
         {
             reporter.Report(new AriaError(
                 "--run-mode release に --pak が指定されていません。dev相当のディスクロードへフォールバックします。",
@@ -378,6 +443,46 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
         }
 
         return options;
+    }
+
+    private static RuntimeProfile ParseRuntimeProfile(string value, ErrorReporter reporter)
+    {
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "debug" or "dev" => RuntimeProfile.Debug,
+            "demo" => RuntimeProfile.Demo,
+            "release" or "prod" or "production" => RuntimeProfile.Release,
+            _ => WarnAndDefaultProfile(value, reporter)
+        };
+    }
+
+    private static RuntimeProfile WarnAndDefaultProfile(string value, ErrorReporter reporter)
+    {
+        reporter.Report(new AriaError(
+            $"unknown runtime profile '{value}'. Falling back to Debug.",
+            level: AriaErrorLevel.Warning,
+            code: "BOOT_PROFILE_UNKNOWN",
+            hint: "Use --profile debug, --profile demo, or --profile release."));
+        return RuntimeProfile.Debug;
+    }
+
+    internal static void ApplyRuntimeProfilePolicy(EngineSettingsState settings, RunOptions options)
+    {
+        settings.RuntimeProfile = options.Profile;
+        settings.ProductionMode = options.Profile != RuntimeProfile.Debug;
+        settings.BrowserOpenAllowlist.Clear();
+        if (settings.ProductionMode)
+        {
+            settings.BrowserOpenAllowlist.AddRange(DefaultBrowserOpenAllowlist);
+        }
+    }
+
+    private static bool HasDistributionPakInBaseDirectory()
+    {
+        string exeDir = AppDomain.CurrentDomain.BaseDirectory;
+        string[] v3Files = new[] { "boot.arib", "scenario.aris", "data.arid", "stream.arim", "voice.ariv" };
+        return v3Files.Any(file => File.Exists(Path.Combine(exeDir, file))) ||
+               File.Exists(Path.Combine(exeDir, "data.pak"));
     }
 
     private static IAssetProvider CreateAssetProvider(RunOptions options, ErrorReporter reporter)
@@ -473,6 +578,17 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                 }
                 catch { /* ignore fallback failure, report original error */ }
             }
+
+            try
+            {
+                string compiledDiskPath = ResolveDistributionPath(options.CompiledPath);
+                if (File.Exists(compiledDiskPath))
+                {
+                    using var compiledStream = File.OpenRead(compiledDiskPath);
+                    return CompiledBundleCodec.Load(compiledStream, options.Key);
+                }
+            }
+            catch { /* ignore disk fallback failure, report original error */ }
 
             reporter.ReportException(
                 "BOOT_COMPILED_LOAD",
@@ -575,6 +691,51 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                 code: "BOOT_WINDOW_SIZE_INVALID"));
             state.EngineSettings.WindowWidth = fallbackWidth;
             state.EngineSettings.WindowHeight = fallbackHeight;
+        }
+    }
+
+    private static void TrySetWindowIcon(IAssetProvider assetProvider, ErrorReporter reporter)
+    {
+        if (!assetProvider.Exists(WindowIconPath))
+        {
+            reporter.Report(new AriaError(
+                $"ウィンドウアイコン '{WindowIconPath}' が見つかりません。",
+                level: AriaErrorLevel.Warning,
+                code: "BOOT_WINDOW_ICON_MISSING"));
+            return;
+        }
+
+        if (!assetProvider.CanMaterializeToFile)
+        {
+            reporter.Report(new AriaError(
+                "現在のasset providerではウィンドウアイコンを一時ファイル化できません。",
+                level: AriaErrorLevel.Warning,
+                code: "BOOT_WINDOW_ICON_UNSUPPORTED"));
+            return;
+        }
+
+        Image icon = default;
+        try
+        {
+            string iconPath = assetProvider.MaterializeToFile(WindowIconPath);
+            icon = Raylib.LoadImage(iconPath);
+            if (icon.Width <= 0 || icon.Height <= 0)
+            {
+                reporter.Report(new AriaError(
+                    $"ウィンドウアイコン '{WindowIconPath}' の読み込み結果が無効です。",
+                    level: AriaErrorLevel.Warning,
+                    code: "BOOT_WINDOW_ICON_INVALID"));
+                return;
+            }
+
+            Raylib.SetWindowIcon(icon);
+        }
+        finally
+        {
+            if (icon.Width > 0 && icon.Height > 0)
+            {
+                Raylib.UnloadImage(icon);
+            }
         }
     }
 
