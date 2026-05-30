@@ -38,6 +38,26 @@ namespace AriaEngine.Core;
     public SkipModeManager SkipModeManager { get; private set; }
     public SaveStateNormalizer SaveStateNormalizer { get; private set; }
 
+    public LocalizationManager Localization { get; set; } = LocalizationManager.Empty;
+    public event Action<string?, IEnumerable<string>>? FontReloadRequested;
+
+    public void SyncLocalizationRuntimeState()
+    {
+        State.Localization.CurrentLanguage = Localization.CurrentLanguage;
+        State.Localization.FallbackLanguage = Localization.FallbackLanguage;
+    }
+
+    public void RequestFontReloadForCurrentLanguage()
+    {
+        FontReloadRequested?.Invoke(Localization.GetFontForLanguage(Localization.CurrentLanguage), Localization.EnumerateTextForGlyphs());
+    }
+
+    public void PlayUiSe(UiSeType type)
+    {
+        string path = type == UiSeType.Click ? "assets/se/sys_click.wav" : "assets/se/sys_hover.wav";
+        State.Audio.PendingSe.Add(path);
+    }
+
     // Scope management helpers (for T5)
     internal void EnterScope()
     {

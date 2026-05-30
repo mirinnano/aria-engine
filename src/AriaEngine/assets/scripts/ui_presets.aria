@@ -22,7 +22,7 @@ func ui_preset_adv()
     ui textbox, h, 160
     ui textbox, padding, 32, 24
     ui textbox, fill, "#000000"
-    ui textbox, fill_alpha, 110
+    ui textbox, fill_alpha, 80
     ui textbox, text_color, "#ffffff"
     ui textbox, font_size, 28
     ui textbox, radius, 0

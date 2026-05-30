@@ -74,8 +74,8 @@ func adv()
     textbox 40, 540, 1200, 160
     fontsize 28
     textcolor "#e7e2d6"
-    textbox_color "#0b0d10", 216
-    textbox_style 8, 1, "#9aa18f", 116, 30, 22, 0, 6, "#000000", 150
+    textbox_color "#0b0d10", 80
+    textbox_style 0, 1, "#9aa18f", 116, 30, 22, 0, 6, "#000000", 150
 endfunc
 
 func nvl()
@@ -85,8 +85,8 @@ func nvl()
     textbox 72, 28, 1136, 628
     fontsize 34
     textcolor "#e7e2d6"
-    textbox_color "#0b0d10", 178
-    textbox_style 8, 1, "#9aa18f", 116, 36, 30, 0, 8, "#000000", 150
+    textbox_color "#0b0d10", 80
+    textbox_style 0, 1, "#9aa18f", 116, 36, 30, 0, 8, "#000000", 150
 endfunc
 
 /// Scene transition with multiple types (fade, crossfade, wipe, flash)
@@ -381,7 +381,7 @@ ui_fade 3, 255, 800
 wait 600
 
 ; START ボタン
-ui_rect 30, 520, 300, 240, 42
+ui_rect 30, 520, 508, 240, 42
 ui sprite:30, fill, "#101417"
 ui sprite:30, fill_alpha, 212
 ui sprite:30, border, 1, "#9aa18f"
@@ -461,6 +461,26 @@ ui sprite:13, color, "#e7e2d6"
 ui sprite:13, z, 20
 ui sprite:13, opacity, 0
 
+; TESTER ボタン
+ui_rect 35, 520, 510, 240, 36
+ui sprite:35, fill, "#101417"
+ui sprite:35, fill_alpha, 188
+ui sprite:35, border, 1, "#9aa18f"
+ui sprite:35, border_alpha, 112
+ui sprite:35, shadow, 0, 4, "#000000"
+ui sprite:35, shadow_alpha, 130
+ui sprite:35, hover_fill, "#252a2f"
+ui sprite:35, hover_scale, 1.012
+ui sprite:35, z, 10
+ui sprite:35, opacity, 0
+
+ui_text 15, "TESTER", 640, 520
+ui sprite:15, font_size, 20
+ui sprite:15, align, "center"
+ui sprite:15, color, "#e7e2d6"
+ui sprite:15, z, 20
+ui sprite:15, opacity, 0
+
 ; 終了 ボタン
 ui_rect 34, 520, 560, 240, 36
 ui sprite:34, fill, "#101417"
@@ -494,6 +514,9 @@ wait 80
 ui_fade 33, 255, 600
 ui_fade 13, 255, 600
 wait 80
+ui_fade 35, 255, 600
+ui_fade 15, 255, 600
+wait 80
 ui_fade 34, 255, 600
 ui_fade 14, 255, 600
 
@@ -502,8 +525,8 @@ ui_button 30, 1
 ui_button 31, 2
 ui_button 32, 3
 ui_button 33, 4
-ui_button 34, 5
-ui_button 34, 5
+ui_button 35, 5
+ui_button 34, 6
 print 1
 
 *title_loop
@@ -518,11 +541,154 @@ if %_title_choice == 3 { goto *return_title }
 if %_title_choice == 4 { title_ui_clear() }
 if %_title_choice == 4 { omake_ui() }
 if %_title_choice == 4 { goto *return_title }
-if %_title_choice == 5 { end }
+if %_title_choice == 5 { goto *tester_info }
+if %_title_choice == 6 { end }
 goto *title_loop
 
 *return_title
 goto *start
+
+*demo_end
+cls()
+fx_reset()
+clear_vflag in_scene
+erasetextwindow 0
+set_pflag demo_clear, 1
+set_pflag demo_clear_bonus, 1
+bg "#050607", 1
+wait 320
+
+loc_get $demo_end_title, "demo_end.title"
+loc_get $demo_end_subtitle, "demo_end.subtitle"
+loc_get $demo_end_body, "demo_end.body"
+loc_get $demo_end_bonus_title, "demo_end.bonus_title"
+loc_get $demo_end_bonus_body, "demo_end.bonus_body"
+loc_get $demo_action_share, "promo.share.demo_clear.cta"
+loc_get $demo_action_steam, "demo_end.action.steam"
+loc_get $demo_action_site, "demo_end.action.official_site"
+loc_get $demo_action_x, "demo_end.action.x"
+loc_get $demo_action_back, "menu.return"
+loc_get $demo_share_text, "promo.share.demo_clear.text"
+loc_get $demo_share_url, "promo.share.demo_clear.url.x"
+loc_get $demo_steam_url, "promo.links.steam"
+loc_get $demo_site_url, "promo.links.official_site"
+loc_get $demo_x_url, "promo.links.x"
+
+ui_rect 8800, 0, 0, 1280, 720
+ui sprite:8800, fill, "#050607"
+ui sprite:8800, fill_alpha, 246
+ui sprite:8800, z, 9800
+
+ui_text 8801, $demo_end_title, 640, 128
+ui sprite:8801, font_size, 34
+ui sprite:8801, align, "center"
+ui sprite:8801, color, "#e7e2d6"
+ui sprite:8801, z, 9810
+
+ui_text 8802, $demo_end_subtitle, 640, 178
+ui sprite:8802, font_size, 16
+ui sprite:8802, align, "center"
+ui sprite:8802, color, "#9aa18f"
+ui sprite:8802, z, 9810
+
+ui_text 8803, $demo_end_body, 260, 242
+ui sprite:8803, font_size, 22
+ui sprite:8803, color, "#e7e2d6"
+ui sprite:8803, z, 9810
+ui sprite:8803, width, 760
+
+ui_text 8804, $demo_end_bonus_title, 260, 360
+ui sprite:8804, font_size, 20
+ui sprite:8804, color, "#b8a46f"
+ui sprite:8804, z, 9810
+
+ui_text 8805, $demo_end_bonus_body, 260, 394
+ui sprite:8805, font_size, 16
+ui sprite:8805, color, "#d2cbbb"
+ui sprite:8805, z, 9810
+ui sprite:8805, width, 760
+
+ui_rect 8810, 180, 500, 200, 42
+ui sprite:8810, fill, "#101417"
+ui sprite:8810, fill_alpha, 216
+ui sprite:8810, border, 1, "#9aa18f"
+ui sprite:8810, border_alpha, 142
+ui sprite:8810, hover_fill, "#252a2f"
+ui sprite:8810, z, 9810
+ui_text 8820, $demo_action_share, 280, 512
+ui sprite:8820, font_size, 16
+ui sprite:8820, align, "center"
+ui sprite:8820, color, "#e7e2d6"
+ui sprite:8820, z, 9820
+
+ui_rect 8811, 400, 500, 180, 42
+ui sprite:8811, fill, "#101417"
+ui sprite:8811, fill_alpha, 216
+ui sprite:8811, border, 1, "#9aa18f"
+ui sprite:8811, border_alpha, 142
+ui sprite:8811, hover_fill, "#252a2f"
+ui sprite:8811, z, 9810
+ui_text 8821, $demo_action_steam, 490, 512
+ui sprite:8821, font_size, 16
+ui sprite:8821, align, "center"
+ui sprite:8821, color, "#e7e2d6"
+ui sprite:8821, z, 9820
+
+ui_rect 8812, 600, 500, 200, 42
+ui sprite:8812, fill, "#101417"
+ui sprite:8812, fill_alpha, 216
+ui sprite:8812, border, 1, "#9aa18f"
+ui sprite:8812, border_alpha, 142
+ui sprite:8812, hover_fill, "#252a2f"
+ui sprite:8812, z, 9810
+ui_text 8822, $demo_action_site, 700, 512
+ui sprite:8822, font_size, 16
+ui sprite:8822, align, "center"
+ui sprite:8822, color, "#e7e2d6"
+ui sprite:8822, z, 9820
+
+ui_rect 8813, 820, 500, 160, 42
+ui sprite:8813, fill, "#101417"
+ui sprite:8813, fill_alpha, 216
+ui sprite:8813, border, 1, "#9aa18f"
+ui sprite:8813, border_alpha, 142
+ui sprite:8813, hover_fill, "#252a2f"
+ui sprite:8813, z, 9810
+ui_text 8823, $demo_action_x, 900, 512
+ui sprite:8823, font_size, 16
+ui sprite:8823, align, "center"
+ui sprite:8823, color, "#e7e2d6"
+ui sprite:8823, z, 9820
+
+ui_rect 8814, 1000, 500, 120, 42
+ui sprite:8814, fill, "#101417"
+ui sprite:8814, fill_alpha, 216
+ui sprite:8814, border, 1, "#9aa18f"
+ui sprite:8814, border_alpha, 142
+ui sprite:8814, hover_fill, "#252a2f"
+ui sprite:8814, z, 9810
+ui_text 8824, $demo_action_back, 1060, 512
+ui sprite:8824, font_size, 16
+ui sprite:8824, align, "center"
+ui sprite:8824, color, "#e7e2d6"
+ui sprite:8824, z, 9820
+
+btndef clear
+ui_button 8810, 1
+ui_button 8811, 2
+ui_button 8812, 3
+ui_button 8813, 4
+ui_button 8814, 99
+print 1
+
+*demo_end_loop
+btnwait %0
+if %0 == 1 { browser_open $demo_share_url, %80 }
+if %0 == 2 { browser_open $demo_steam_url, %81 }
+if %0 == 3 { browser_open $demo_site_url, %82 }
+if %0 == 4 { browser_open $demo_x_url, %83 }
+if %0 == 99 { goto *return_title }
+goto *demo_end_loop
 
 *tester_info
 cls()
@@ -570,6 +736,10 @@ get_pflag chapter_05 %14
 get_pflag chapter_06 %15
 get_pflag chapter_07 %16
 get_pflag chapter_08 %17
+getprofile $runtime_profile
+if $runtime_profile == "demo" { let %15 = 0 }
+if $runtime_profile == "demo" { let %16 = 0 }
+if $runtime_profile == "demo" { let %17 = 0 }
 
 ; タイトル
 ui_text 20, "CHAPTER SELECT", 640, 50

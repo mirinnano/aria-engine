@@ -9,6 +9,6 @@ debug off
 textbox 50, 500, 1180, 200
 fontsize 32
 textcolor "#ffffff"
-textbox_color "#0b0d10", 226
-textbox_style 8, 1, "#9aa18f", 116, 30, 22, 0, 6, "#000000", 150
+textbox_color "#0b0d10", 80
+textbox_style 0, 1, "#9aa18f", 116, 30, 22, 0, 6, "#000000", 150
 choice_style 640, 54, 12, 26, "#11161a", 232, "#e7e2d6", 6, "#9aa18f", 1, 118, "#252a2f", 22

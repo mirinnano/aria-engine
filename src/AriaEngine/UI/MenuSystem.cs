@@ -56,7 +56,14 @@ public class MenuSystem
     }
 
     public void OpenMainMenu() => Open(MenuState.Main);
-    public void OpenSaveLoadMenu(bool isSave) => Open(isSave ? MenuState.Save : MenuState.Load);
+    public void OpenSaveLoadMenu(bool isSave)
+    {
+        if (isSave)
+        {
+            _vm.PrepareThumbnail();
+        }
+        Open(isSave ? MenuState.Save : MenuState.Load);
+    }
     public void OpenBacklog()
     {
         _backlogScroll = 0;
@@ -670,8 +677,16 @@ public class MenuSystem
             {
                 var entry = entries[i];
                 string line = entry.Text.Replace("\r", " ").Replace("\n", " / ");
-                int maxChars = Math.Max(20, ((int)panel.Width - 136) / 12);
-                if (line.Length > maxChars) line = line[..maxChars] + "...";
+                int maxWidth = (int)panel.Width - 160;
+                if (renderer.MeasureMenuText(line, 18) > maxWidth)
+                {
+                    int chars = line.Length;
+                    while (chars > 0 && renderer.MeasureMenuText(line[..chars] + "...", 18) > maxWidth)
+                    {
+                        chars--;
+                    }
+                    line = line[..chars] + "...";
+                }
 
                 var rowRect = new Rectangle(panel.X + 20, y - 2, panel.Width - 40, 30);
                 bool hover = Raylib.CheckCollisionPointRec(mouse, rowRect);
