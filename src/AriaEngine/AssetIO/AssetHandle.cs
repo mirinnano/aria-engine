@@ -251,8 +251,10 @@ public sealed class AssetHandle<T> : IDisposable where T : class
     /// notified that the handle can be released. Idempotent: calling Dispose
     /// twice is a no-op.
     ///
-    /// Borrow handles do NOT notify the registry (they are non-tracked temporary
-    /// views). Moved-out source handles do NOT notify (target now owns the asset).
+    /// Both Owned (non-moved) and Borrow handles notify the registry, so the
+    /// registry can decrement the appropriate counter (PrimaryRefCount or
+    /// BorrowCount) and try eviction when the entry becomes idle.
+    /// Moved-out source handles do NOT notify (target now owns the asset).
     /// </summary>
     public void Dispose()
     {
@@ -266,8 +268,8 @@ public sealed class AssetHandle<T> : IDisposable where T : class
             Interlocked.Exchange(ref _refCount, 0);
         }
 
-        // Only Owned, non-moved handles notify the registry.
-        if (_ownership == AssetOwnership.Owned && Volatile.Read(ref _moved) == 0)
+        // Notify the registry unless this source was moved out (target now owns).
+        if (Volatile.Read(ref _moved) == 0)
         {
             _registry?.NotifyDisposed(this);
         }
