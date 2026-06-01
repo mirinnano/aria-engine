@@ -315,6 +315,89 @@ compat_mode on
 
 ---
 
+## 7. セーブサムネイルがセーブメニュー画面になっている (T1)
+
+### 症状
+
+セーブデータのサムネイル画像が、ゲーム本編ではなく **セーブメニュー UI が表示された状態** で記録されている。
+
+### 原因
+
+T1 (UX Quick Wins) で導入された `MenuSystem._vm.PrepareThumbnail()` 経由のキャプチャが効いていない。`VM.SaveGame()` 側で `CaptureThumbnail()` フォールバックになっている可能性が高い。
+
+### 解決策
+
+1. `MenuSystem.OpenSaveLoadMenu(true)` が呼ばれているか確認する。呼ばれていない場合、手動で `_vm.PrepareThumbnail()` を呼んでから `save` を実行する。
+2. ウィンドウが未初期化の場合、`PrepareThumbnail()` は no-op になる。エンジン起動後・ウィンドウ表示後にセーブ操作を行う。
+3. それでも直らない場合は `[JsonIgnore]` 属性が付与された `Sprite.IsPressed` 状態など、無関係なランタイム状態が原因の可能性は低い。`MenuSystem.cs` 63行目と `VirtualMachine.cs` 1420-1429行目を確認。
+
+### 予防
+
+- セーブメニューは `OpenSaveLoadMenu(true)` 経由で開く（手動で `MenuState.Save` を設定しない）
+- セーブ直前に `csp -1` で全スプライトを消すコードを書かない（キャプチャ対象が背景だけになる）
+
+---
+
+## 8. ボタンを押しても押下感（沈み込み・色変化）がない (T2)
+
+### 症状
+
+`spbtn` / `sp_isbutton` でボタンに設定したスプライトが、マウスでクリックしても視覚的に反応しない（押下時のスケール・色・Y オフセット変化がない）。
+
+### 原因
+
+1. **`ui_theme` が `classic` / `soft` / `glass` / `mono` のいずれにも設定されていない**: デフォルト値（`(default)`）は ButtonFeel 設定が空のため、視覚的フィードバックが発生しない。
+2. **スプライトが `IsButton = true` でない**: `spbtn` を呼んでいないか、`sp_isbutton` で `false` に上書きしている。
+3. **`Sprite.IsPressed` が renderer-owned runtime**: スクリプトから直接 `IsPressed` を `true` にしても毎フレーム `false` にリセットされる（仕様）。
+
+### 解決策
+
+1. `init.aria` でテーマを明示する:
+
+```aria
+theme "soft"
+```
+
+2. ボタンスプライトであることを確認する:
+
+```aria
+sp_isbutton 100, true
+spbtn 100, 1
+```
+
+3. `SpriteRenderer` が `IsPressed && IsButton` を毎フレーム評価している。`UpdateUiPresentation()` の呼び出し経路を `InputHandler` → `SpriteRenderer` で確認。
+
+### 予防
+
+- `init.aria` の `theme` 宣言を必ず含める（リリースビルドでも `classic` 推奨）
+- ボタンの `IsButton` フラグは `spbtn` 呼出し時点で自動設定される。手動で `sp_isbutton ... false` にしない
+
+---
+
+## 9. ADV モードのテキストが垂直方向で配置できない (T3)
+
+### 症状
+
+`textbox_align center` / `textbox_align top` などの指示がスクリプトに書かれているのに、テキストが常に画面下部に配置される。
+
+### 原因
+
+1. **`OpCode.TextboxAlign` が認識されていない**: スクリプトパーサーが新しい opcode を認識していない（古いスナップショットやキャッシュ）。
+2. **`TextboxVerticalAlign` enum が反映されていない**: `TextWindowState.VerticalAlign` フィールドが反映される前にテキストが描画される。
+
+### 解決策
+
+1. `init.aria` での `textbox_align` 設定を確認する（umikaze の場合: `textbox_align bottom` がデフォルト）。
+2. ランタイムでも変更可能: `textbox_align center` / `textbox_align top` / `textbox_align bottom` のいずれかを実行する。
+3. 垂直方向計算は `ComputeTextboxY()` ヘルパーで行われる。フォントサイズ・テキストボックス高さに整合性があることを確認。
+
+### 予防
+
+- プロジェクト開始時に `init.aria` で `textbox_align` を明示的に設定する
+- 中央配置後、キャラクタースプライトとの重なりがないか確認
+
+---
+
 ## その他のヒント
 
 ### エラーログの場所
@@ -356,3 +439,7 @@ dotnet run -- aria-format <file.aria>
 - [スプライトリファレンス](../reference/opcodes/sprite.md) — スプライトコマンド一覧
 - [オーディオリファレンス](../reference/opcodes/audio.md) — 音声コマンド一覧
 - [システムリファレンス](../reference/opcodes/system.md) — `save`、`load`、`debug` など
+- [`textbox_align` 詳細](../reference/opcodes/textbox_align.md) — T3 ADV テキスト垂直配置
+- [ButtonFeel 詳細](../reference/ui/button-feel.md) — T2 ボタン押下感
+- [アーキテクチャ: 概要](../architecture/overview.md) — エラー処理とErrorReporterの構成
+- [アーキテクチャ: テキストサブシステム](../architecture/text-subsystem.md) — テキストボックス描画パイプライン
