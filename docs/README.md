@@ -69,6 +69,7 @@ AI agentで拡張     → ai-agent/ へ
 - [オペコード一覧](reference/opcodes/) — 全コマンド
 - [`textbox_align` 詳細](reference/opcodes/textbox_align.md) — ADV テキストの垂直配置
 - [`ButtonFeel` 詳細](reference/ui/button-feel.md) — ボタンの押下感
+- [スクリプト機能 reference](reference/scripting/) — 機能横断的 reference (画面遷移 / FX / バックグラウンド時刻フィルタ / 多言語 など)
 - [スクリプト構文](reference/syntax.md) — 文法規則
 - [設定](reference/config.md) — config.json
 - [init.aria](reference/init-aria.md) — 初期化スクリプト
