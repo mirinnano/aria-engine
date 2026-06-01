@@ -1,0 +1,102 @@
+@inject IJSRuntime Js
+@inject HttpClient Http
+@implements IAsyncDisposable
+
+<main class="aria-shell">
+    <canvas id="aria-canvas" @ref="_canvas" width="1280" height="720"></canvas>
+</main>
+
+@code {
+    private ElementReference _canvas;
+    private WebRuntimeHost? _host;
+    private DotNetObjectReference<App>? _self;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _host = WebRuntimeHost.Boot(
+                new PreloadedWebAssetProvider(await LoadTextAssetsAsync()),
+                new WebRuntimeOptions("web-runtime"));
+            _self = DotNetObjectReference.Create(this);
+            await Js.InvokeVoidAsync("ariaWebRuntime.boot", _canvas, _self);
+            await RenderFrameAsync();
+        }
+        catch (Exception ex)
+        {
+            await Js.InvokeVoidAsync("ariaWebRuntime.showError", _canvas, ex.Message);
+        }
+    }
+
+    [JSInvokable]
+    public async Task HandlePointerDown(double x, double y, double width, double height, int button)
+    {
+        try
+        {
+            if (_host is null) return;
+            bool handled = button == 2
+                ? _host.HandleContextMenu(x, y, width, height)
+                : button == 0 && _host.HandlePointerPress(x, y, width, height);
+            if (handled)
+            {
+                await ProcessStorageOperationsAsync();
+                await RenderFrameAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await Js.InvokeVoidAsync("ariaWebRuntime.showError", _canvas, ex.Message);
+        }
+    }
+
+    private async Task RenderFrameAsync()
+    {
+        if (_host is null) return;
+        CanvasSize size = await Js.InvokeAsync<CanvasSize>("ariaWebRuntime.measure", _canvas);
+        WebRuntimeFrame frame = _host.CreateFrame(size.Width, size.Height);
+        await Js.InvokeVoidAsync("ariaWebRuntime.renderFrame", _canvas, frame);
+    }
+
+    private async Task ProcessStorageOperationsAsync()
+    {
+        if (_host is null) return;
+        foreach (BrowserStorageOperation operation in _host.DrainStorageOperations())
+        {
+            string? payload = await Js.InvokeAsync<string?>("ariaWebRuntime.applyStorageOperation", operation);
+            if (operation.Kind == BrowserStorageOperationKind.Read)
+            {
+                _host.ApplyLoadedStorage(operation, payload);
+            }
+        }
+    }
+
+    private async Task<Dictionary<string, string>> LoadTextAssetsAsync()
+    {
+        WebTextAssetManifest manifest = await Http.GetFromJsonAsync<WebTextAssetManifest>("assets/web-text-assets.json")
+            ?? new WebTextAssetManifest();
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string path in manifest.Preload)
+        {
+            result[path] = await Http.GetStringAsync(path);
+        }
+        return result;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _self?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+
+    private sealed class CanvasSize
+    {
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+
+    private sealed class WebTextAssetManifest
+    {
+        public List<string> Preload { get; set; } = new();
+    }
+}

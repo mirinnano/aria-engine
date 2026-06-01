@@ -1,0 +1,34 @@
+name: aria-web-device-qa
+
+on:
+  workflow_dispatch:
+
+jobs:
+  web-device-qa:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install browser QA dependencies
+        shell: pwsh
+        run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install chromium webkit
+      - name: Package Web/PWA
+        shell: pwsh
+        run: |
+          ./scripts/package-web.ps1 -Version qa -OutputRoot artifacts/web
+      - name: Run Web device QA gate
+        shell: pwsh
+        run: |
+          ./scripts/web-device-qa.ps1 -WebPackageDir artifacts/web/AriaEngine-qa-web -OutputDir artifacts/release/readiness -AllowMissingCaptures
+      - name: Upload Web device QA evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-device-qa-manifest
+          path: artifacts/release/readiness/**

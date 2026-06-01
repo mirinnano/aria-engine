@@ -1,0 +1,8 @@
+{
+  "name": "Aria Engine",
+  "short_name": "Aria",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#050607",
+  "theme_color": "#050607"
+}

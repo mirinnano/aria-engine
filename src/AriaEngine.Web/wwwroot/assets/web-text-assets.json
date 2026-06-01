@@ -1,0 +1,23 @@
+{
+  "preload": [
+    "init.aria",
+    "assets/i18n/locales.json",
+    "assets/i18n/ui.ja-JP.json",
+    "assets/i18n/ui.en-US.json",
+    "assets/i18n/ui.zh-CN.json",
+    "assets/i18n/ui.zh-TW.json",
+    "assets/scripts/main.aria",
+    "assets/scripts/ui_presets.aria",
+    "assets/scripts/settings_ui.aria",
+    "assets/scripts/gallery_ui.aria",
+    "assets/scripts/omake_ui.aria",
+    "assets/scripts/scenario_01.aria",
+    "assets/scripts/scenario_02.aria",
+    "assets/scripts/scenario_03.aria",
+    "assets/scripts/scenario_04.aria",
+    "assets/scripts/scenario_05.aria",
+    "assets/scripts/scenario_06.aria",
+    "assets/scripts/scenario_07.aria",
+    "assets/scripts/scenario_08.aria"
+  ]
+}
