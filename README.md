@@ -103,12 +103,20 @@ strict on
 
 ## ドキュメント
 
-- [ドキュメント一覧](docs/README.md) - チュートリアル、リファレンス、ガイド
+- [ドキュメント一覧](docs/README.md) - チュートリアル、リファレンス、ガイド (Diátaxis 構成)
 - [Aria v2 Strict 仕様書](docs/spec/aria-v2-strict.md) - 型安全・寿命管理・構造化の詳細仕様
 - [スクリプト言語リファレンス](docs/reference/opcodes/) - 全オペコード詳細
+- [アーキテクチャ: 概要](docs/architecture/overview.md) - エンジン構成と責務分担
+- [アーキテクチャ: プラットフォーム](docs/architecture/platform.md) - `.pak` / `.ariac` と dev/release モード
 - [リリースビルドの作成](docs/how-to-guides/compile-and-package.md)
 - [NSIS installer](docs/release/installer.md)
 - [v1.0.0 compatibility contract](docs/release/compatibility-v1.0.0.md)
+
+### 🆕 UX Quick Wins (T1/T2/T3)
+
+- **T1: セーブサムネイル** — セーブメニュー open 時にゲーム画面をキャプチャ → ゲーム本編の画像が記録される ([詳細](docs/tutorials/save-load.md#ステップ6-セーブサムネイルの仕組みを理解する))
+- **T2: ボタンの押下感** — `theme "soft"` などで全ボタンに押下アニメーション (`ButtonFeel`) を自動適用 ([詳細](docs/reference/ui/button-feel.md))
+- **T3: ADV テキスト垂直配置** — `textbox_align center` / `top` / `bottom` で垂直位置を制御 ([詳細](docs/reference/opcodes/textbox_align.md))
 
 ## AIエージェント向け
 
