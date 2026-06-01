@@ -116,9 +116,9 @@ src/AriaEngine/
     wait
 
     ; キャラクター名付きのセリフ（自動的にクリック待機＋クリアが入る）
-    ミオ「こんにちは！私はミオです。"
+    ミオ「こんにちは！私はミオです。」
 
-    ミオ「一緒にゲームを作っていきましょう。"
+    ミオ「一緒にゲームを作っていきましょう。」
 
     ; ゲーム終了
     end
@@ -166,5 +166,51 @@ dotnet run
 基本が動いたら、次のチュートリアルでUIの作り方を学びましょう。
 
 - [UI作成](creating-ui.md) — タイトル画面とボタンの作り方
+- [チャプターシステム](chapter-system.md) — 章管理と選択画面
+- [セーブ/ロード](save-load.md) — データ保存と復元
 
 より詳しいコマンドの一覧は [オペコードリファレンス](../reference/opcodes/) を参照してください。
+
+---
+
+## 補足: v2 strict モード（モダンな書き方）
+
+上記は v1.x 互換モード（`compat_mode on`）を使った従来スタイルの例です。AriaEngine v2.0 では、**型安全性・寿命管理・構造化** を有効にする v2 strict モードも利用できます。`init.aria` の先頭で `strict on` を宣言し、スクリプトも `# aria-version: 2.0` プラグマで宣言します。
+
+```aria
+# aria-version: 2.0
+strict on
+
+*start
+    textclear
+    func greet(name: string) -> void
+        text "こんにちは、${name}さん！"
+    endfunc
+
+    greet("ミオ")
+```
+
+| 機能 | v1.x 互換（`compat_mode on`） | v2 strict（`strict on`） |
+|------|----------------------------|------------------------|
+| 型チェック | なし | あり（int / string / sprite / flag） |
+| 変数寿命 | 手動 | `scope` / `owned` / `borrow` で自動管理 |
+| 関数 | `defsub` のみ | `func` / `endfunc` で構造化 |
+| 解析 | 実行時 | 静的（`aria-lint` で事前検出） |
+
+**初心者への推奨**: まずは v1.x 互換で始めて、慣れてきたら v2 strict に移行するのがスムーズです。両モードは共存可能で、同じプロジェクト内に混在させられます。
+
+詳細は [Aria v2 Strict 仕様書](../spec/aria-v2-strict.md) を参照してください。
+
+---
+
+## 補足: UX Quick Wins 機能
+
+AriaEngine v1.0 では以下の UX 改善が利用可能です。すべて `init.aria` またはスクリプトから有効化できます。
+
+| 機能 | コマンド | 説明 |
+|------|---------|------|
+| セーブサムネイル改善（T1） | `save` コマンドが自動でゲーム本編をキャプチャ | セーブメニュー UI ではなくゲーム画面がサムネイルに保存 |
+| ボタン押下感（T2） | `ui_theme "soft"` などでテーマ切替 | ボタンにホバー / 押下時のアニメーション |
+| ADV テキスト中央配置（T3） | `textbox_align middle` | 画面下端だけでなく中央にも配置可能 |
+
+詳細は [init.aria リファレンス](../reference/init-aria.md) と [オペコードリファレンス](../reference/opcodes/) を参照してください。
