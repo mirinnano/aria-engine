@@ -253,3 +253,6 @@ MyGame/
 - [スクリプト言語リファレンス](../reference/opcodes/) - スクリプト作成の詳細
 - [シンタックスリファレンス](../reference/syntax.md) - 文法の詳細
 - [設定リファレンス](../reference/config.md) - `config.json`の設定項目
+- [アーキテクチャ概要](../architecture/overview.md) - エンジンの全体構成
+- [プラットフォーム・配布形式](../architecture/platform.md) - `.pak` / `.ariac` の詳細と dev/release モード
+- [ツール・ビルドパイプライン](../architecture/tools.md) - `scripts/doctor.ps1` / `package.ps1` / `installer.ps1` の内部設計
