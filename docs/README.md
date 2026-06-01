@@ -79,11 +79,20 @@ AI agentで拡張     → ai-agent/ へ
 ### 💡 設計資料 | Architecture
 理解促進向き | Understanding-oriented
 
+**Core (コア設計)**
 - [言語理念](architecture/language-philosophy.md) — 設計思想
-- [概要](architecture/overview.md) — エンジン構成
+- [概要](architecture/overview.md) — エンジン構成と責務分担
 - [VM](architecture/vm.md) — 仮想マシン
 - [Parser](architecture/parser.md) — 解析処理
-- [Rendering](architecture/rendering.md) — 描画処理
+
+**Pipeline (パイプライン詳細)**
+- [Scripting pipeline](architecture/scripting-pipeline.md) — スクリプト解析 → コンパイル → 実行
+- [Rendering](architecture/rendering.md) — 描画パイプライン
+- [Text subsystem](architecture/text-subsystem.md) — テキスト描画と表示制御
+
+**Distribution (配布・ビルド)**
+- [Platform](architecture/platform.md) — `.pak` / `.ariac` / dev-release モード
+- [Tools](architecture/tools.md) — `doctor` / `package` / `installer` の内部設計
 
 📍 パス: `docs/architecture/`
 
@@ -117,6 +126,20 @@ AI agent 向け | AI agent-oriented
 | `if` | if | 条件分岐 | Conditional |
 
 その他のコマンドは [reference/opcodes/](reference/opcodes/) を参照。
+
+---
+
+## 🆕 UX Quick Wins (T1/T2/T3) まとめ
+
+v2.0.0-rc.1 で導入された UX 改善の主要機能。対応するドキュメントにリンクしています。
+
+| 機能 | 概要 | ドキュメント |
+|------|------|-------------|
+| **T1: セーブサムネイル** | セーブメニュー open 時にゲーム画面をキャプチャ → ゲーム本編の画像が記録される | [tutorials/save-load.md](tutorials/save-load.md) (ステップ6) / [reference/opcodes/system.md](reference/opcodes/system.md) |
+| **T2: ボタンの押下感** | `theme "soft"` などで全ボタンに押下アニメーション (`ButtonFeel`) を自動適用 | [reference/ui/button-feel.md](reference/ui/button-feel.md) / [tutorials/creating-ui.md](tutorials/creating-ui.md) (ステップ6) |
+| **T3: ADV テキスト垂直配置** | `textbox_align center` / `top` / `bottom` でテキストボックスの垂直位置を制御 | [reference/opcodes/textbox_align.md](reference/opcodes/textbox_align.md) / [tutorials/creating-ui.md](tutorials/creating-ui.md) |
+
+トラブルシューティングは [how-to-guides/troubleshooting.md](how-to-guides/troubleshooting.md) (セクション 7-9) を参照。
 
 ---
 
