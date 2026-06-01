@@ -326,10 +326,43 @@ move_aria_asset <src> -> <dst>
 ### Open Questions (要ユーザ判断)
 
 1. **Asset GC の予算デフォルト値**: 512 MB? 1 GB? (umikaze 規模による)
+   **→ Resolved: 512 MB 固定 (config.json 上書き不可、Phase 5 でハードコード)**
 2. **Async load のフォールバック**: Async 未対応環境 (WebAssembly 単一スレッド) での挙動
+   **→ Resolved: Web は `PreloadedWebAssetProvider` 現行維持、Native のみ sync load**
 3. **Pak patch (差分) との相互作用**: 既存 `PakPatch.cs` は v3 format を前提にしてる、Unified Index と整合するか
+   **→ Resolved: 統合 index に patch override を後勝ちマージ (Phase 1.1 で先行対応)**
 4. **ロケール別アセット**: 4 言語 × 全アセット = 4 倍サイズ、共通化は対象外?
+   **→ Resolved: path に言語 suffix 埋め込み (`scenario/en-US/main.aria`)、VFS シンプル化**
 5. **Mark-and-sweep への昇格**: 将来、refcount では循環参照が解決できない場合の昇格パス
+   **→ Resolved: Phase 1 で `AssetHandle.Mark()` 予約のみ、sweep は Phase 3 で実装**
+
+---
+
+## Resolved Decisions (2026-06-01)
+
+| # | Question | Resolution | Impact on Phase 1.1 |
+|---|----------|-----------|---------------------|
+| 1 | GC budget default | **512 MB fixed** | `UnifiedAssetIndex.TotalBudgetBytes` = 512MB hardcoded |
+| 2 | Async / WebAssembly | **Web 現状維持、Native のみ sync** | `IAssetProvider.ReadAllBytes()` sync only, no `Task<>` in this phase |
+| 3 | Pak patch interaction | **Override 後勝ちマージ** | `UnifiedAssetIndex` が patch pak を開いて override table として保持 |
+| 4 | Locale assets | **path に言語 suffix 埋め込み** | `UnifiedAssetIndex.Load(path, locale)` で `scenario/{locale}/main.aria` に解決 |
+| 5 | Mark-sweep upgrade | **Phase 1 で Mark() 予約のみ** | `AssetHandle.Mark()` スタブ追加、sweep は Phase 3.2 で |
+
+**ロケール戦略の具体例**:
+```
+scenario/en-US/main.aria
+scenario/ja-JP/main.aria
+scenario/zh-CN/main.aria
+scenario/zh-TW/main.aria
+```
+`UnifiedAssetIndex.Load("scenario/main.aria", "ja-JP")` → 内部で `scenario/ja-JP/main.aria` に rewrite。
+
+**Pak patch の具体例**:
+```
+data.pak (base)        : 1.0.0
+data-1.0.1.patch.pak   : 1.0.1 で変更された 12 アセットのみ
+```
+`UnifiedAssetIndex` は両方を開き、base と同じ path は patch が override。`PakPatch.cs` は手付かず (Phase 1.1 で helper 追加のみ)。
 
 ---
 
