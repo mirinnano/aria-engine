@@ -576,12 +576,74 @@ chapter_progress 2, 0
 
 ファイルが存在しない場合、エンジンは3つのデフォルトチャプターを自動生成します。
 
+## 補足: ボタンの押下感 (T2 ButtonFeel) を活用する
+
+このチュートリアルの各ステップでは `spbtn` / `sp_isbutton` を使ってボタンを定義していますが、T2 (UX Quick Wins) で導入された **ButtonFeel** を `init.aria` で有効化すると、すべてのボタンに押下時の視覚的フィードバックが自動で適用されます。
+
+### 有効化
+
+```aria
+; init.aria でテーマを切り替えるだけで OK
+theme "soft"
+```
+
+スクリプト側で個別に ButtonFeel を設定する必要はありません。`UiThemeManager.ApplyTheme()` 内で全テーマの `ButtonFeel` が再設定され、`SpriteRenderer.UpdateUiPresentation()` が `IsPressed && IsButton` を検知してスケール・色・Y オフセットを適用します。
+
+### テーマ別の ButtonFeel
+
+| テーマ | PressedColor | PressedOffsetY | PressedScale | AnimationDurationMs |
+|--------|--------------|----------------|--------------|---------------------|
+| **classic** (デフォルト) | `#181818` | `1.5` | `0.97` | `80` |
+| **soft** | `#0d1014` | `1.8` | `0.96` | `90` |
+| **glass** | `#081114` | `1.5` | `0.97` | `80` |
+| **mono** | `#000000` | `1.0` | `0.98` | `60` |
+
+チャプター選択画面でプレイヤーが「第一章」「第二章」ボタンを押すときに、ソフトテーマなら少し深く沈み込み、モノクロテーマなら小さく縮むといった挙動が自動で得られます。
+
+### 注意事項
+
+- **`IsPressed` は renderer-owned のランタイム状態**: `[JsonIgnore]` 属性が付与されているため、セーブ/ロード時に永続化されません。`Sprite.IsPressed` フラグの操作はエンジン側が自動で行います。
+- **後方互換**: 旧スクリプト（`IsPressed` を意識しないもの）はそのまま動作します。ButtonFeel の効果はテーマが `classic` / `soft` / `glass` / `mono` のいずれかであれば自動で適用されます。
+- **個別上書き**: 特定ボタンだけ ButtonFeel を変えたい場合は `GameState.ButtonFeel` を直接書き換えてから `ApplyTheme()` を呼んでください（上級者向け）。
+
+詳細は [`button-feel.md`](../reference/ui/button-feel.md) を参照してください。
+
+## 補足: v2 strict モードでのチャプター管理
+
+`# aria-version: 2.0` + `strict on` を有効にすると、型安全性とリソース寿命管理を使ってチャプター定義を表現できます。スクリプト冒頭に以下を追加してください:
+
+```aria
+# aria-version: 2.0
+strict on
+
+; チャプターID定数をスコープで管理
+namespace "chapter"
+    const FIRST: int = 1
+    const SECOND: int = 2
+    const THIRD: int = 3
+endnamespace
+
+; チャプター完了判定を関数化
+func is_unlocked(ch_id: int) -> int
+    let %flag, "chapter_${%ch_id}_unlocked"
+    get_pflag %flag, %result
+    return %result
+endfunc
+```
+
+`is_unlocked(chapter.SECOND)` のように呼び出せて、補完と型チェックが効きます。チャプターの数を増やす場合は `namespace chapter` に `const` を追加するだけで済みます。
+
+`unlock_chapter` / `chapter_progress` / `chapter_select` 自体は v1.x と同じ引数で動作するため、v2 strict 移行時も既存のチャプタースクリプトを書き直す必要はありません。
+
+> v1.x と v2 strict の完全な比較は [getting-started.md](getting-started.md) の「補足: v2 strict モード」を参照してください。
+
 ## 次のステップ
 
 チャプターシステムをマスターしたら、次のチュートリアルに進みましょう。
 
-- [セーブ/ロード実装](save-load.md) - 完全なセーブ/ロードシステム
-- [UI作成](creating-ui.md) - タイトル画面とボタンの作成
+- [セーブ/ロード実装](save-load.md) - 完全なセーブ/ロードシステム（T1 セーブサムネイルの仕組みを含む）
+- [UI作成](creating-ui.md) - タイトル画面とボタンの作成（T2 ButtonFeel ステップ6 を含む）
+- [ButtonFeel リファレンス](../reference/ui/button-feel.md) - ボタンの押下感テーマ別パラメータ
 
 ## まとめ
 
@@ -593,5 +655,7 @@ chapter_progress 2, 0
 4. `unlock_chapter` と `pflag` でアンロック機能を実装する方法
 5. `chapter_progress` で進行度を管理する方法
 6. カスタムカードにサムネイルや完了マークを追加する方法
+7. 補足: T2 ButtonFeel を `init.aria` の `theme` 宣言で適用する方法
+8. 補足: v2 strict モードでチャプター定数や判定関数を型安全に書く方法
 
 これでチャプター選択画面とアンロック機能を持ったゲームが作れるようになりました。
