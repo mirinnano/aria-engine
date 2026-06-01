@@ -177,5 +177,5 @@ RENDER_FONT_LOAD: フォント '...' を読み込めませんでした。
 ## 関連資料
 
 - [init.aria リファレンス](../reference/init-aria.md) — 全 init-only コマンドの詳細
-- [スプライト操作ガイド](sprite-operations.md) — テキストスプライトの詳細設定
 - [オペコードリファレンス: UI・テキスト](../reference/opcodes/ui.md) — `fontsize`、`textcolor` などのランタイムコマンド
+- [アーキテクチャ: Rendering](../architecture/rendering.md) — フォントアトラス生成と描画パイプライン
