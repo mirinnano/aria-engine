@@ -2,6 +2,8 @@
 
 スプライトをボタン化し、クリック入力を待ち受けるInputカテゴリのコマンドを解説します。
 
+> **T2 UX Quick Wins の一部として導入**: `ButtonFeel`（ボタン押下感）が導入されました。`ui_theme` コマンドでテーマを切り替えると、押下時のスケール/色/速度が変わります。詳細は [`../ui/button-feel.md`](../ui/button-feel.md) を参照してください。
+
 ---
 
 ## 目次
@@ -400,3 +402,11 @@ rmenu "セーブ", save, "ロード", load, "回想", backlog, "スキップ", s
 | `btn_clear` | - | `spriteId` | 指定スプライトのボタン状態を解除 |
 | `btn_clear_all` | `btndef` | - | 全スプライトのボタン状態を解除 |
 | `rmenu` | - | `*label` または `"名前", action, ...` | 右クリックメニュー設定 |
+
+---
+
+## 関連項目
+
+- [ButtonFeel](../ui/button-feel.md) — ボタンの押下感（T2 UX Quick Wins）
+- [`ui_theme`](init.md#ui_theme) — テーマを切り替えると ButtonFeel も連動して変化
+- [UI コマンド](ui.md) — 他の UI スプライト操作
