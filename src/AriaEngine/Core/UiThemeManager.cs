@@ -1,6 +1,30 @@
 namespace AriaEngine.Core;
 
 /// <summary>
+/// T2 UX Quick Wins: ボタンの押下感・色・スケール・効果音・アニメ速度を束ねる構造体。
+/// UiThemeManager.Apply*Theme() がテーマ別に ButtonFeel を組み立てて _state.ButtonFeel に設定する。
+/// SpriteRenderer / InputHandler は _state.ButtonFeel を参照して描画・効果音発火を行う。
+/// 値はプリミティブ型で保持(Json 保存時の互換性確保)。
+/// </summary>
+public class ButtonFeel
+{
+    /// <summary>ホバー中の塗り色(空文字の場合はテーマ既定色を使用)</summary>
+    public string HoverColor { get; set; } = "";
+    /// <summary>押下中の塗り色(空文字の場合はテーマ既定色を使用)</summary>
+    public string PressedColor { get; set; } = "";
+    /// <summary>押下時の Y 方向オフセット(px)。プラス値で沈み込み。</summary>
+    public float PressedOffsetY { get; set; } = 1.5f;
+    /// <summary>押下時のスケール(1.0=等倍、0.97=3% 縮小)</summary>
+    public float PressedScale { get; set; } = 0.97f;
+    /// <summary>ホバー/押下アニメの継続時間(ms)。</summary>
+    public float AnimationDurationMs { get; set; } = 80f;
+    /// <summary>クリック時の効果音パス(空文字=無音)。</summary>
+    public string ClickSoundPath { get; set; } = "assets/se/sys_click.wav";
+    /// <summary>ホバー時の効果音パス(空文字=無音)。</summary>
+    public string HoverSoundPath { get; set; } = "assets/se/sys_hover.wav";
+}
+
+/// <summary>
 /// UIテーマを管理するクラス
 /// </summary>
 public class UiThemeManager
@@ -90,12 +114,16 @@ public class UiThemeManager
         _state.MenuRuntime.MenuLineColor = UIThemeDefaults.MenuLineColor;
         _state.MenuRuntime.MenuTextColor = UIThemeDefaults.MenuTextColor;
         _state.MenuRuntime.MenuCornerRadius = UIThemeDefaults.MenuCornerRadius;
+
+        // T2 UX Quick Wins: デフォルトボタン押下感
+        _state.ButtonFeel = new ButtonFeel();
     }
 
     private void ApplyClassicTheme()
     {
-        _state.TextWindow.DefaultTextboxCornerRadius = 6;
-        _state.TextWindow.DefaultTextboxBorderWidth = 2;
+        _state.TextWindow.VerticalAlign = TextboxVerticalAlign.Bottom;
+        _state.TextWindow.DefaultTextboxCornerRadius = 0;
+        _state.TextWindow.DefaultTextboxBorderWidth = 0;
         _state.TextWindow.DefaultTextboxBorderColor = "#d1d5db";
         _state.TextWindow.DefaultTextboxBorderOpacity = 120;
         _state.TextWindow.DefaultTextboxShadowOffsetX = 0;
@@ -118,12 +146,25 @@ public class UiThemeManager
         _state.ChoiceStyle.ChoiceBorderOpacity = 120;
         _state.ChoiceStyle.ChoiceHoverColor = "#303030";
         _state.ChoiceStyle.ChoicePaddingX = 18;
+
+        // T2 UX Quick Wins: ボタン押下感（Classic = 温かみのある標準色、控えめ沈み込み）
+        _state.ButtonFeel = new ButtonFeel
+        {
+            HoverColor = "#303030",
+            PressedColor = "#181818",
+            PressedOffsetY = 1.5f,
+            PressedScale = 0.97f,
+            AnimationDurationMs = 80f,
+            ClickSoundPath = "assets/se/sys_click.wav",
+            HoverSoundPath = "assets/se/sys_hover.wav"
+        };
     }
 
     private void ApplySoftTheme()
     {
-        _state.TextWindow.DefaultTextboxCornerRadius = 22;
-        _state.TextWindow.DefaultTextboxBorderWidth = 1;
+        _state.TextWindow.VerticalAlign = TextboxVerticalAlign.Bottom;
+        _state.TextWindow.DefaultTextboxCornerRadius = 0;
+        _state.TextWindow.DefaultTextboxBorderWidth = 0;
         _state.TextWindow.DefaultTextboxBorderColor = "#b8c6d1";
         _state.TextWindow.DefaultTextboxBorderOpacity = 82;
         _state.TextWindow.DefaultTextboxShadowOffsetX = 0;
@@ -154,12 +195,25 @@ public class UiThemeManager
         _state.MenuRuntime.MenuLineColor = "#d2b982";
         _state.MenuRuntime.MenuTextColor = "#f7f5ef";
         _state.MenuRuntime.MenuCornerRadius = 22;
+
+        // T2 UX Quick Wins: ボタン押下感（Soft = 沈み込み大きめ、押しやすく）
+        _state.ButtonFeel = new ButtonFeel
+        {
+            HoverColor = "#2b3339",
+            PressedColor = "#0d1014",
+            PressedOffsetY = 1.8f,
+            PressedScale = 0.96f,
+            AnimationDurationMs = 90f,
+            ClickSoundPath = "assets/se/sys_click.wav",
+            HoverSoundPath = "assets/se/sys_hover.wav"
+        };
     }
 
     private void ApplyGlassTheme()
     {
-        _state.TextWindow.DefaultTextboxCornerRadius = 24;
-        _state.TextWindow.DefaultTextboxBorderWidth = 1;
+        _state.TextWindow.VerticalAlign = TextboxVerticalAlign.Bottom;
+        _state.TextWindow.DefaultTextboxCornerRadius = 0;
+        _state.TextWindow.DefaultTextboxBorderWidth = 0;
         _state.TextWindow.DefaultTextboxBorderColor = "#9ad9d4";
         _state.TextWindow.DefaultTextboxBorderOpacity = 96;
         _state.TextWindow.DefaultTextboxShadowOffsetX = 0;
@@ -181,12 +235,25 @@ public class UiThemeManager
         _state.ChoiceStyle.ChoiceBorderColor = "#9ad9d4";
         _state.ChoiceStyle.ChoiceBorderOpacity = 96;
         _state.ChoiceStyle.ChoiceHoverColor = "#254148";
+
+        // T2 UX Quick Wins: ボタン押下感（Glass = 透明感に合わせて短めアニメ）
+        _state.ButtonFeel = new ButtonFeel
+        {
+            HoverColor = "#254148",
+            PressedColor = "#081114",
+            PressedOffsetY = 1.5f,
+            PressedScale = 0.97f,
+            AnimationDurationMs = 80f,
+            ClickSoundPath = "assets/se/sys_click.wav",
+            HoverSoundPath = "assets/se/sys_hover.wav"
+        };
     }
 
     private void ApplyMonoTheme()
     {
+        _state.TextWindow.VerticalAlign = TextboxVerticalAlign.Bottom;
         _state.TextWindow.DefaultTextboxCornerRadius = 0;
-        _state.TextWindow.DefaultTextboxBorderWidth = 1;
+        _state.TextWindow.DefaultTextboxBorderWidth = 0;
         _state.TextWindow.DefaultTextboxBorderColor = "#ffffff";
         _state.TextWindow.DefaultTextboxBorderOpacity = 255;
         _state.TextWindow.DefaultTextboxShadowOffsetX = 2;
@@ -217,5 +284,17 @@ public class UiThemeManager
         _state.MenuRuntime.MenuLineColor = "#ffffff";
         _state.MenuRuntime.MenuTextColor = "#ffffff";
         _state.MenuRuntime.MenuCornerRadius = 0;
+
+        // T2 UX Quick Wins: ボタン押下感（Mono = シャープ、小さめ沈み込み）
+        _state.ButtonFeel = new ButtonFeel
+        {
+            HoverColor = "#333333",
+            PressedColor = "#000000",
+            PressedOffsetY = 1.0f,
+            PressedScale = 0.98f,
+            AnimationDurationMs = 60f,
+            ClickSoundPath = "assets/se/sys_click.wav",
+            HoverSoundPath = "assets/se/sys_hover.wav"
+        };
     }
 }

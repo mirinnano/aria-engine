@@ -938,10 +938,26 @@ public class SpriteRenderer
         Color hoverFill = !string.IsNullOrEmpty(sp.HoverFillColor) ? ParseColor(sp.HoverFillColor, fillAlpha) : normalFill;
         Color fillColor = LerpColor(normalFill, hoverFill, sp.HoverProgress);
 
+        // T2 UX Quick Wins: ボタン押下中は PressedColor で上書き。
+        // ホバーカラーより優先（押下 = 沈み込みの色変化）。
+        if (sp.IsButton && sp.IsPressed && _currentState != null &&
+            !string.IsNullOrEmpty(_currentState.ButtonFeel.PressedColor))
+        {
+            fillColor = ParseColor(_currentState.ButtonFeel.PressedColor, fillAlpha);
+        }
+
         float rWidth = SnapPixel(sp.Width * sp.RenderScaleX, _currentState);
         float rHeight = SnapPixel(sp.Height * sp.RenderScaleY, _currentState);
         float rx = sp.X + qx - (rWidth - sp.Width * sp.ScaleX) / 2f;
         float ry = sp.Y + qy - (rHeight - sp.Height * sp.ScaleY) / 2f;
+
+        // T2 UX Quick Wins: ボタン押下中は PressedOffsetY を加算（沈み込みの視覚効果）。
+        if (sp.IsButton && sp.IsPressed && _currentState != null &&
+            Math.Abs(_currentState.ButtonFeel.PressedOffsetY) > 0.001f)
+        {
+            ry += _currentState.ButtonFeel.PressedOffsetY;
+        }
+
         rx = SnapPixel(rx, _currentState);
         ry = SnapPixel(ry, _currentState);
 
@@ -1051,11 +1067,13 @@ public class SpriteRenderer
         float totalHeight = 0;
         float currentLineWidth = 0;
         float currentLineHeight = baseFontSize + baseSpacing;
+        System.Collections.Generic.List<float> lineWidths = new System.Collections.Generic.List<float>();
         
         foreach (var seg in _currentState.TextRuntime.CurrentTextSegments)
         {
             if (seg.IsNewLine)
             {
+                lineWidths.Add(currentLineWidth);
                 totalWidth = Math.Max(totalWidth, currentLineWidth);
                 totalHeight += currentLineHeight;
                 currentLineWidth = 0;
@@ -1071,24 +1089,11 @@ public class SpriteRenderer
             currentLineWidth += segSize.X;
             currentLineHeight = Math.Max(currentLineHeight, segSize.Y);
         }
+        lineWidths.Add(currentLineWidth);
         totalWidth = Math.Max(totalWidth, currentLineWidth);
         totalHeight += currentLineHeight;
 
-        // アライメント適用
-        float cursorX = startX;
         float cursorY = startY;
-        
-        if (sp.Width > 0)
-        {
-            if (sp.TextAlign == TextAlignment.Center) cursorX += (sp.Width - totalWidth) / 2f;
-            else if (sp.TextAlign == TextAlignment.Right) cursorX += (sp.Width - totalWidth);
-        }
-        else
-        {
-            if (sp.TextAlign == TextAlignment.Center) cursorX -= totalWidth / 2f;
-            else if (sp.TextAlign == TextAlignment.Right) cursorX -= totalWidth;
-        }
-
         if (sp.Height > 0)
         {
             if (sp.TextVAlign == TextVerticalAlignment.Center)
@@ -1097,13 +1102,28 @@ public class SpriteRenderer
                 cursorY += (sp.Height - totalHeight);
         }
 
-        // タイプライター効果: DisplayedTextLength をセグメントに適用
         int remainingLength = _currentState.TextRuntime.DisplayedTextLength;
 
-        // セグメントを順に描画（折り返し対応）
-        float lineX = cursorX;
+        int currentLineIdx = 0;
+        float GetAlignOffsetX(float w)
+        {
+            if (sp.Width > 0)
+            {
+                if (sp.TextAlign == TextAlignment.Center) return (sp.Width - w) / 2f;
+                if (sp.TextAlign == TextAlignment.Right) return (sp.Width - w);
+            }
+            else
+            {
+                if (sp.TextAlign == TextAlignment.Center) return -w / 2f;
+                if (sp.TextAlign == TextAlignment.Right) return -w;
+            }
+            return 0f;
+        }
+
+        float lineX = startX + GetAlignOffsetX(lineWidths.Count > 0 ? lineWidths[0] : 0);
         float lineY = cursorY;
         float lineMaxHeight = baseFontSize + baseSpacing;
+        float maxWidthForWrap = sp.Width > 0 ? sp.Width : 1280;
 
         foreach (var seg in _currentState.TextRuntime.CurrentTextSegments)
         {
@@ -1111,7 +1131,9 @@ public class SpriteRenderer
 
             if (seg.IsNewLine)
             {
-                lineX = cursorX;
+                currentLineIdx++;
+                float w = currentLineIdx < lineWidths.Count ? lineWidths[currentLineIdx] : 0;
+                lineX = startX + GetAlignOffsetX(w);
                 lineY += lineMaxHeight;
                 lineMaxHeight = baseFontSize + baseSpacing;
                 continue;
@@ -1133,9 +1155,9 @@ public class SpriteRenderer
 
             // 折り返しチェック
             var segSize = Raylib.MeasureTextEx(segFont, displayText, segFontSize, segSpacing);
-            if (sp.Width > 0 && lineX + segSize.X > cursorX + maxWidth && lineX > cursorX)
+            if (sp.Width > 0 && lineX + segSize.X > startX + maxWidth && lineX > startX)
             {
-                lineX = cursorX;
+                lineX = startX + GetAlignOffsetX(segSize.X);
                 lineY += lineMaxHeight;
                 lineMaxHeight = segFontSize + segSpacing;
             }
@@ -1241,20 +1263,8 @@ public class SpriteRenderer
         int rWidth = sp.Width > 0 ? sp.Width : (int)textSize.X;
         int rHeight = sp.Height > 0 ? sp.Height : (int)textSize.Y;
 
-        float rx = SnapPixel(sp.X + qx, _currentState);
+        float startX = SnapPixel(sp.X + qx, _currentState);
         float ry = SnapPixel(sp.Y + qy, _currentState);
-
-        // TextAlign implementation
-        if (sp.Width > 0)
-        {
-            if (sp.TextAlign == TextAlignment.Center) rx += (sp.Width - textSize.X) / 2f;
-            else if (sp.TextAlign == TextAlignment.Right) rx += (sp.Width - textSize.X);
-        }
-        else
-        {
-            if (sp.TextAlign == TextAlignment.Center) rx -= textSize.X / 2f;
-            else if (sp.TextAlign == TextAlignment.Right) rx -= textSize.X;
-        }
 
         // Vertical align inside explicit text area
         if (sp.Height > 0)
@@ -1269,36 +1279,62 @@ public class SpriteRenderer
             }
         }
 
-        Vector2 pos = new Vector2(rx, ry);
-        pos = ApplyTextEffect(sp, pos);
-        pos = SnapVector(pos, _currentState);
-
-        // テキストシャドウ（条件を強化）
-        if (!string.IsNullOrEmpty(sp.TextShadowColor) && (sp.TextShadowX != 0 || sp.TextShadowY != 0) && sp.Opacity > 0)
+        string[] lines = drawText.Replace("\r\n", "\n").Split('\n');
+        float currentY = ry;
+        
+        foreach (var line in lines)
         {
-            Color tShadowColor = ParseColor(sp.TextShadowColor, baseColor.A);
-            if (tShadowColor.A > 0)  // 完全に透明でない場合のみ描画
+            if (string.IsNullOrEmpty(line))
             {
-                Raylib.DrawTextEx(font, drawText, new Vector2(pos.X + sp.TextShadowX, pos.Y + sp.TextShadowY), scaledFontSize, spacing, tShadowColor);
+                currentY += scaledFontSize;
+                continue;
             }
-        }
 
-        // テキストアウトライン（条件を強化）
-        if (sp.TextOutlineSize > 0 && !string.IsNullOrEmpty(sp.TextOutlineColor) && sp.Opacity > 0)
-        {
-            Color outColor = ParseColor(sp.TextOutlineColor, baseColor.A);
-            if (outColor.A > 0)  // 完全に透明でない場合のみ描画
+            var lineSize = Raylib.MeasureTextEx(font, line, scaledFontSize, spacing);
+            float rx = startX;
+
+            // TextAlign implementation per line
+            if (sp.Width > 0)
             {
-                int t = sp.TextOutlineSize;
-                Raylib.DrawTextEx(font, drawText, new Vector2(pos.X - t, pos.Y - t), scaledFontSize, spacing, outColor);
-                Raylib.DrawTextEx(font, drawText, new Vector2(pos.X + t, pos.Y - t), scaledFontSize, spacing, outColor);
-                Raylib.DrawTextEx(font, drawText, new Vector2(pos.X - t, pos.Y + t), scaledFontSize, spacing, outColor);
-                Raylib.DrawTextEx(font, drawText, new Vector2(pos.X + t, pos.Y + t), scaledFontSize, spacing, outColor);
+                if (sp.TextAlign == TextAlignment.Center) rx += (sp.Width - lineSize.X) / 2f;
+                else if (sp.TextAlign == TextAlignment.Right) rx += (sp.Width - lineSize.X);
             }
-        }
+            else
+            {
+                if (sp.TextAlign == TextAlignment.Center) rx -= lineSize.X / 2f;
+                else if (sp.TextAlign == TextAlignment.Right) rx -= lineSize.X;
+            }
 
-        // テキスト描画
-        Raylib.DrawTextEx(font, drawText, pos, scaledFontSize, spacing, baseColor);
+            Vector2 pos = new Vector2(rx, currentY);
+            pos = ApplyTextEffect(sp, pos);
+            pos = SnapVector(pos, _currentState);
+
+            if (!string.IsNullOrEmpty(sp.TextShadowColor) && (sp.TextShadowX != 0 || sp.TextShadowY != 0) && sp.Opacity > 0)
+            {
+                Color tShadowColor = ParseColor(sp.TextShadowColor, baseColor.A);
+                if (tShadowColor.A > 0)
+                {
+                    Raylib.DrawTextEx(font, line, new Vector2(pos.X + sp.TextShadowX, pos.Y + sp.TextShadowY), scaledFontSize, spacing, tShadowColor);
+                }
+            }
+
+            if (sp.TextOutlineSize > 0 && !string.IsNullOrEmpty(sp.TextOutlineColor) && sp.Opacity > 0)
+            {
+                Color outColor = ParseColor(sp.TextOutlineColor, baseColor.A);
+                if (outColor.A > 0)
+                {
+                    int t = sp.TextOutlineSize;
+                    Raylib.DrawTextEx(font, line, new Vector2(pos.X - t, pos.Y - t), scaledFontSize, spacing, outColor);
+                    Raylib.DrawTextEx(font, line, new Vector2(pos.X + t, pos.Y - t), scaledFontSize, spacing, outColor);
+                    Raylib.DrawTextEx(font, line, new Vector2(pos.X - t, pos.Y + t), scaledFontSize, spacing, outColor);
+                    Raylib.DrawTextEx(font, line, new Vector2(pos.X + t, pos.Y + t), scaledFontSize, spacing, outColor);
+                }
+            }
+
+            Raylib.DrawTextEx(font, line, pos, scaledFontSize, spacing, baseColor);
+            
+            currentY += lineSize.Y;
+        }
     }
 
     private static Vector2 ApplyTextEffect(Sprite sp, Vector2 pos)
@@ -1426,6 +1462,20 @@ public class SpriteRenderer
             sp.RenderScaleX += (targetScaleX - sp.RenderScaleX) * blend;
             sp.RenderScaleY += (targetScaleY - sp.RenderScaleY) * blend;
             sp.RenderOpacity += (sp.Opacity - sp.RenderOpacity) * blend;
+
+            // T2 UX Quick Wins: ボタン押下中は PressedScale で上書き。
+            // ホバースケールより優先（押下 = 沈み込みのフィードバック）。
+            if (sp.IsButton && sp.IsPressed && _currentState != null)
+            {
+                float pressedScale = _currentState.ButtonFeel.PressedScale;
+                if (Math.Abs(pressedScale - 1f) > 0.001f)
+                {
+                    float pTargetX = sp.ScaleX * pressedScale;
+                    float pTargetY = sp.ScaleY * pressedScale;
+                    sp.RenderScaleX += (pTargetX - sp.RenderScaleX) * blend;
+                    sp.RenderScaleY += (pTargetY - sp.RenderScaleY) * blend;
+                }
+            }
         }
     }
 

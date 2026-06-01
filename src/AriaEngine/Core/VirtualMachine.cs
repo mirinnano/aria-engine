@@ -16,7 +16,9 @@ namespace AriaEngine.Core;
     private List<Instruction> _instructions = new();
     private Dictionary<string, int> _labels = new(StringComparer.OrdinalIgnoreCase);
     public GameState State { get; set; }
-    public bool _pendingThumbnail = false;
+    // Save スクショの事前キャプチャ用バッファ(メニュー描画前にキャプチャ → SaveGame で消費)。
+    // T1 UX Quick Wins: PrepareThumbnail() で実体化し、SaveGame() で ?? CaptureThumbnail() のフォールバック。
+    private byte[]? _pendingThumbnailData = null;
     private readonly ErrorReporter _reporter;
     private string _currentScriptFile = "";
     private string _currentReadKeyPrefix = "";
@@ -61,7 +63,12 @@ namespace AriaEngine.Core;
 
     public void PrepareThumbnail()
     {
-        _pendingThumbnail = true;
+        // メニュー描画前に現在のフレームバッファをキャプチャしておき、SaveGame() で消費する。
+        // ウィンドウが未初期化の場合は何もしない(SaveGame 側で ?? CaptureThumbnail() のフォールバックあり)。
+        if (Raylib.IsWindowReady())
+        {
+            _pendingThumbnailData = CaptureThumbnail();
+        }
     }
 
     // Scope management helpers (for T5)
@@ -1413,7 +1420,11 @@ public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager s
     public void SaveGame(int slot)
     {
         NormalizeRuntimeTextSprites();
-        byte[]? screenshot = CaptureThumbnail();
+        // T1: PrepareThumbnail() でメニュー描画前にキャプチャ済みのデータがあれば優先使用。
+        // null の場合(ウィンドウ未初期化/旧呼び出し経路)は従来の CaptureThumbnail() にフォールバック。
+        // 使い切りとして null クリアし、次回 Save 時の混入を防ぐ。
+        byte[]? screenshot = _pendingThumbnailData ?? CaptureThumbnail();
+        _pendingThumbnailData = null;
         Saves.Save(slot, State, _currentScriptFile, screenshot);
     }
 

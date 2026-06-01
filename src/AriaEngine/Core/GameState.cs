@@ -28,6 +28,17 @@ public enum TransitionType
     WipeCircle
 }
 
+/// <summary>
+/// テキストボックスの垂直方向アライン (T3 UX Quick Wins)。
+/// textbox_align opcode で切替。Bottom は既存挙動(下端)なので後方互換。
+/// </summary>
+public enum TextboxVerticalAlign
+{
+    Top,
+    Middle,
+    Bottom
+}
+
 public sealed class NscrEffectDefinition
 {
     public int DurationMs { get; set; } = 700;
@@ -164,6 +175,12 @@ public sealed class AudioState
 
 public sealed class TextWindowState
 {
+    /// <summary>
+    /// テキストボックスの垂直方向アライン (T3 UX Quick Wins)。
+    /// Top: 上端固定、Middle: 画面中央、Bottom(既定): 既存挙動(下端)
+    /// </summary>
+    public TextboxVerticalAlign VerticalAlign { get; set; } = TextboxVerticalAlign.Bottom;
+
     public int DefaultTextboxX { get; set; } = 50;
     public int DefaultTextboxY { get; set; } = 500;
     public int DefaultTextboxW { get; set; } = 1180;
@@ -179,6 +196,7 @@ public sealed class TextWindowState
     public bool CompatAutoUi { get; set; }
     public int DefaultTextboxPaddingX { get; set; } = UIThemeDefaults.TextboxPaddingX;
     public int DefaultTextboxPaddingY { get; set; } = UIThemeDefaults.TextboxPaddingY;
+    public TextAlignment DefaultTextAlign { get; set; } = TextAlignment.Left;
     public int DefaultTextboxCornerRadius { get; set; } = UIThemeDefaults.TextboxCornerRadius;
     public string DefaultTextboxBorderColor { get; set; } = UIThemeDefaults.TextboxBorderColor;
     public int DefaultTextboxBorderWidth { get; set; } = UIThemeDefaults.TextboxBorderWidth;
@@ -473,6 +491,9 @@ public class GameState
     public SceneRuntimeState SceneRuntime { get; set; } = new();
     public SaveRuntimeState SaveRuntime { get; set; } = new();
     public FlagRuntimeState FlagRuntime { get; set; } = new();
+
+    // T2 UX Quick Wins: ボタン押下感のテーマ設定。UiThemeManager.Apply*Theme() が書き換える。
+    public ButtonFeel ButtonFeel { get; set; } = new();
 
     // T22: Read rate calculation
     /// <summary>

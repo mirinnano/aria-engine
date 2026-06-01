@@ -159,6 +159,12 @@ public sealed class ScriptCommandHandler : BaseCommandHandler
                     case "load":
                         Vm.Menu.OpenSaveLoadMenu(false);
                         break;
+                    case "settings":
+                        Vm.Menu.OpenSettings();
+                        break;
+                    case "gallery":
+                        Vm.Menu.OpenGallery();
+                        break;
                 }
                 return true;
 

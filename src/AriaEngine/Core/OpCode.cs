@@ -10,7 +10,7 @@ public enum OpCode
 
     // スプライト操作
     Lsp, LspText, LspRect, Csp, Vsp, Msp, MspRel, SpZ, SpAlpha, SpScale, SpFontsize, SpColor, SpFill,
-    SpRound, SpBorder, SpGradient, SpShadow, SpTextShadow, SpTextOutline, SpTextAlign, SpRotation,
+    SpRound, SpBorder, SpGradient, SpShadow, SpTextShadow, SpTextOutline, SpTextAlign, Textalign, SpRotation,
     SpTextVAlign,
     SpHoverColor, SpHoverScale, SpCursor,
 
@@ -97,5 +97,8 @@ public enum OpCode
     FontFilter, Language, GetLanguage, LocGet, LocFormat, LangCount, LangAt, ReadId,
     GetProfile, BrowserOpen,
     // Scope control (explicit scope blocks)
-    ScopeEnter, ScopeExit
+    ScopeEnter, ScopeExit,
+
+    // UI: テキストボックスの垂直方向アライン (T3 UX Quick Wins)
+    TextboxAlign
 }

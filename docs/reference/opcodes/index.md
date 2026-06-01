@@ -181,6 +181,7 @@ AriaEngineで使用可能なすべてのスクリプトコマンド（オペコ�
 | `system_call` | System | [system.md](system.md) |
 | `text` | Text | [ui.md](ui.md) |
 | `textbox` | Text | [ui.md](ui.md) |
+| `textbox_align` | Text | [ui.md](ui.md) |
 | `textbox_color` | Text | [ui.md](ui.md) |
 | `textbox_hide` | Text | [ui.md](ui.md) |
 | `textbox_show` | Text | [ui.md](ui.md) |

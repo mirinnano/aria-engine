@@ -91,6 +91,16 @@ public class ParserTests
     }
 
     [Fact]
+    public void Parse_TextboxAlignCommand_ResolvesToTextboxAlignOpcode()
+    {
+        var result = CreateParser().Parse(new[] { "textbox_align center", "end" }, "align.aria");
+
+        result.Instructions.Should().ContainSingle(i => i.Op == OpCode.TextboxAlign);
+        result.Instructions.First(i => i.Op == OpCode.TextboxAlign).Arguments
+            .Should().Equal("center");
+    }
+
+    [Fact]
     public void Parse_UnclosedWhile_ReportsErrorInsteadOfLeavingUnresolvedJump()
     {
         var reporter = new ErrorReporter();

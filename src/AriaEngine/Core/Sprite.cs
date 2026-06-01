@@ -90,6 +90,10 @@ public class Sprite
     public string HoverFillColor { get; set; } = "";
     public float HoverScale { get; set; } = 1.0f;
     public bool IsHovered { get; set; } = false;
+    // T2 UX Quick Wins: Pressed (押下中) フラグ。InputHandler が押下時に true、release で false。
+    // SpriteRenderer は IsButton && IsPressed のとき ButtonFeel.PressedColor/PressedOffsetY/PressedScale を適用。
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsPressed { get; set; } = false;
     public string Cursor { get; set; } = "";
 
     // Slider properties

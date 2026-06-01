@@ -694,4 +694,46 @@ public class CommandTests
         vm.State.Execution.SpriteLifetimeStacks.Peek().Should().Contain(100); // txt
         vm.State.Execution.SpriteLifetimeStacks.Peek().Should().Contain(101); // rect
     }
+
+    [Fact]
+    public void TextboxAlignCommand_UpdatesVerticalAlign()
+    {
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        var handler = new TextCommandHandler(vm);
+
+        CommandRegistry.TryGet("textbox_align", out var op).Should().BeTrue();
+        op.Should().Be(OpCode.TextboxAlign);
+
+        // 既定は Bottom(後方互換)
+        vm.State.TextWindow.VerticalAlign.Should().Be(TextboxVerticalAlign.Bottom);
+
+        handler.Execute(new Instruction { Op = OpCode.TextboxAlign, Arguments = new List<string> { "top" }, SourceLine = 1 });
+        vm.State.TextWindow.VerticalAlign.Should().Be(TextboxVerticalAlign.Top);
+
+        handler.Execute(new Instruction { Op = OpCode.TextboxAlign, Arguments = new List<string> { "middle" }, SourceLine = 2 });
+        vm.State.TextWindow.VerticalAlign.Should().Be(TextboxVerticalAlign.Middle);
+
+        // center は middle のエイリアス
+        handler.Execute(new Instruction { Op = OpCode.TextboxAlign, Arguments = new List<string> { "center" }, SourceLine = 3 });
+        vm.State.TextWindow.VerticalAlign.Should().Be(TextboxVerticalAlign.Middle);
+
+        handler.Execute(new Instruction { Op = OpCode.TextboxAlign, Arguments = new List<string> { "bottom" }, SourceLine = 4 });
+        vm.State.TextWindow.VerticalAlign.Should().Be(TextboxVerticalAlign.Bottom);
+
+        // 不明な値は現状維持(Bottom のまま)
+        handler.Execute(new Instruction { Op = OpCode.TextboxAlign, Arguments = new List<string> { "diagonal" }, SourceLine = 5 });
+        vm.State.TextWindow.VerticalAlign.Should().Be(TextboxVerticalAlign.Bottom);
+    }
+
+    [Fact]
+    public void TextboxAlignCommand_AcceptsMixedCaseAndWhitespace()
+    {
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), new SaveManager(reporter), new ConfigManager());
+        var handler = new TextCommandHandler(vm);
+
+        handler.Execute(new Instruction { Op = OpCode.TextboxAlign, Arguments = new List<string> { "  TOP  " }, SourceLine = 1 });
+        vm.State.TextWindow.VerticalAlign.Should().Be(TextboxVerticalAlign.Top);
+    }
 }

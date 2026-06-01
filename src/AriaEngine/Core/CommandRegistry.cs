@@ -53,6 +53,7 @@ public static class CommandRegistry
         Register(CommandCategory.Text, OpCode.TextSpeed, "textspeed");
         Register(CommandCategory.Text, OpCode.DefaultSpeed, "defaultspeed");
         Register(CommandCategory.Text, OpCode.TextMode, "textmode");
+        Register(CommandCategory.Text, OpCode.Textalign, "textalign");
         Register(CommandCategory.Text, OpCode.TextboxStyle, "textbox_style");
         Register(CommandCategory.Text, OpCode.ChoiceStyle, "choice_style");
         Register(CommandCategory.Text, OpCode.TextTarget, "text_target");
@@ -301,6 +302,8 @@ public static class CommandRegistry
         Register(CommandCategory.System, OpCode.GetProfile, "getprofile", "get_profile");
         Register(CommandCategory.System, OpCode.BrowserOpen, "browser_open");
         Register(CommandCategory.Text, OpCode.ReadId, "readid", "read_id");
+        // UI: テキストボックスの垂直方向アライン (T3 UX Quick Wins)
+        Register(CommandCategory.Text, OpCode.TextboxAlign, "textbox_align");
     }
 
     public static IReadOnlyDictionary<string, CommandInfo> All => Commands;
@@ -446,6 +449,7 @@ public static class CommandRegistry
             OpCode.ReadId => 1,
             OpCode.GetProfile => 1,
             OpCode.BrowserOpen => 1,
+            OpCode.TextboxAlign => 1,
             _ => 0
         };
     }

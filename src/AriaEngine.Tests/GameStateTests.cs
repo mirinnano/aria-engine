@@ -248,4 +248,85 @@ public sealed class GameStateTests
         state.TextRuntime.ReadKeys.Contains("script.aria:10").Should().BeTrue();
         state.TextRuntime.ReadKeys.Contains("Script.aria:10").Should().BeTrue();
     }
+
+    [Fact]
+    public void TextWindowState_DefaultVerticalAlign_IsBottom_ForBackwardCompatibility()
+    {
+        var state = new GameState();
+        state.TextWindow.VerticalAlign.Should().Be(TextboxVerticalAlign.Bottom);
+    }
+
+    // T2 UX Quick Wins: ボタン押下感 (ButtonFeel) のテスト
+    [Fact]
+    public void ButtonFeel_Default_HasExpectedDefaults()
+    {
+        var feel = new ButtonFeel();
+
+        // 既定値は ボタン押下感の自然なデフォルト（控えめ沈み込み、3% 縮小）
+        feel.HoverColor.Should().Be("");
+        feel.PressedColor.Should().Be("");
+        feel.PressedOffsetY.Should().Be(1.5f);
+        feel.PressedScale.Should().Be(0.97f);
+        feel.AnimationDurationMs.Should().Be(80f);
+        feel.ClickSoundPath.Should().Be("assets/se/sys_click.wav");
+        feel.HoverSoundPath.Should().Be("assets/se/sys_hover.wav");
+    }
+
+    [Fact]
+    public void GameState_ButtonFeel_InitializedWithDefaults()
+    {
+        var state = new GameState();
+
+        // GameState 生成時に ButtonFeel が null ではなく既定値で初期化される
+        state.ButtonFeel.Should().NotBeNull();
+        state.ButtonFeel.PressedOffsetY.Should().Be(1.5f);
+        state.ButtonFeel.PressedScale.Should().Be(0.97f);
+    }
+
+    [Fact]
+    public void GameState_ButtonFeel_CanBeReplaced_ForThemeConfig()
+    {
+        var state = new GameState();
+        var newFeel = new ButtonFeel
+        {
+            HoverColor = "#ff0000",
+            PressedColor = "#00ff00",
+            PressedOffsetY = 3.0f,
+            PressedScale = 0.9f
+        };
+
+        // Apply*Theme() から新しい ButtonFeel を代入できる（テーマ差し替え時の挙動）
+        state.ButtonFeel = newFeel;
+
+        state.ButtonFeel.HoverColor.Should().Be("#ff0000");
+        state.ButtonFeel.PressedColor.Should().Be("#00ff00");
+        state.ButtonFeel.PressedOffsetY.Should().Be(3.0f);
+        state.ButtonFeel.PressedScale.Should().Be(0.9f);
+    }
+
+    [Fact]
+    public void Sprite_IsPressed_DefaultsToFalse_ForBackwardCompatibility()
+    {
+        var sprite = new Sprite();
+
+        // T2 UX Quick Wins: IsPressed は renderer-owned な runtime 状態。
+        // 新規 Sprite は false で始まり、InputHandler が押下時に true にする。
+        sprite.IsPressed.Should().BeFalse();
+        sprite.IsHovered.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Sprite_IsPressed_CanBeToggledByInputHandler()
+    {
+        var sprite = new Sprite();
+        sprite.IsButton = true;
+
+        // InputHandler.Update() が押下時に設定する挙動を模擬
+        sprite.IsPressed = true;
+        sprite.IsPressed.Should().BeTrue();
+
+        // リリースで false に戻る
+        sprite.IsPressed = false;
+        sprite.IsPressed.Should().BeFalse();
+    }
 }

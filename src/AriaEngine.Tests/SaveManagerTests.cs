@@ -461,4 +461,23 @@ public sealed class SaveManagerTests : IDisposable
         File.Exists(thumbPath).Should().BeFalse();
         _saveManager.HasSaveData(3).Should().BeFalse();
     }
+
+    [Fact]
+    public void VirtualMachine_SaveGame_WithoutWindow_DoesNotCrashAndSavesState()
+    {
+        // T1 UX Quick Wins: PrepareThumbnail() → SaveGame() 経路でウィンドウ未初期化でも
+        // キャプチャ失敗パス(_pendingThumbnailData が null のまま)を通じて
+        // SaveGame 自体はクラッシュせず完了することを確認する。
+        var reporter = new ErrorReporter();
+        var vm = new VirtualMachine(reporter, new TweenManager(), _saveManager, new ConfigManager());
+
+        // ウィンドウ未初期化状態で PrepareThumbnail() → _pendingThumbnailData = null
+        vm.PrepareThumbnail();
+
+        // SaveGame(0) を呼んでも例外が出ずに保存が完了する(フォールバック動作)
+        Action act = () => vm.SaveGame(0);
+        act.Should().NotThrow();
+
+        _saveManager.HasSaveData(0).Should().BeTrue();
+    }
 }

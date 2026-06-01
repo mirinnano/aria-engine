@@ -6,6 +6,10 @@ namespace AriaEngine.Core.Commands;
 
 public sealed class TextCommandHandler : BaseCommandHandler
 {
+    // textbox_align top でテキストボックスの上端から取るマージン(px)。
+    // 計画書 .sisyphus/plans/ux-quick-wins.md T3.5 準拠。既定 24。
+    private const int TextboxTopMargin = 24;
+
     public override IReadOnlySet<OpCode> HandledCodes { get; } = new HashSet<OpCode>
     {
         OpCode.Textbox,
@@ -33,7 +37,8 @@ public sealed class TextCommandHandler : BaseCommandHandler
         OpCode.Text,
         OpCode.Wait,
         OpCode.Choice,
-        OpCode.ReadId
+        OpCode.ReadId,
+        OpCode.TextboxAlign
     };
 
     public TextCommandHandler(VirtualMachine vm) : base(vm)
@@ -68,6 +73,14 @@ public sealed class TextCommandHandler : BaseCommandHandler
                 State.TextWindow.DefaultFontSize = GetVal(inst.Arguments[0]);
                 return true;
 
+            case OpCode.Textalign:
+                if (!ValidateArgs(inst, 1)) return true;
+                {
+                    string align = GetString(inst.Arguments[0]).ToLowerInvariant();
+                    State.TextWindow.DefaultTextAlign = align == "center" ? TextAlignment.Center : (align == "right" ? TextAlignment.Right : TextAlignment.Left);
+                }
+                return true;
+
             case OpCode.Textcolor:
                 if (!ValidateArgs(inst, 1)) return true;
                 State.TextWindow.DefaultTextColor = GetString(inst.Arguments[0]);
@@ -91,6 +104,26 @@ public sealed class TextCommandHandler : BaseCommandHandler
                 State.TextWindow.DefaultTextboxShadowOffsetY = GetVal(inst.Arguments[7]);
                 State.TextWindow.DefaultTextboxShadowColor = GetString(inst.Arguments[8]);
                 State.TextWindow.DefaultTextboxShadowAlpha = GetVal(inst.Arguments[9]);
+                return true;
+
+            case OpCode.TextboxAlign:
+                if (!ValidateArgs(inst, 1)) return true;
+                {
+                    string alignArg = GetString(inst.Arguments[0]).Trim().ToLowerInvariant();
+                    TextboxVerticalAlign newAlign = alignArg switch
+                    {
+                        "top" => TextboxVerticalAlign.Top,
+                        "middle" or "center" => TextboxVerticalAlign.Middle,
+                        "bottom" => TextboxVerticalAlign.Bottom,
+                        _ => State.TextWindow.VerticalAlign  // 不明な値は現状維持
+                    };
+                    if (newAlign != State.TextWindow.VerticalAlign)
+                    {
+                        // VerticalAlign 変更は次の text 描画(ExecuteText → ComputeTextboxY)で反映される。
+                        // 既存の DefaultTextboxY は Bottom 以外では使われないため、フラグ不要。
+                        State.TextWindow.VerticalAlign = newAlign;
+                    }
+                }
                 return true;
 
             case OpCode.ChoiceStyle:
@@ -292,7 +325,7 @@ public sealed class TextCommandHandler : BaseCommandHandler
             }
 
             bgSprite.X = State.TextWindow.DefaultTextboxX;
-            bgSprite.Y = State.TextWindow.DefaultTextboxY;
+            bgSprite.Y = ComputeTextboxY();
             bgSprite.Width = State.TextWindow.DefaultTextboxW;
             bgSprite.Height = State.TextWindow.DefaultTextboxH;
             bgSprite.FillColor = State.TextWindow.DefaultTextboxBgColor;
@@ -339,9 +372,10 @@ public sealed class TextCommandHandler : BaseCommandHandler
         if (State.TextWindow.CompatAutoUi && !State.TextWindow.UseManualTextLayout)
         {
             textSprite.X = State.TextWindow.DefaultTextboxX + State.TextWindow.DefaultTextboxPaddingX;
-            textSprite.Y = State.TextWindow.DefaultTextboxY + State.TextWindow.DefaultTextboxPaddingY;
+            textSprite.Y = ComputeTextboxY() + State.TextWindow.DefaultTextboxPaddingY;
             textSprite.Width = Math.Max(0, State.TextWindow.DefaultTextboxW - (State.TextWindow.DefaultTextboxPaddingX * 2));
             textSprite.Height = Math.Max(0, State.TextWindow.DefaultTextboxH - (State.TextWindow.DefaultTextboxPaddingY * 2));
+            textSprite.TextAlign = State.TextWindow.DefaultTextAlign;
         }
 
         textSprite.FontSize = State.TextWindow.DefaultFontSize;
@@ -458,6 +492,21 @@ public sealed class TextCommandHandler : BaseCommandHandler
         {
             State.Render.Sprites[State.TextWindow.TextTargetSpriteId].Visible = visible;
         }
+    }
+
+    // textbox_align で指定された VerticalAlign に応じて textbox の Y 座標を計算する。
+    //  Top: 上端から margin(既定 24px)固定
+    //  Middle: 画面中央 ((windowHeight - textboxH) / 2)
+    //  Bottom (既定): DefaultTextboxY をそのまま使用(後方互換)
+    // 呼び出しは sprite 構築のたびに(ExecuteText 内で bgSprite と textSprite の 2 箇所)行われる。
+    private int ComputeTextboxY()
+    {
+        return State.TextWindow.VerticalAlign switch
+        {
+            TextboxVerticalAlign.Top => TextboxTopMargin,
+            TextboxVerticalAlign.Middle => (State.EngineSettings.WindowHeight - State.TextWindow.DefaultTextboxH) / 2,
+            _ => State.TextWindow.DefaultTextboxY
+        };
     }
 
     private void ApplyTextMode(string mode)

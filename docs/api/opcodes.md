@@ -6,9 +6,9 @@
 
 | 項目 | 件数 |
 | --- | ---: |
-| Script-visible canonical commands | 252 |
-| Script-visible token names including aliases | 268 |
-| Registered executable opcodes | 251 |
+| Script-visible canonical commands | 254 |
+| Script-visible token names including aliases | 271 |
+| Registered executable opcodes | 253 |
 | Internal parser opcodes | 3 |
 
 Internal parser opcodes are `Text`, `JumpIfFalse`, and `Let`。`Text` は会話行パーサー、`JumpIfFalse` は制御構文展開、`Let` は `let x = y` 形式の内部表現に使われます。

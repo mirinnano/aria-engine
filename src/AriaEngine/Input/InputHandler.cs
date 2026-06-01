@@ -5,8 +5,21 @@ namespace AriaEngine.Input;
 
 public class InputHandler
 {
+    // T2 UX Quick Wins: 現在押下中のボタン ID。マウスが押された瞬間のボタンを記録し、
+    // リリースまで維持する。ドラッグオフしても _pressedButtonId はクリアされないため、
+    // 押下視覚効果がボタンに自然に留まる（クリックして指を離すまでの挙動）。
+    private int _pressedButtonId = -1;
+
     public void Update(VirtualMachine vm)
     {
+        // T2 UX Quick Wins: 毎フレーム最初にボタン押下状態をリセット。
+        // WaitingForButton 状態のときだけ再設定されるため、それ以外では常に false。
+        // 状態遷移や他処理での取り残しを防ぐ安全網。
+        foreach (var kvp in vm.State.Render.Sprites)
+        {
+            if (kvp.Value.IsButton) kvp.Value.IsPressed = false;
+        }
+
 #if DEBUG
         if (!vm.State.EngineSettings.ProductionMode && Raylib.IsKeyPressed(KeyboardKey.F3)) vm.State.EngineSettings.DebugMode = !vm.State.EngineSettings.DebugMode;
 #endif
@@ -171,6 +184,28 @@ public class InputHandler
                 focusedButton.IsButton)
             {
                 clickedButton = focusedButton;
+            }
+
+            // T2 UX Quick Wins: 押下中ボタンの追跡と IsPressed 適用。
+            // - クリック/キーボード有効化時はその瞬間の clickedButton を押下状態にする
+            // - マウスボタンリリースで _pressedButtonId を解除
+            // - ドラッグオフしても _pressedButtonId は維持（自然なクリック挙動）
+            // - クリック処理より前に適用することで、押下フレームでも視覚が出る
+            if (clickedButton != null)
+            {
+                _pressedButtonId = clickedButton.Id;
+            }
+            if (Raylib.IsMouseButtonReleased(MouseButton.Left))
+            {
+                _pressedButtonId = -1;
+            }
+            bool mouseDown = Raylib.IsMouseButtonDown(MouseButton.Left);
+            foreach (var kvp in vm.State.Render.Sprites)
+            {
+                if (kvp.Value.IsButton)
+                {
+                    kvp.Value.IsPressed = (kvp.Value.Id == _pressedButtonId) && mouseDown;
+                }
             }
 
             if (clickedButton != null)
