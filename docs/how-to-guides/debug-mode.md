@@ -83,3 +83,10 @@ debug on
 - デバッグ表示はゲーム画面に重なるため、スクリーンショット撮影時は F3 で OFF にしてください
 - `debug on` を init.aria に書くと常時有効になります。開発中は ON、リリース直前は OFF を推奨
 - F3 による切り替えは即座に反映されます。ゲームを再起動する必要はありません
+
+## 関連資料
+
+- [ButtonFeel リファレンス](../reference/ui/button-feel.md) — デバッグモードで表示されるボタンのヒットエリア（赤枠）と T2 テーマ設定の関係
+- [init.aria リファレンス](../reference/init-aria.md) — `debug` コマンドの詳細
+- [アーキテクチャ: 概要](../architecture/overview.md) — デバッグオーバーレイの内部構成
+- [セーブ/ロード実装](../tutorials/save-load.md) — F3 デバッグ中にセーブサムネイル（T1）の挙動を確認する方法
