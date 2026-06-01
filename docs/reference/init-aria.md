@@ -219,6 +219,55 @@ fontsize 32
 
 ---
 
+### textbox_align
+
+ADV モードにおけるテキストボックスの **垂直方向の配置** を切り替えます。**ランタイムでも変更可能**です。`textbox x, y, ...` で Y 座標を明示した場合はそちらが優先されます。テーマを切り替えると自動的に `bottom` に戻ります。
+
+```aria
+textbox_align <top|middle|bottom>
+```
+
+| 引数 | 型 | デフォルト値 | 説明 |
+|------|-----|-------------|------|
+| `mode` | string | `bottom` | `top`（画面上端 24px）/ `middle`（画面中央）/ `bottom`（テーマ既定の Y 座標） |
+
+モード指定は大文字小文字を区別しません。**例**:
+```aria
+textbox_align middle
+```
+
+詳細は [`opcodes/textbox_align.md`](opcodes/textbox_align.md) を参照してください。
+
+---
+
+### ui_theme
+
+UI テーマを切り替えます。**ランタイムでも変更可能**です。テーマごとに **ButtonFeel（ボタン押下感）** が切り替わり、`classic` / `soft` / `glass` / `mono` の 4 種類から選べます。
+
+```aria
+ui_theme <classic|soft|glass|mono>
+```
+
+| 引数 | 型 | デフォルト値 | 説明 |
+|------|-----|-------------|------|
+| `name` | string | `classic` | テーマ名 |
+
+| テーマ | ButtonFeel |
+|--------|-----------|
+| `classic` | 標準（1.0 倍、98% 縮小、60ms 復帰） |
+| `soft` | ふわっと（1.8 倍、96% 縮小、90ms 復帰） |
+| `glass` | 標準（classic と同等） |
+| `mono` | くっきり（1.0 倍、98% 縮小、60ms 復帰） |
+
+**例**:
+```aria
+ui_theme "soft"
+```
+
+詳細は [`ui/button-feel.md`](ui/button-feel.md) を参照してください。
+
+---
+
 ### textcolor
 
 デフォルトのテキスト色を設定します。**ランタイムでも変更可能**です。
@@ -335,16 +384,22 @@ font_filter "bilinear"
 script "assets/scripts/main.aria"
 
 ; デバッグモード
-debug on
+debug off
 
 ; テキストボックス設定（ランタイムでも変更可能）
-textbox 50, 500, 1180, 200
+textbox 0, 560, 1280, 160
 fontsize 32
 textcolor "#ffffff"
-textbox_color "#0b0d10", 226
-textbox_style 8, 1, "#9aa18f", 116, 30, 22, 0, 6, "#000000", 150
+textbox_color "#0b0d10", 80
+textbox_style 0, 0, "#000000", 0, 30, 22, 0, 0, "#000000", 0
 choice_style 640, 54, 12, 26, "#11161a", 232, "#e7e2d6", 6, "#9aa18f", 1, 118, "#252a2f", 22
+
+; 必要に応じて有効化（既定値で十分ならコメントのまま）
+; textbox_align middle  ; ADV テキストを画面中央に（既定: bottom = 下端）
+; ui_theme "soft"       ; ボタン押下感を soft に
 ```
+
+> 上記は umikaze（`src/AriaEngine/init.aria`）の現構成と一致します。`textbox` 座標は `0, 560, 1280, 160`（画面下端・全幅）、`textbox_color` の不透明度は `80`（半透明）、`textbox_style` は枠線・影なしのフラット設定です。
 
 ---
 
