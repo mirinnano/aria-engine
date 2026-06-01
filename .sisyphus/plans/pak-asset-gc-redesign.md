@@ -373,11 +373,11 @@ data-1.0.1.patch.pak   : 1.0.1 で変更された 12 アセットのみ
 | 1.1 | `UnifiedAssetIndex` skeleton + lazy manifest | 1 day | ✅ DONE | 5b34f65 |
 | 1.2 | `IAssetProvider` 統合 (Disk + PakV3 両対応) | 1 day | ✅ DONE | c77d023 |
 | 1.3 | ベンチマーク + 既存テスト全パス | 0.5 day | ✅ DONE | d958eeb |
-| 2.1 | `AssetHandle<T>` 実装 | 1 day | pending | - |
-| 2.2 | `AssetRegistry` skeleton | 1 day | pending | - |
-| 3.1 | Refcount + 世代管理 | 1.5 days | pending | - |
-| 3.2 | バックグラウンド sweep | 0.5 day | pending | - |
-| 3.3 | メモリ予算 enforcement | 0.5 day | pending | - |
+| 2.1 | `AssetHandle<T>` 実装 (v2 strict `owned`/`borrow`/`move`) | 1 day | ✅ DONE | 87f4cb6 |
+| 2.2 | `AssetRegistry` skeleton (placeholder) | 1 day | ✅ DONE | 87f4cb6 (with 2.1) |
+| 3.1 | Refcount + 世代管理 | 1.5 days | ✅ DONE | cd1f04e |
+| 3.2 | バックグラウンド sweep (Timer + Sweep()) | 0.5 day | ✅ DONE | cd1f04e (with 3.1) |
+| 3.3 | メモリ予算 enforcement (EnforceBudget) | 0.5 day | ✅ DONE | cd1f04e (with 3.1) |
 | 4.1 | v2 strict 静的解析 (aria-lint E013) | 1 day | pending | - |
 | 4.2 | `load_aria_asset` opcode 実装 | 1 day | pending | - |
 | 4.3 | Scope/borrow/move の type checker | 1 day | pending | - |
@@ -389,20 +389,18 @@ data-1.0.1.patch.pak   : 1.0.1 で変更された 12 アセットのみ
 ---
 
 ## Success Criteria
-
 - [x] 起動時 6 manifest を upfront parse しない (lazy 化) — **Phase 1.1-1.3 で達成**
   - Benchmark: eager startup 6.48 ms → lazy startup 0.01 ms (648x 高速化)
-- [ ] 同一アセットの重複ロードゼロ (refcount で共有) — Phase 3
-- [ ] 生存中 (refcount > 0) のアセットは evict されない — Phase 3
-- [ ] メモリ予算超過時、youngest (gen 0) から解放 — Phase 3
-- [x] 既存テスト 370 件全パス (フラグ off 時) — **Phase 1 で達成 (392/407, 14 既存 fail 不変)**
+- [x] 同一アセットの重複ロードゼロ (refcount で共有) — **Phase 3 で達成 (RegisterHandle の TryAdd で重複検出)**
+- [x] 生存中 (refcount > 0) のアセットは evict されない — **Phase 3 で達成 (CanEvict が refcount=0 AND borrow=0 のみ evict)**
+- [x] メモリ予算超過時、youngest (gen 0) から解放 — **Phase 3 で達成 (EnforceBudget → Sweep → CanEvict が Gen0/1 idle を解放、Gen2 保護)**
+- [x] 既存テスト 370 件全パス (フラグ off 時) — **Phase 1 で達成 (392/407, 14 既存 fail 不変)**, **Phase 3 で 447/462 (+55 新規テスト)**
 - [ ] v2 strict + `owned @bgm` で scope exit 時に自動 unload — Phase 4
 - [x] Web (Blazor) は無影響 — **Phase 1 で達成 (Web プロバイダ無修正)**
 - [ ] ドキュメント更新 (architecture/overview.md, architecture/platform.md, reference/opcodes/init.md) — Phase 5
 - [ ] CHANGELOG エントリ追加 (v2.0.0 として) — Phase 5
 
 ## Phase 1 Completion Notes (2026-06-01)
-
 Phase 1 (1.1, 1.2, 1.3) shipped:
 
 **Files added**:
@@ -431,6 +429,88 @@ Phase 1 (1.1, 1.2, 1.3) shipped:
   `UnifiedAssetProvider` is wired into `Program.cs` (separate concern).
 - Web `PreloadedWebAssetProvider` is untouched. Verify Phase 2 changes
   don't accidentally pull in AssetRegistry into the Web assembly.
+
+---
+
+## Phase 2+3 Completion Notes (2026-06-02)
+Phase 2.1 (AssetHandle), 2.2 (AssetRegistry skeleton), and Phase 3
+(3.1 refcount + generation, 3.2 background sweep, 3.3 budget enforcement)
+shipped.
+
+**Files modified**:
+- `src/AriaEngine/AssetIO/AssetHandle.cs` (266 lines, BUILD OK)
+  - Generic `AssetHandle<T> where T : class` implementing IDisposable
+  - `AssetGeneration` enum (Gen0/1/2) and `AssetOwnership` enum
+    (Owned/Borrow/Move) — mirrors v2 strict `owned`/`borrow`/`move`
+  - `Borrow()` returns a NEW `AssetHandle<T>` with Borrow ownership
+    (v2 strict semantics: borrow is a non-tracked temporary view,
+    parent's refcount is unaffected)
+  - `MoveTo(target)` transfers ownership; source is marked `_moved`
+    and disposed, target gains the transferred refcount
+  - `Dispose()` is idempotent; notifies the registry for both Owned
+    (non-moved) and Borrow handles so the registry can decrement
+    the appropriate counter
+  - `Mark()` (Q5 stub) sets a flag for future mark-and-sweep
+  - Internal accessors: `AddRef()`, `Touch()`, `SetGeneration()`,
+    `ResetMark()` exposed to AssetRegistry
+
+- `src/AriaEngine/AssetIO/AssetRegistry.cs` (refactored, full GC)
+  - Upgraded from placeholder (passive observer) to full GC with:
+      * `ConcurrentDictionary<path, PrimaryEntry>` for thread-safe lookup
+      * `PrimaryEntry` (public nested class for inspection): Path,
+        Asset, SizeBytes, PrimaryRefCount, BorrowCount, LastAccessUtc,
+        Generation, Marked
+      * Public API: `Promote(path)`, `Mark(path)`, `ResetMark(path)`,
+        `Sweep()`, `EnforceBudget()`, `GetEntry(path)`
+      * Background sweeper: `Timer` fires `Sweep()` every `gen1Promotion`
+        (1s default), no-op when `Enabled = false`
+      * Eviction policy (`CanEvict`): PrimaryRefCount == 0 AND
+        BorrowCount == 0 AND !Marked AND Generation != Gen2
+      * Staged rollout: when `Enabled = false`, both `NotifyDisposed`
+        and `Sweep` are passive (refcount bookkeeping happens but
+        no eviction). Flip to `true` in Phase 5
+
+**Files added**:
+- `src/AriaEngine.Tests/AssetHandleTests.cs` (22 cases)
+  - Construction (5), Dispose (3), Borrow (4), MoveTo (5),
+    Mark (3), Generation (1), Touch (2), Thread-safety (2),
+    Registry integration (2)
+- `src/AriaEngine.Tests/AssetRegistryTests.cs` (27 cases)
+  - Configuration (2), Registration (3), Disposal+Eviction (3),
+    Generation (4), Mark (3), Sweep (4), Budget (4),
+    Concurrency (2), Dispose (2)
+
+**Commits**:
+- `87f4cb6` Phase 2.1+2.2: AssetHandle + AssetRegistry skeleton
+- `cd1f04e` Phase 3: AssetRegistry full GC (refcount + generation + sweep + budget)
+
+**Test counts**:
+- Before Phase 2: 407 total (392 pass / 14 fail / 1 skip)
+- After Phase 3:  462 total (447 pass / 14 fail / 1 skip)
+  - +55 new tests across AssetHandle (22 + 6 shared) and AssetRegistry (27)
+
+**Build status**: 0 errors / 2 pre-existing warnings
+(CS8604 in Program.cs + WIP CS0414 in MenuSystem.cs — unrelated)
+
+**Behavior verified**:
+- `Dispose_Owned_NoBorrows_EvictsImmediately` — auto-eviction when Enabled=true
+- `Dispose_Owned_WithActiveBorrow_DoesNotEvict` — borrow keeps entry alive
+- `Dispose_Borrow_DecrementsBorrowCount` — last borrow triggers eviction
+- `Mark_PreventsEviction` — Q5 mark survives Notify
+- `Sweep_KeepsGen2` — long-lived entries are protected
+- `EnforceBudget_OverBudget_EvictsIdleEntries` — budget triggers sweep
+- `Concurrent_*` — thread-safe under 50+ concurrent ops
+
+**Risks for next phase (Phase 4)**:
+- Phase 4 wires the registry into the VM. The new `load_aria_asset`
+  opcode will create handles via the registry. The VM must hand
+  `AssetHandle<T>` instances to the scope manager for v2 strict
+  `owned`/`borrow` lifecycle.
+- `aria-lint` needs an E013 (or similar) for type-checker errors
+  related to asset ownership (e.g., using a disposed handle,
+  re-borrowing a borrow, moving a borrowed handle).
+- The v2 strict scope exit hook (`end_scope`) must call `Dispose`
+  on owned asset handles to release them automatically.
 
 ---
 
