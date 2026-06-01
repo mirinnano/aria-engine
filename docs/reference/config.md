@@ -36,6 +36,12 @@
 - **説明**: オートモード時の、ページ送りまでの待ち時間をミリ秒で指定します。
 - **有効な値**: `0` 以上の整数
 
+#### `Language`
+- **型**: `string`
+- **デフォルト値**: `"ja-JP"`
+- **説明**: UI 表示言語を指定します。`locales.json` に登録されている言語コードと一致させる必要があります。言語変更はゲーム内の設定メニューからも行えます（自動保存されます）。
+- **有効な値**: `locales.json` の `Languages` 配列に含まれるコード（例: `"ja-JP"`, `"en-US"`, `"zh-CN"`, `"zh-TW"`）
+
 ### オーディオ
 
 #### `BgmVolume`
@@ -82,6 +88,7 @@
   "TextMode": "adv",
   "SkipUnread": false,
   "AutoModeWaitTimeMs": 2000,
+  "Language": "ja-JP",
   "WindowWidth": 1280,
   "WindowHeight": 720
 }
