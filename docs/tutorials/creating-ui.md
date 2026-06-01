@@ -412,6 +412,46 @@
 5. `sp_hover_color` / `sp_hover_scale` / `sp_cursor` でホバーエフェクトを追加する
 6. `btnwait` でクリックを待ち、`if` で分岐する
 7. `fade_out` / `csp -1` / `fade_in` で画面を遷移する
+8. `ui_theme` でテーマ（ButtonFeel 含む）を切り替える
+
+---
+
+## ステップ6: ボタン押下感 (ButtonFeel) を追加する
+
+> **T2 UX Quick Wins の一部として導入**: `ui_theme` コマンドでテーマを切り替えると、ボタンに **押下感** が自動的に加わります。スプライトのスケールダウン・色変化・アニメーション速度がテーマごとに最適化されます。
+
+`init.aria` または `*title` ラベル内でテーマを指定するだけです。
+
+```aria
+*title
+    bg "#1a1a2e"
+
+    ; テーマを "soft" に切り替え (ふわっとした押下感)
+    ui_theme "soft"
+
+    ; ボタンの作成は省略
+    gosub *create_buttons
+    btnwait %result
+```
+
+| テーマ | ButtonFeel | 向いている作品 |
+|--------|-----------|----------------|
+| `classic` (既定値) | 標準（1.0 倍、98% 縮小、60ms 復帰） | レトロ / ノスタルジック |
+| `soft` | ふわっと（1.8 倍、96% 縮小、90ms 復帰） | モダン / カジュアル |
+| `glass` | 標準（classic と同等） | シンプル / ミニマル |
+| `mono` | くっきり（1.0 倍、98% 縮小、60ms 復帰） | モノクロ / アート系 |
+
+テーマを切り替えると、ButtonFeel だけでなく UI 全体のカラー・タイポグラフィも一括で変更されます。`Apply*Theme()` ごとに ButtonFeel も再設定されるため、後から動的に切り替えても整合性が保たれます。
+
+UI 効果音を追加するには `ui_se_hover` / `ui_se_click` / `ui_se_cancel` を使用します。
+
+```aria
+ui_se_hover "assets/se/hover.wav"
+ui_se_click "assets/se/click.wav"
+ui_se_cancel "assets/se/cancel.wav"
+```
+
+詳細は [`../reference/ui/button-feel.md`](../reference/ui/button-feel.md) を参照してください。
 
 ---
 
@@ -428,6 +468,11 @@
 - `spbtn` でボタン登録されているか確認（`spbtn` なしではホバーは機能しません）
 - `sp_hover_color` や `sp_hover_scale` の対象IDが正しいか確認
 
+### ボタン押下感（ButtonFeel）が効かない
+
+- `ui_theme` コマンドが `init.aria` または *title 内で呼ばれているか確認
+- テーマ名が `classic`/`soft`/`glass`/`mono` のいずれかであることを確認（大文字小文字区別なし）
+
 ### テキストが表示されない
 
 - `sp_color` で文字色が背景と被っていないか確認
@@ -442,4 +487,5 @@
 
 - [スプライト・描画コマンドリファレンス](../reference/opcodes/sprite.md) - すべてのスプライトコマンド
 - [ボタン・入力コマンドリファレンス](../reference/opcodes/button.md) - ボタンと入力の詳細
+- [ButtonFeel リファレンス](../reference/ui/button-feel.md) - ボタンの押下感
 - [アニメーションリファレンス](../reference/opcodes/animation.md) - `amsp` / `afade` など
