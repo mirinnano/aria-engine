@@ -324,6 +324,97 @@ mp3fadeout 時間
 - `時間`: フェードアウト時間（ミリ秒）。省略時は500
 
 **説明**:
+`bgmfade`と同じ動作をします。MP3形式のBGM用にNScripター互換で提供されています。内部的には同じフェード機構を使用し、`BgmFadeOutDurationMs`と`BgmFadeOutTimerMs`を操作します。
+
+**例**:
+```aria
+mp3fadeout 2000  ; 2秒かけてフェードアウト
+```
+
+**関連コマンド**: [bgmfade](#bgmfade), [play_mp3](#play_mp3), [stop_bgm](#stop_bgm)
+
+---
+
+## UI 効果音
+
+> **T2 UX Quick Wins の一部として導入**: `ButtonFeel` と連動して UI 操作音を再生します。`ui_se_*` コマンドで割り当てた SE ファイルは、ボタン hover / click / cancel 時に自動再生されます。詳細は [`../ui/button-feel.md`](../ui/button-feel.md) を参照してください。
+
+### ui_se_hover
+
+UI ボタンにマウスが乗った（hover）時の効果音を設定します。
+
+**カテゴリ**: オーディオ
+
+**構文**:
+```
+ui_se_hover "ファイルパス"
+```
+
+**引数**:
+- `"ファイルパス"`: 再生する SE ファイルのパス
+
+**例**:
+```aria
+ui_se_hover "assets/se/ui_hover.wav"
+```
+
+---
+
+### ui_se_click
+
+UI ボタンがクリックされた時の効果音を設定します。
+
+**カテゴリ**: オーディオ
+
+**構文**:
+```
+ui_se_click "ファイルパス"
+```
+
+**引数**:
+- `"ファイルパス"`: 再生する SE ファイルのパス
+
+**例**:
+```aria
+ui_se_click "assets/se/ui_click.wav"
+```
+
+---
+
+### ui_se_cancel
+
+UI 操作がキャンセルされた時の効果音を設定します。例: ダイアログのキャンセル、戻るボタン押下など。
+
+**カテゴリ**: オーディオ
+
+**構文**:
+```
+ui_se_cancel "ファイルパス"
+```
+
+**引数**:
+- `"ファイルパス"`: 再生する SE ファイルのパス
+
+**例**:
+```aria
+ui_se_cancel "assets/se/ui_cancel.wav"
+```
+
+---
+
+### mp3fadeout
+
+**カテゴリ**: オーディオ
+
+**構文**:
+```
+mp3fadeout 時間
+```
+
+**引数**:
+- `時間`: フェードアウト時間（ミリ秒）。省略時は500
+
+**説明**:
 `bgmfade`と同じ動作をします。MP3形式のBGM用にNScripter互換で提供されています。内部的には同じフェード機構を使用し、`BgmFadeOutDurationMs`と`BgmFadeOutTimerMs`を操作します。
 
 **例**:
