@@ -379,6 +379,59 @@ choice_style 640, 54, 12, 26, "#11161a", 232, "#e7e2d6", 6, "#9aa18f", 1, 118, "
 
 ---
 
+### `textbox_align`
+
+ADV モードにおけるテキストボックスの **垂直方向の配置** を切り替えます。`textbox x, y, ...` で Y 座標を明示した場合はそちらが優先されます。テーマを切り替えると自動的に `bottom` に戻ります。
+
+**カテゴリ**: Text
+
+```aria
+textbox_align <top|middle|bottom>
+```
+
+| 引数 | 型 | デフォルト値 | 説明 |
+|------|-----|-------------|------|
+| `mode` | string | `bottom` | `top`（画面上端 24px）/ `middle`（画面中央）/ `bottom`（テーマ既定の Y 座標） |
+
+モード指定は大文字小文字を区別しません。**例**:
+```aria
+textbox_align middle
+```
+
+詳細は [`textbox_align.md`](textbox_align.md) を参照してください。
+
+---
+
+### `ui_theme`
+
+UI テーマを切り替えます。テーマごとに **ButtonFeel（ボタン押下感）** が切り替わり、`classic` / `soft` / `glass` / `mono` の 4 種類から選べます。
+
+**カテゴリ**: Text
+
+```aria
+ui_theme <classic|soft|glass|mono>
+```
+
+| 引数 | 型 | デフォルト値 | 説明 |
+|------|-----|-------------|------|
+| `name` | string | `classic` | テーマ名 |
+
+| テーマ | ButtonFeel |
+|--------|-----------|
+| `classic` | 標準（1.0 倍、98% 縮小、60ms 復帰） |
+| `soft` | ふわっと（1.8 倍、96% 縮小、90ms 復帰） |
+| `glass` | 標準（classic と同等） |
+| `mono` | くっきり（1.0 倍、98% 縮小、60ms 復帰） |
+
+**例**:
+```aria
+ui_theme "soft"
+```
+
+詳細は [`../ui/button-feel.md`](../ui/button-feel.md) を参照してください。
+
+---
+
 ## 互換性コマンド
 
 以下はNScripter互換コマンドです。`init.md` から参照されるため概要を記載します。詳細は各カテゴリのリファレンスを参照してください。
@@ -474,5 +527,7 @@ choice_style 640, 54, 12, 26, "#11161a", 232, "#e7e2d6", 6, "#9aa18f", 1, 118, "
 
 - [init.aria リファレンス](../init-aria.md) — 初期化スクリプトの詳細ガイド
 - [UI・テキストウィンドウリファレンス](ui.md) — `textbox`, `fontsize`, `textcolor` などの詳細
+- [`textbox_align`](textbox_align.md) — ADV テキストの垂直配置（T3）
+- [ButtonFeel](../ui/button-feel.md) — ボタンの押下感（T2）
 - [システム・セーブコマンドリファレンス](system.md) — `debug`, `window_title`, `caption` などの詳細
 - [スプライトリファレンス](sprite.md) — `bg`, `lsp`, `csp` などの詳細
