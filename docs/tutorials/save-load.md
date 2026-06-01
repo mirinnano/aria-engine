@@ -469,6 +469,75 @@ AriaEngineにはセーブ/ロード機能が組み込まれています。エン
 
 ---
 
+## ステップ6: セーブサムネイルの仕組みを理解する
+
+セーブデータに保存されるサムネイルは、`save` を実行した瞬間の画面ではなく、**セーブ画面を開いた瞬間のゲーム画面**です。これは T1 (UX Quick Wins) で導入された改善で、「Saveした瞬間のセーブメニュー画面が写って意味がない」問題を解消します。
+
+### キャプチャのタイミング
+
+```
+1. プレイヤーが右クリック / ESC でセーブ画面を開く
+        ↓
+2. MenuSystem.OpenSaveLoadMenu(true) が
+   _vm.PrepareThumbnail() を呼ぶ
+   ← ここでゲーム画面（背景・キャラクター・テキストボックス）を 320x180 PNG にキャプチャ
+        ↓
+3. セーブ画面の UI（スロット一覧・「セーブしました」等）を上に重ねる
+        ↓
+4. プレイヤーがスロットを選んで save <slot>
+        ↓
+5. VM.SaveGame() が _pendingThumbnailData を消費してセーブデータに同梱
+   （null の場合は従来の CaptureThumbnail() にフォールバック）
+        ↓
+6. _pendingThumbnailData = null で使い切り（次回の混入を防ぐ）
+```
+
+### 旧実装との違い
+
+| 項目 | 旧実装 | T1 後の実装 |
+|------|--------|-------------|
+| キャプチャタイミング | `save` 実行時 | セーブメニュー open 時 |
+| 写るもの | セーブメニュー UI 込み | **ゲーム本編のみ** |
+| 解像度 | 320x180 | 320x180 (同) |
+| エラーハンドリング | 例外時は null | ウィンドウ未初期化時は `PrepareThumbnail()` 自体を no-op、`SaveGame()` 側で `?? CaptureThumbnail()` フォールバック |
+
+### コードからの確認
+
+`MenuSystem.cs` (63行目付近):
+
+```csharp
+public void OpenSaveLoadMenu(bool isSave)
+{
+    if (isSave)
+    {
+        _vm.PrepareThumbnail();  // ← メニュー描画前にキャプチャ
+    }
+    Open(isSave ? MenuState.Save : MenuState.Load);
+}
+```
+
+`VirtualMachine.cs` (1420-1429行目):
+
+```csharp
+public void SaveGame(int slot)
+{
+    NormalizeRuntimeTextSprites();
+    byte[]? screenshot = _pendingThumbnailData ?? CaptureThumbnail();
+    _pendingThumbnailData = null;  // 使い切り
+    Saves.Save(slot, State, _currentScriptFile, screenshot);
+}
+```
+
+### 注意事項
+
+- **`saveoff` 中の `save`**: メニューを開けないので `PrepareThumbnail()` は呼ばれません。`SaveGame()` 側で `CaptureThumbnail()` にフォールバックします（セーブUIが描かれる前の画面になります）。
+- **旧呼び出し経路**: テストや `Saves.Save()` を直接呼ぶ経路では `PrepareThumbnail()` を経由しないため、毎回 `CaptureThumbnail()` フォールバックとなります（動作互換）。
+- **ロード時のサムネ表示**: ロード画面で表示されるサムネイルはセーブデータに同梱されたバイト列です。エンジン側で自動表示されます。
+
+この仕組みにより、プレイヤーは「どの場面を保存したか」を一目で確認できるようになりました。
+
+---
+
 ## ベストプラクティス
 
 1. **セーブポイントの設置場所**: 章の区切り、選択肢の直前、プレイヤーが休憩しやすい場面に置く
@@ -519,6 +588,7 @@ AriaEngineにはセーブ/ロード機能が組み込まれています。エン
 3. ロード画面の実装（`load` と `*load_restore`）
 4. タイトル画面やポーズメニューへの組み込み
 5. オートセーブの利用（`systemcall "autosave"`）
+6. セーブサムネイルの仕組み（`PrepareThumbnail()` でメニュー表示前にキャプチャ → ゲーム本編の画面が記録される）
 
 AriaEngineの組み込み機能を使えば、セーブ/ロードシステムを一から実装する必要はありません。スクリプト側から「いつ、どのスロットにセーブするか」を指示するだけで、エンジンが状態の保存と復元を自動的に行います。
 
