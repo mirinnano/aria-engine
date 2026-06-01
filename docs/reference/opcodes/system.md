@@ -85,6 +85,8 @@ save %slot      ; レジスタでスロット番号を指定
 - `saveon` が有効な場合のみ実際にセーブされます
 - スロット0はオートセーブ専用です（`autosave` コマンドで使用）
 
+> **T1 UX Quick Wins の一部として導入**: セーブサムネイルが **ゲーム本編の画面** をキャプチャするようになりました。セーブメニューを開く直前の画面がサムネイルに保存されます（メニュー UI 自体は除外）。内部的には `MenuSystem` が `_vm.PrepareThumbnail()` を呼び、`SaveGame()` でそのキャプチャ済みデータを使用します。`PrepareThumbnail()` が呼ばれていない場合はリアルタイムキャプチャにフォールバックします。詳細: [`../../tutorials/save-load.md`](../../tutorials/save-load.md#セーブサムネイル)。
+
 ---
 
 ### `load`
