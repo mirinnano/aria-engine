@@ -1,4 +1,4 @@
-﻿using Raylib_cs;
+using Raylib_cs;
 using AriaEngine.Core;
 using AriaEngine.Rendering;
 using System.IO;
@@ -73,9 +73,9 @@ public class MenuSystem
         {
             entry.IsRead = true;
         }
-        _backlogLastOpenedCount = _vm.State.TextRuntime.TextHistory.Count;
         Open(MenuState.Backlog);
     }
+    public void OpenSettings() => Open(MenuState.Settings);
     public void OpenGallery() { _galleryScroll = 0; _galleryFullImage = null; Open(MenuState.Gallery); }
     public void CloseMenu() => _currentState = MenuState.Closed;
 
@@ -1009,21 +1009,19 @@ public class MenuSystem
 
     private Rectangle GetSaveLoadPanel()
     {
-        int columns = Math.Clamp(_vm.State.MenuRuntime.SaveLoadColumns, 1, 8);
-        int rowsCount = (SaveSlotCount + columns - 1) / columns;
-        int panelH = 60 + rowsCount * 100 + 44;
-        return CenterPanel(Math.Min(_vm.State.MenuRuntime.SaveLoadWidth, Raylib.GetScreenWidth() - 72), panelH);
+        return new Rectangle(0, 0, Raylib.GetScreenWidth(), Raylib.GetScreenHeight());
     }
 
     private Rectangle GetSaveSlotRect(int index)
     {
-        var panel = GetSaveLoadPanel();
-        int columns = Math.Clamp(_vm.State.MenuRuntime.SaveLoadColumns, 1, 8);
+        int columns = 2;
         int col = index % columns;
         int row = index / columns;
-        float slotW = (panel.Width - 48 - (columns - 1) * 24) / columns;
+        float slotW = Raylib.GetScreenWidth() * 0.4f;
         float slotH = 92;
-        return new Rectangle(panel.X + 24 + col * (slotW + 24), panel.Y + 60 + row * (slotH + 8), slotW, slotH);
+        float startX = col == 0 ? Raylib.GetScreenWidth() * 0.25f - slotW / 2 : Raylib.GetScreenWidth() * 0.75f - slotW / 2;
+        float startY = Raylib.GetScreenHeight() * 0.5f - (5 * slotH + 4 * 16) / 2f + row * (slotH + 16);
+        return new Rectangle(startX, startY, slotW, slotH);
     }
 
     private (Rectangle Yes, Rectangle No) GetConfirmRows()
@@ -1091,17 +1089,10 @@ public class MenuSystem
     private void DrawPanel(SpriteRenderer renderer, Rectangle rect, string title)
     {
         var fill = ColorFromHex(_vm.State.MenuRuntime.MenuFillColor, _vm.State.MenuRuntime.MenuFillAlpha);
-        var line = ColorFromHex(_vm.State.MenuRuntime.MenuLineColor, 144);
         var accent = ColorFromHex(_vm.State.MenuRuntime.MenuLineColor, 218);
-        float roundness = Math.Clamp(_vm.State.MenuRuntime.MenuCornerRadius / Math.Max(rect.Height, 1f), 0f, 1f);
-        var shadow = new Rectangle(rect.X + 5, rect.Y + 7, rect.Width, rect.Height);
-        Raylib.DrawRectangleRounded(shadow, roundness, 10, new Color(0, 0, 0, 148));
-        Raylib.DrawRectangleRounded(rect, roundness, 10, fill);
-        Raylib.DrawRectangleRoundedLinesEx(rect, roundness, 10, 1, line);
+        Raylib.DrawRectangle((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height, fill);
         Raylib.DrawRectangle((int)rect.X + 24, (int)rect.Y + 18, 34, 2, accent);
-        Raylib.DrawRectangle((int)rect.X + 24, (int)rect.Y + 22, 4, 20, accent);
-        DrawText(renderer, title, (int)rect.X + 66, (int)rect.Y + 18, 20, ColorFromHex(_vm.State.MenuRuntime.MenuTextColor, 255));
-        Raylib.DrawLine((int)rect.X + 24, (int)rect.Y + 52, (int)(rect.X + rect.Width - 24), (int)rect.Y + 52, line);
+        DrawText(renderer, title, (int)rect.X + 70, (int)rect.Y + 12, 18, ColorFromHex(_vm.State.MenuRuntime.MenuTextColor, 245));
     }
 
     private static void DrawOceanBackdrop(SpriteRenderer renderer)
@@ -1128,15 +1119,11 @@ public class MenuSystem
 
     private static void DrawOceanPanel(SpriteRenderer renderer, Rectangle rect, string title, string subtitle)
     {
-        var shadow = new Rectangle(rect.X + 8, rect.Y + 10, rect.Width, rect.Height);
-        Raylib.DrawRectangleRounded(shadow, 0.018f, 10, new Color(0, 0, 0, 138));
-        Raylib.DrawRectangleRounded(rect, 0.018f, 10, new Color(2, 18, 28, 196));
-        Raylib.DrawRectangleRoundedLinesEx(rect, 0.018f, 10, 1, new Color(112, 201, 216, 148));
+        Raylib.DrawRectangle((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height, new Color(2, 18, 28, 220));
         Raylib.DrawRectangle((int)rect.X + 24, (int)rect.Y + 20, 48, 2, new Color(158, 231, 236, 220));
         Raylib.DrawRectangle((int)rect.X + 24, (int)rect.Y + 25, 5, 22, new Color(158, 231, 236, 188));
         DrawText(renderer, title, (int)rect.X + 84, (int)rect.Y + 16, 22, new Color(232, 250, 250, 255));
         DrawText(renderer, subtitle, (int)rect.X + 84, (int)rect.Y + 40, 11, new Color(127, 183, 195, 210));
-        Raylib.DrawLine((int)rect.X + 24, (int)rect.Y + 58, (int)(rect.X + rect.Width - 24), (int)rect.Y + 58, new Color(112, 201, 216, 96));
     }
 
     private void DrawTextRow(SpriteRenderer renderer, Rectangle rect, string left, string right, bool hover)
