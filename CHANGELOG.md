@@ -98,6 +98,16 @@ ad-hoc pak readers in release mode with a single normalized view.
 - Web (Blazor) target is unaffected. `PreloadedWebAssetProvider`
   continues to serve all assets from the bundled `web-text-assets.json`.
 
+### Fixed
+
+- **dev/release pak-mix bug** — the boot auto-detection used to flip
+  to Release mode if even a single v3 pak was present in the exe
+  directory (e.g. a stray `data.arid` left from an old release build).
+  Detection now requires the mandatory pair (`boot.arib` + `scenario.aris`
+  for v3, `data.pak` + `scripts.ariac` for v2), and the rule lives in
+  a new testable `AutoReleaseDetector` class with 15 unit tests. Set
+  `ARIA_AUTO_RELEASE=0` to disable auto-detection entirely.
+
 ## [2.0.0-rc.1] - 2026-05-02
 
 ### Added
