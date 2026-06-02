@@ -540,6 +540,16 @@ public class GameState
     // T13: Owned sprite/resource declarations
     // Variables declared with `owned sprite %id` are auto-cleaned up when their scope exits
     public HashSet<string> OwnedSprites { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    // Pak v3 redesign, Phase 4.2: asset handle storage.
+    // `load_aria_asset <path> <var>` stores the resulting AssetHandle<byte[]> here
+    // (keyed by result var name). Lives outside scope-local dicts in Phase 4.2;
+    // scope-exit auto-dispose for `owned` handles is wired in Phase 4.3.
+    // Use `object` because handle payload type varies (byte[], Texture, etc.).
+    public Dictionary<string, object> AssetHandleTable { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    // Asset GC registry (null when Phase 5 wiring is not yet enabled).
+    public AriaEngine.Assets.AssetRegistry? AssetRegistry { get; set; }
 }
 
 public enum RuntimeProfile { Debug, Demo, Release }

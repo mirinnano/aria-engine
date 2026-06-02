@@ -15,7 +15,9 @@ public enum CommandCategory
     Flags,
     System,
     Ui,
-    Compatibility
+    Compatibility,
+    // Pak v3 redesign, Phase 4.2: `load_aria_asset` (and future asset-related opcodes).
+    Asset
 }
 
 public sealed record CommandInfo(
@@ -304,6 +306,8 @@ public static class CommandRegistry
         Register(CommandCategory.Text, OpCode.ReadId, "readid", "read_id");
         // UI: テキストボックスの垂直方向アライン (T3 UX Quick Wins)
         Register(CommandCategory.Text, OpCode.TextboxAlign, "textbox_align");
+        // Pak v3 redesign, Phase 4.2: load_aria_asset (raw bytes AssetHandle into GameState.AssetHandleTable).
+        Register(CommandCategory.Asset, OpCode.LoadAsset, "load_aria_asset");
     }
 
     public static IReadOnlyDictionary<string, CommandInfo> All => Commands;
@@ -450,6 +454,7 @@ public static class CommandRegistry
             OpCode.GetProfile => 1,
             OpCode.BrowserOpen => 1,
             OpCode.TextboxAlign => 1,
+            OpCode.LoadAsset => 2,
             _ => 0
         };
     }

@@ -168,13 +168,17 @@ namespace AriaEngine.Core;
     // T20: ラベルアドレスセット（チャプターラベル検出用）
     private HashSet<int> _labelAddresses = new();
 
-public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager saves, ConfigManager config, IAssetProvider? assetProvider = null, string? runtimeDataRoot = null)
+public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager saves, ConfigManager config, IAssetProvider? assetProvider = null, string? runtimeDataRoot = null, AriaEngine.Assets.AssetRegistry? assetRegistry = null)
     {
         _reporter = reporter;
         Tweens = tweens;
         Saves = saves;
         Config = config;
         State = new GameState();
+        // Phase 4.2: wire the asset registry into GameState so AssetCommandHandler
+        // can register handles. Null is OK (test runs / Phase 5 not yet enabled);
+        // when null, handles are constructed but not tracked by the GC.
+        State.AssetRegistry = assetRegistry;
         Menu = new MenuSystem(this);
         SpritePool = new SpritePool(CacheConstants.SpritePoolDefaultSize);
         Particles = new Rendering.ParticleSystem();
@@ -200,9 +204,14 @@ public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager s
             new AudioCommandHandler(this),
             new SystemCommandHandler(this),
             new FlagCommandHandler(this),
-            new CompatibilityCommandHandler(this)
+            new CompatibilityCommandHandler(this),
+            // Pak v3 redesign, Phase 4.2: load_aria_asset (and future asset opcodes).
+            new AssetCommandHandler(this, assetProvider!, assetRegistry)
         };
-        _handlerTable = new ICommandHandler?[(int)OpCode.FontFilter + 1];
+        // Pak v3 redesign, Phase 4.2: keep the handler table sized to the largest
+        // known opcode (LoadAsset). Adding opcodes past this point will not be
+        // routed; bump the size when extending the enum.
+        _handlerTable = new ICommandHandler?[(int)OpCode.LoadAsset + 1];
         foreach (var handler in _commandHandlers)
         {
             foreach (var code in handler.HandledCodes)

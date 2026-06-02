@@ -100,5 +100,11 @@ public enum OpCode
     ScopeEnter, ScopeExit,
 
     // UI: テキストボックスの垂直方向アライン (T3 UX Quick Wins)
-    TextboxAlign
+    TextboxAlign,
+
+    // Asset loading (Pak v3 redesign, Phase 4.2).
+    // `load_aria_asset <path> <result_var> [ownership]` reads the asset as raw bytes
+    // and stores an AssetHandle<byte[]> in GameState.AssetHandleTable. Phase 4.3 will
+    // integrate owned-handle disposal on scope exit.
+    LoadAsset
 }
