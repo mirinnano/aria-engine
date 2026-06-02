@@ -102,6 +102,12 @@ public sealed class VmExecutionState
     // スプライト寿命管理（関数スコープ）
     public Stack<HashSet<int>> SpriteLifetimeStacks { get; set; } = new();
 
+    // Asset handle lifetime management (Pak v3 redesign, Phase 4.3).
+    // Each entry is the set of `result_var` names whose AssetHandles were created
+    // in that scope. On scope exit, owned handles in the set are disposed and
+    // removed from GameState.AssetHandleTable.
+    public Stack<HashSet<string>> AssetHandleLifetimeStacks { get; set; } = new();
+
     // Explicit scope tracking for scope blocks (T5)
     public Stack<ScopeFrame> ScopeStack { get; set; } = new();
 }

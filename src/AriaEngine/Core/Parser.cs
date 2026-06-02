@@ -103,12 +103,16 @@ namespace AriaEngine.Core;
 
             // T13: owned sprite declarations
             // owned sprite <var>
-            if (Regex.IsMatch(line, @"^owned\s+sprite\s+", RegexOptions.IgnoreCase))
+            // Pak v3 redesign, Phase 4.3: `owned asset <var>` adds the var to
+            // OwnedSprites so AssetCommandHandler can auto-dispose on scope exit.
+            // Both forms share the same lifetime-tracking set; the storage class
+            // name is a hint to humans, not a behavioral difference.
+            if (Regex.IsMatch(line, @"^owned\s+(sprite|asset)\s+", RegexOptions.IgnoreCase))
             {
-                var mOwned = Regex.Match(line, @"^owned\s+sprite\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*$", RegexOptions.IgnoreCase);
+                var mOwned = Regex.Match(line, @"^owned\s+(sprite|asset)\s+([%$@&]?[A-Za-z_][A-Za-z0-9_]*)\s*$", RegexOptions.IgnoreCase);
                 if (mOwned.Success)
                 {
-                    string ownedVar = mOwned.Groups[1].Value;
+                    string ownedVar = mOwned.Groups[2].Value;
                     result.OwnedSprites.Add(ownedVar);
                     continue;
                 }

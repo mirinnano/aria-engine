@@ -276,4 +276,167 @@ public class AssetCommandHandlerTests : IDisposable
         Assert.Equal(2, registry!.TrackedCount);
         Assert.Equal(3, registry.CurrentBytes);
     }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Phase 4.3: scope-exit auto-dispose for owned handles
+    // ──────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Owned_Handle_IsTrackedInScope_OnLoad()
+    {
+        WriteAsset("data/owned.bin", new byte[] { 0xCA, 0xFE });
+        var (vm, provider, _) = NewVm();
+        var handler = new AssetCommandHandler(vm, provider);
+
+        // Declare @bgm as owned (parser would do this for `owned asset @bgm`).
+        vm.State.OwnedSprites.Add("@bgm");
+        vm.EnterScope();
+
+        handler.Execute(NewLoadAssetInstruction("data/owned.bin", "@bgm"));
+
+        Assert.True(vm.State.AssetHandleTable.ContainsKey("@bgm"));
+        var tracked = vm.State.Execution.AssetHandleLifetimeStacks.Peek();
+        Assert.Contains("@bgm", tracked);
+    }
+
+    [Fact]
+    public void Unowned_Handle_IsNotTrackedInScope_OnLoad()
+    {
+        WriteAsset("data/unowned.bin", new byte[] { 0xFE, 0xED });
+        var (vm, provider, _) = NewVm();
+        var handler = new AssetCommandHandler(vm, provider);
+
+        // @tmp is NOT in OwnedSprites.
+        vm.EnterScope();
+
+        handler.Execute(NewLoadAssetInstruction("data/unowned.bin", "@tmp"));
+
+        Assert.True(vm.State.AssetHandleTable.ContainsKey("@tmp"));
+        var tracked = vm.State.Execution.AssetHandleLifetimeStacks.Peek();
+        Assert.DoesNotContain("@tmp", tracked);
+    }
+
+    [Fact]
+    public void Owned_Handle_IsDisposedAndRemoved_OnScopeExit()
+    {
+        WriteAsset("data/dispose.bin", new byte[] { 0x42, 0x42, 0x42 });
+        var (vm, provider, registry) = NewVm();
+        var handler = new AssetCommandHandler(vm, provider, registry);
+
+        vm.State.OwnedSprites.Add("@bgm");
+        vm.EnterScope();
+        handler.Execute(NewLoadAssetInstruction("data/dispose.bin", "@bgm"));
+
+        var handle = (AssetHandle<byte[]>)vm.State.AssetHandleTable["@bgm"];
+        Assert.False(handle.IsDisposed);
+        Assert.Equal(1, registry!.TrackedCount);
+
+        // Exit the scope — owned handle should be disposed + removed.
+        vm.ExitScopesUntil(0);
+
+        Assert.False(vm.State.AssetHandleTable.ContainsKey("@bgm"));
+        Assert.True(handle.IsDisposed);
+    }
+
+    [Fact]
+    public void Unowned_Handle_PersistsPastScopeExit()
+    {
+        WriteAsset("data/persist.bin", new byte[] { 0x99 });
+        var (vm, provider, _) = NewVm();
+        var handler = new AssetCommandHandler(vm, provider);
+
+        vm.EnterScope();
+        handler.Execute(NewLoadAssetInstruction("data/persist.bin", "@kept"));
+
+        var handle = (AssetHandle<byte[]>)vm.State.AssetHandleTable["@kept"];
+        vm.ExitScopesUntil(0);
+
+        // Unowned handle survives scope exit (no auto-dispose).
+        Assert.True(vm.State.AssetHandleTable.ContainsKey("@kept"));
+        Assert.Same(handle, vm.State.AssetHandleTable["@kept"]);
+        Assert.False(handle.IsDisposed);
+    }
+
+    [Fact]
+    public void OwnedHandle_Registry_Notified_OnScopeExit()
+    {
+        WriteAsset("data/reg_dispose.bin", new byte[] { 0x55 });
+        var (vm, provider, registry) = NewVm();
+        var handler = new AssetCommandHandler(vm, provider, registry);
+        registry!.Enabled = true;  // enable so eviction can run
+
+        vm.State.OwnedSprites.Add("@r");
+        vm.EnterScope();
+        handler.Execute(NewLoadAssetInstruction("data/reg_dispose.bin", "@r"));
+        Assert.Equal(1, registry.TrackedCount);
+        Assert.Equal(1, registry.CurrentBytes);
+
+        vm.ExitScopesUntil(0);
+
+        // After scope exit, the entry should be evicted (refcount 0, !marked, Gen0).
+        Assert.Equal(0, registry.TrackedCount);
+        Assert.Equal(0, registry.CurrentBytes);
+    }
+
+    [Fact]
+    public void MultipleOwnedHandles_AllDisposed_OnScopeExit()
+    {
+        WriteAsset("data/m1.bin", new byte[] { 1 });
+        WriteAsset("data/m2.bin", new byte[] { 2, 2 });
+        WriteAsset("data/m3.bin", new byte[] { 3, 3, 3 });
+        var (vm, provider, registry) = NewVm();
+        var handler = new AssetCommandHandler(vm, provider, registry);
+
+        vm.State.OwnedSprites.Add("@a");
+        vm.State.OwnedSprites.Add("@b");
+        vm.State.OwnedSprites.Add("@c");
+        vm.EnterScope();
+        handler.Execute(NewLoadAssetInstruction("data/m1.bin", "@a"));
+        handler.Execute(NewLoadAssetInstruction("data/m2.bin", "@b"));
+        handler.Execute(NewLoadAssetInstruction("data/m3.bin", "@c"));
+
+        var a = (AssetHandle<byte[]>)vm.State.AssetHandleTable["@a"];
+        var b = (AssetHandle<byte[]>)vm.State.AssetHandleTable["@b"];
+        var c = (AssetHandle<byte[]>)vm.State.AssetHandleTable["@c"];
+        Assert.Equal(3, registry!.TrackedCount);
+
+        vm.ExitScopesUntil(0);
+
+        Assert.True(a.IsDisposed);
+        Assert.True(b.IsDisposed);
+        Assert.True(c.IsDisposed);
+        Assert.Empty(vm.State.AssetHandleTable);
+    }
+
+    [Fact]
+    public void NestedScopes_OnlyCurrentScopeHandlesDisposed()
+    {
+        WriteAsset("data/outer.bin", new byte[] { 0x10 });
+        WriteAsset("data/inner.bin", new byte[] { 0x20, 0x21 });
+        var (vm, provider, registry) = NewVm();
+        var handler = new AssetCommandHandler(vm, provider, registry);
+
+        vm.State.OwnedSprites.Add("@outer");
+        vm.State.OwnedSprites.Add("@inner");
+        vm.EnterScope();
+        handler.Execute(NewLoadAssetInstruction("data/outer.bin", "@outer"));
+        var outer = (AssetHandle<byte[]>)vm.State.AssetHandleTable["@outer"];
+
+        // Enter a nested scope
+        vm.EnterScope();
+        handler.Execute(NewLoadAssetInstruction("data/inner.bin", "@inner"));
+        var inner = (AssetHandle<byte[]>)vm.State.AssetHandleTable["@inner"];
+
+        // Exit inner scope — only @inner should be disposed.
+        vm.ExitScopesUntil(1);
+        Assert.True(inner.IsDisposed);
+        Assert.False(outer.IsDisposed);
+        Assert.False(vm.State.AssetHandleTable.ContainsKey("@inner"));
+        Assert.True(vm.State.AssetHandleTable.ContainsKey("@outer"));
+
+        // Exit outer scope — @outer disposed too.
+        vm.ExitScopesUntil(0);
+        Assert.True(outer.IsDisposed);
+        Assert.False(vm.State.AssetHandleTable.ContainsKey("@outer"));
+    }
 }

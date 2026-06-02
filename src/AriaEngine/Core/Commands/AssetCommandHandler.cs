@@ -152,5 +152,16 @@ public sealed class AssetCommandHandler : BaseCommandHandler
         _assetRegistry?.RegisterHandle(handle);
 
         State.AssetHandleTable[resultVar] = handle;
+
+        // Phase 4.3: track owned result_var in current scope for auto-dispose.
+        // Mirrors RenderCommandHandler.TrackSpriteLifetime: the parser puts
+        // declared `owned <storage_class> <var>` names into State.OwnedSprites,
+        // and the handler checks ownership at creation time. On scope exit,
+        // VirtualMachine.ExitScopesUntil disposes all handles in the set.
+        if (State.OwnedSprites.Contains(resultVar)
+            && State.Execution.AssetHandleLifetimeStacks.Count > 0)
+        {
+            State.Execution.AssetHandleLifetimeStacks.Peek().Add(resultVar);
+        }
     }
 }

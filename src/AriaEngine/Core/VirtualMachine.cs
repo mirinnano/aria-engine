@@ -81,6 +81,8 @@ namespace AriaEngine.Core;
         State.Execution.LocalStringStacks.Push(strScope);
         // Push lifetime tracker for sprites created in this scope
         State.Execution.SpriteLifetimeStacks.Push(new HashSet<int>());
+        // Push lifetime tracker for asset handles created in this scope (Phase 4.3)
+        State.Execution.AssetHandleLifetimeStacks.Push(new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         // Create scope frame and link to current local dictionaries
         var frame = new ScopeFrame
         {
@@ -133,6 +135,29 @@ namespace AriaEngine.Core;
                     else
                     {
                         // If sprite is already gone or not tracked, skip safely
+                    }
+                }
+            }
+
+            // Pak v3 redesign, Phase 4.3: dispose owned AssetHandles created in this scope.
+            // Each result_var in the set corresponds to an AssetHandle in
+            // GameState.AssetHandleTable. Owned handles are disposed (refcount
+            // decremented, registry notified) and the table entry is removed.
+            if (State.Execution.AssetHandleLifetimeStacks.Count > 0)
+            {
+                var handleSet = State.Execution.AssetHandleLifetimeStacks.Pop();
+                foreach (var key in handleSet)
+                {
+                    if (State.AssetHandleTable.TryGetValue(key, out var boxed))
+                    {
+                        // Dispose the handle if it's still live. HandleTable stores `object`
+                        // (boxed AssetHandle<T>); if it's null (no-op entry for borrow/move
+                        // or missing-asset), just remove the table entry.
+                        if (boxed is System.IDisposable d)
+                        {
+                            try { d.Dispose(); } catch { /* swallow — handle already disposed */ }
+                        }
+                        State.AssetHandleTable.Remove(key);
                     }
                 }
             }
