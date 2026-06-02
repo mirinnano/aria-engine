@@ -148,6 +148,7 @@ public static class AriaLintCommand
         Console.WriteLine("  E003 - Use-after-move of owned sprite");
         Console.WriteLine("  E004 - Potential double-drop of owned sprite");
         Console.WriteLine("  E010 - Sprite use after owning scope");
+        Console.WriteLine("  E013 - Asset handle ownership violations (Pak v3 redesign, Phase 4.1)");
         Console.WriteLine();
         Console.WriteLine("Exit codes:");
         Console.WriteLine("  0 - Clean (no issues)");
@@ -190,6 +191,10 @@ public static class AriaLintCommand
         CheckFuncReturnValue(parseResult, filePath, result);
         CheckImplicitTypeConversion(parseResult, filePath, result);
         CheckUninitializedVariable(parseResult, filePath, result);
+        // Pak v3 redesign, Phase 4.1: aria-lint E013 (asset handle ownership).
+        CheckAssetHandleLoadWithoutDeclaration(parseResult, filePath, result);
+        CheckAssetHandleDoubleLoad(parseResult, filePath, result);
+        CheckAssetHandleUseAfterScope(parseResult, filePath, result);
 
         return result;
     }
@@ -1176,6 +1181,106 @@ public static class AriaLintCommand
                         filePath, inst.SourceLine, 0, LintSeverity.Warning, "W008",
                         $"Uninitialized variable '{arg}' is used before assignment"));
                     uninitializedVars.Remove(arg); // warn once
+                }
+            }
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Pak v3 redesign, Phase 4.1: aria-lint E013 — asset handle ownership
+    //   E013-1 (W013): load_aria_asset without `owned asset <var>` declaration
+    //   E013-2 (W013): same result_var loaded twice (overwrites first handle)
+    //   E013-3 (E013): owned asset handle used outside its owning scope
+    //
+    // Note: re-borrow / double-dispose / move-after-borrow are runtime
+    // properties of AssetHandle<T>; static analysis only catches the
+    // structural patterns above. The borrow/move opcodes themselves land
+    // in a later phase.
+    // ──────────────────────────────────────────────────────────────────────
+
+    private static readonly Regex AssetHandleRefPattern =
+        new(@"@[A-Za-z_][A-Za-z0-9_]*", RegexOptions.Compiled);
+
+    private static void CheckAssetHandleLoadWithoutDeclaration(ParseResult parseResult, string filePath, LintResult result)
+    {
+        var declaredOwned = parseResult.OwnedSprites != null
+            ? new HashSet<string>(parseResult.OwnedSprites, StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var inst in parseResult.Instructions)
+        {
+            if (inst.Op != OpCode.LoadAsset) continue;
+            if (inst.Arguments.Count < 2) continue;  // arity is checked elsewhere
+
+            string resultVar = inst.Arguments[1];
+            if (!IsVariableToken(resultVar)) continue;
+
+            if (!declaredOwned.Contains(resultVar))
+            {
+                result.Issues.Add(new LintIssue(
+                    filePath, inst.SourceLine, 0, LintSeverity.Warning, "W013",
+                    $"load_aria_asset: result var '{resultVar}' is not declared as `owned asset` upstream; the handle will not be auto-disposed on scope exit"));
+            }
+        }
+    }
+
+    private static void CheckAssetHandleDoubleLoad(ParseResult parseResult, string filePath, LintResult result)
+    {
+        var seenLoad = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var inst in parseResult.Instructions)
+        {
+            if (inst.Op != OpCode.LoadAsset) continue;
+            if (inst.Arguments.Count < 2) continue;
+
+            string resultVar = inst.Arguments[1];
+            if (!IsVariableToken(resultVar)) continue;
+
+            if (seenLoad.TryGetValue(resultVar, out int firstLine))
+            {
+                result.Issues.Add(new LintIssue(
+                    filePath, inst.SourceLine, 0, LintSeverity.Warning, "W013",
+                    $"load_aria_asset: result var '{resultVar}' is loaded a second time (first load at line {firstLine}); the first handle is overwritten without Dispose"));
+            }
+            else
+            {
+                seenLoad[resultVar] = inst.SourceLine;
+            }
+        }
+    }
+
+    private static void CheckAssetHandleUseAfterScope(ParseResult parseResult, string filePath, LintResult result)
+    {
+        if (parseResult.OwnedSprites == null || parseResult.OwnedSprites.Count == 0)
+            return;
+
+        // Asset handle keys look like @name; sprite keys look like %name.
+        // Filter to asset-only declarations.
+        var declaredOwnedAssets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in parseResult.OwnedSprites)
+        {
+            if (s != null && s.StartsWith("@")) declaredOwnedAssets.Add(s);
+        }
+        if (declaredOwnedAssets.Count == 0) return;
+
+        // For each owned asset var, track first usage scope and flag cross-scope use.
+        var firstUsageScope = new Dictionary<string, StorageScope>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var inst in parseResult.Instructions)
+        {
+            // Only look at arguments that mention an asset handle.
+            foreach (var arg in inst.Arguments)
+            {
+                if (arg == null) continue;
+                if (!declaredOwnedAssets.Contains(arg)) continue;
+                if (!firstUsageScope.TryGetValue(arg, out var scope))
+                {
+                    firstUsageScope[arg] = inst.Scope;
+                }
+                else if (inst.Scope != scope)
+                {
+                    result.Issues.Add(new LintIssue(
+                        filePath, inst.SourceLine, 0, LintSeverity.Error, "E013",
+                        $"Asset handle '{arg}' is used outside its owning scope (declared scope: {scope}, used scope: {inst.Scope})"));
                 }
             }
         }
