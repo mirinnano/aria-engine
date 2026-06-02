@@ -119,29 +119,33 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             RunOptions runOptions = ParseRunOptions(args, reporter);
             StartupTrace("options");
 
-            // Auto-detect: if v3 split paks or data.pak exists next to exe, use Release mode automatically
-            if (runOptions.Mode == RunMode.Dev && string.IsNullOrWhiteSpace(runOptions.PakPath))
+            // Auto-detect: if v3 split paks or data.pak exists next to exe, use Release mode automatically.
+            //
+            // Bug fix (resolves "DBG状態なのにリリースファイルを読み込む" UX issue): the
+            // previous Any() check flipped to Release mode if even a single stray v3 pak
+            // (e.g. a leftover `data.arid` from a release build) was present in the dev
+            // output directory. Now we require the *mandatory* pair (boot.arib AND
+            // scenario.aris) before claiming a v3 release build, and require data.pak
+            // AND scripts.ariac before claiming a v2 release build.
+            //
+            // The detection rule lives in AutoReleaseDetector so it can be unit
+            // tested without touching the real filesystem (see AutoReleaseDetectorTests).
+            //
+            // Override: set ARIA_AUTO_RELEASE=0 in the environment to disable auto-
+            // detection entirely (always start in Dev mode unless --run-mode release
+            // is passed explicitly).
+            string exeDir = AppDomain.CurrentDomain.BaseDirectory;
+            var detection = AutoReleaseDetector.Detect(exeDir);
+            AutoReleaseDetector.Apply(
+                runOptions,
+                detection,
+                exeDir,
+                Environment.GetEnvironmentVariable("ARIA_AUTO_RELEASE"));
+            if (detection.Detected)
             {
-                string exeDir = AppDomain.CurrentDomain.BaseDirectory;
-                string autoPak = Path.Combine(exeDir, "data.pak");
-                string autoCompiled = Path.Combine(exeDir, "scripts", "scripts.ariac");
-                string keyFile = Path.Combine(exeDir, "aria.key");
-
-                // v3 split auto-detection
-                string[] v3Files = new[] { "boot.arib", "scenario.aris", "data.arid", "stream.arim", "voice.ariv" };
-                bool v3Detected = v3Files.Any(f => File.Exists(Path.Combine(exeDir, f)));
-
-                if (v3Detected || File.Exists(autoPak))
-                {
-                    runOptions.Mode = RunMode.Release;
-                    if (File.Exists(autoPak)) runOptions.PakPath = "data.pak";
-                    if (File.Exists(autoCompiled)) runOptions.CompiledPath = "scripts/scripts.ariac";
-                    if (File.Exists(keyFile) && string.IsNullOrEmpty(runOptions.Key))
-                    {
-                        runOptions.Key = File.ReadAllText(keyFile).Trim();
-                    }
-                    StartupTrace(v3Detected ? "auto-release: v3 split paks detected" : "auto-release: data.pak detected");
-                }
+                StartupTrace(detection.Kind == AutoReleaseDetector.AutoReleaseKind.V3Split
+                    ? "auto-release: v3 split paks (boot+scenario) detected"
+                    : "auto-release: data.pak + scripts.ariac detected");
             }
             if (!runOptions.ProfileExplicit && runOptions.Mode == RunMode.Release)
             {

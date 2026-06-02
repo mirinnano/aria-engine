@@ -398,6 +398,43 @@ spbtn 100, 1
 
 ---
 
+## 10. dev ビルドのはずなのに release の pak が読み込まれる
+
+### 症状
+
+- `dotnet run` で起動したのに、リリース用 `.pak` の中のアセットが表示される
+- ログやアセット参照が `data.pak` / `boot.arib` などのリリースアーティファクトに向いている
+- ゲームのスクリプトや画像が、リポジトリで編集したものではなく、古いリリース版のものになる
+
+### 原因
+
+`Program.cs` の自動モード検出が緩すぎた。従来は exe と同じディレクトリに v3 split pak の **いずれか 1 つでも** 存在すれば Release モードに自動切替していたため、リリースビルドの stray ファイル（例: 昔のビルドの `data.arid` だけ残っている）が dev ディレクトリに転がっていると dev → release に flip していた。
+
+### 解決策
+
+自動検出のルールを厳格化した（`Program.cs`）:
+
+- **v3 split**: `boot.arib` **AND** `scenario.aris` の両方が存在する場合のみ Release 自動選択
+- **v2 single-pak**: `data.pak` **AND** `scripts/scripts.ariac` の両方が存在する場合のみ Release 自動選択
+- **オプトアウト**: 環境変数 `ARIA_AUTO_RELEASE=0` をセットすると自動検出を完全に無効化できる
+
+```powershell
+# 自動検出を無効化して dev 強制
+$env:ARIA_AUTO_RELEASE='0'
+dotnet run --project src/AriaEngine/AriaEngine.csproj
+
+# 明示的に release を指定（自動検出に依らない）
+dotnet run --project src/AriaEngine/AriaEngine.csproj -- --run-mode release
+```
+
+### 予防
+
+- dev ビルドディレクトリと release ビルドディレクトリを物理的に分ける
+- リリース配布時はクリーンなディレクトリに `.exe` + 必要 pak のみをコピーする
+- リポジトリの `saves/` / `bin/` / `obj/` は `.gitignore` 済みなので、ここのファイルがコミットされることはない
+
+---
+
 ## その他のヒント
 
 ### エラーログの場所
