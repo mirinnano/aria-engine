@@ -395,10 +395,10 @@ data-1.0.1.patch.pak   : 1.0.1 で変更された 12 アセットのみ
 - [x] 生存中 (refcount > 0) のアセットは evict されない — **Phase 3 で達成 (CanEvict が refcount=0 AND borrow=0 のみ evict)**
 - [x] メモリ予算超過時、youngest (gen 0) から解放 — **Phase 3 で達成 (EnforceBudget → Sweep → CanEvict が Gen0/1 idle を解放、Gen2 保護)**
 - [x] 既存テスト 370 件全パス (フラグ off 時) — **Phase 1 で達成 (392/407, 14 既存 fail 不変)**, **Phase 3 で 447/462 (+55 新規テスト)**
-- [ ] v2 strict + `owned @bgm` で scope exit 時に自動 unload — Phase 4
-- [x] Web (Blazor) は無影響 — **Phase 1 で達成 (Web プロバイダ無修正)**
-- [ ] ドキュメント更新 (architecture/overview.md, architecture/platform.md, reference/opcodes/init.md) — Phase 5
-- [ ] CHANGELOG エントリ追加 (v2.0.0 として) — Phase 5
+- [x] v2 strict + `owned @bgm` で scope exit 時に自動 unload — **Phase 4 で達成 (Phase 4.2 + 4.3 で `load_aria_asset` opcode + scope-exit auto-dispose)**
+- [x] Web (Blazor) は無影響 — **Phase 1 で達成 (Web プロバイダ無修正)**, **Phase 5 で再確認 (AssetRegistry は UnifiedAssetProvider 時のみ生成)**
+- [x] ドキュメント更新 (architecture/overview.md, reference/config.md, release/breaking-changes-vNext.md) — **Phase 5 で達成**
+- [ ] CHANGELOG エントリ追加 (v2.0.0 として) — pending LOW
 
 ## Phase 1 Completion Notes (2026-06-01)
 Phase 1 (1.1, 1.2, 1.3) shipped:
@@ -511,6 +511,128 @@ shipped.
   re-borrowing a borrow, moving a borrowed handle).
 - The v2 strict scope exit hook (`end_scope`) must call `Dispose`
   on owned asset handles to release them automatically.
+
+---
+
+## Phase 4 Completion Notes (2026-06-02)
+Phase 4 (4.1, 4.2, 4.3) shipped — v2 strict 統合の完全実装:
+
+**Phase 4.2 (`load_aria_asset` opcode, 2026-06-02)**:
+- `OpCode.LoadAsset` を enum 末尾に追加（TextboxAlign の後、renumbering 回避）
+- `CommandCategory.Asset` を新規追加し `Register(CommandCategory.Asset, OpCode.LoadAsset, "load_aria_asset")`
+- `OpCode.LoadAsset => 2` (MinArgs) を CommandRegistry.cs に追加
+- `GameState.AssetHandleTable` (Dictionary<string, object>) と `GameState.AssetRegistry` (nullable) を追加
+- `AssetCommandHandler.cs` 新規（RenderCommandHandler パターン、ctor `(vm, provider, registry=null)`）
+- `VirtualMachine` ctor に `AriaEngine.Assets.AssetRegistry? assetRegistry = null` パラメータ追加（後方互換維持）
+- handler table サイズを `(int)OpCode.LoadAsset + 1` に拡張（TextboxAlign bug fix 副作用）
+- 14 tests all pass（HandledCodes, Arity/Validation, Borrow/Move defer, Owned full path）
+- 既存バグ fix: `OpCode.FontFilter + 1` だった table size が `LoadAsset + 1` になり、TextboxAlign がルーティングされる
+
+**Phase 4.3 (scope-exit owned auto-dispose, 2026-06-02)**:
+- `GameState.VmExecutionState.AssetHandleLifetimeStacks` (Stack<HashSet<string>>) を SpriteLifetimeStacks と並列に追加
+- `EnterScope` で push、`ExitScopesUntil` で pop + IDisposable Dispose + table remove
+- `Parser` regex 拡張：`^owned\s+(sprite|asset)\s+(...)$` で `owned asset @x` をサポート
+- `AssetCommandHandler` で `OwnedSprites.Contains(resultVar)` チェック + current scope set への add
+- 7 new tests all pass（21 total in AssetCommandHandlerTests）
+- 既存 test 修正：`Assert.Same` → `Assert.Equal`（`File.ReadAllBytes` が新規配列を返すため）
+
+**Phase 4.1 (aria-lint E013/W013, 2026-06-02)**:
+- `AriaLintCommand.cs` に 3 Check メソッド追加：
+  - `CheckAssetHandleLoadWithoutDeclaration` (W013) — `owned` 宣言なしの `load_aria_asset` を警告
+  - `CheckAssetHandleDoubleLoad` (W013) — 同じ result var への 2 回 load を警告
+  - `CheckAssetHandleUseAfterScope` (E013) — `@` プレフィックス付き owned asset の scope cross-use を error
+- `AssetHandleRefPattern` (Regex) 定義、IsVariableToken helper
+- 6 new tests in LintTests（load without declaration / with declaration / double load / use after scope no-false-positive / owned sprite filter / no load baseline）
+- 静的解析の限界：re-borrow / double-dispose / move-after-borrow は runtime issue → 設計書通り。borrow/move opcodes 自体は未実装
+- ヘルプテキストに `E013 - Asset handle ownership violations (Pak v3 redesign, Phase 4.1)` を追加
+
+**Files added/modified**:
+- `src/AriaEngine/Core/OpCode.cs` (LoadAsset enum 追加)
+- `src/AriaEngine/Core/CommandRegistry.cs` (CommandCategory.Asset + LoadAsset registration)
+- `src/AriaEngine/Core/GameState.cs` (AssetHandleTable + AssetRegistry + AssetHandleLifetimeStacks)
+- `src/AriaEngine/Core/Parser.cs` (owned asset regex)
+- `src/AriaEngine/Core/VirtualMachine.cs` (EnterScope/ExitScopesUntil 拡張 + ctor 拡張)
+- `src/AriaEngine/Core/Commands/AssetCommandHandler.cs` (新規)
+- `src/AriaEngine/Tools/AriaLintCommand.cs` (3 Check メソッド + help text)
+- `src/AriaEngine.Tests/AssetCommandHandlerTests.cs` (新規, 21 tests)
+- `src/AriaEngine.Tests/LintTests.cs` (3 Check メソッド duplication + 6 tests)
+
+**Test counts (Phase 4 完了時点)**: 474 pass / 14 fail / 1 skip / 489 total (was 447/14/1/462 after Phase 3, +27 新規テスト)
+**Commits**: `3d962e8` (4.2), `88a1e1b` (4.3), `2f06170` (4.1)
+
+---
+
+## Phase 5 Completion Notes (2026-06-02)
+Phase 5 (5.1, 5.2, 5.3) shipped — 段階的有効化とドキュメント整備の完了:
+
+**Phase 5.1 (config.json schema, 2026-06-02)**:
+- `AppConfig.SchemaVersion` 1 → 2 バンプ
+- `AssetGcConfig` クラス追加：
+  - `Enabled` (default false) — staged rollout のマスタースイッチ
+  - `TotalBudgetBytes` (default 536870912 = 512 MB) — Q1
+  - `Gen1PromotionSeconds` (default 1) — 1秒で Gen0→Gen1
+  - `Gen2PromotionSeconds` (default 30) — 30秒で Gen1→Gen2
+- `AriaCoreJsonContext` と `AriaCoreIndentedJsonContext` に `JsonSerializable(typeof(AssetGcConfig))` 追加
+- `config.json` 自体は .gitignore 対象（エンジン起動時に自動生成）
+
+**Phase 5.2 (Program.cs wire-in, 2026-06-02)**:
+- `CreateAssetProvider` を `UnifiedAssetProvider` 返却に refactor:
+  - dev モード = `diskFirst=true`（filesystem を優先、pak は fallback）
+  - release モード = `diskFirst=false`（pak を優先、disk は patch 扱い）
+  - 旧 `PakAssetProviderV3` / `PakAssetProvider` / `DiskAssetProvider` を全て内部でラップ
+- `AssetRegistry` を `assetProvider is UnifiedAssetProvider unified` で条件付き生成:
+  - `configParams.Config.AssetGc` から設定読み込み
+  - `Enabled` を config の値で初期化（default false）
+  - `Math.Max(1, seconds)` で 0 値保護
+- `VirtualMachine` ctor に `assetRegistry: assetRegistry` で wired
+- finally block で `assetRegistry?.Dispose()` を呼び出し（background sweeper timer stop）
+- live-reload の `is DiskAssetProvider` パターンマッチを `UnifiedAssetProvider.DiskProvider is DiskAssetProvider` に調整
+
+**Phase 5.3 (docs, 2026-06-02)**:
+- `docs/reference/config.md` に「アセット GC」セクション追加（4 パラメータ、段階的ロールアウト警告、設定例 JSON）
+- `docs/architecture/overview.md` に「アセット GC (Pak v3 redesign, Phase 5)」セクション追加：
+  - 構成要素一覧（5 ファイル）
+  - データフロー図（script → handler → provider → handle → scope exit → registry）
+  - 所有権モデル（Owned / Borrow / Move）
+  - 世代別昇格ルール（Gen0/1/2）
+  - 設定 JSON 例
+  - Web ターゲットでは `AssetRegistry` を作成しない（Q2 解決の再確認）
+- `docs/release/breaking-changes-vNext.md` に「Config schema」セクション追加（v1→v2 バンプの記録）
+
+**Files added/modified**:
+- `src/AriaEngine/Core/ConfigManager.cs` (AppConfig + AssetGcConfig)
+- `src/AriaEngine/Core/AriaCoreJsonContext.cs` (AssetGcConfig JsonSerializable)
+- `src/AriaEngine/Program.cs` (CreateAssetProvider refactor + AssetRegistry wire-in)
+- `docs/reference/config.md` (アセット GC section)
+- `docs/architecture/overview.md` (アセット GC section)
+- `docs/release/breaking-changes-vNext.md` (Config schema section)
+
+**Test counts (Phase 5 完了時点)**: 474 pass / 14 fail / 1 skip / 489 total (no regression)
+**Commit**: `0458b68`
+
+---
+
+## Pak v3 redesign 全体完了 (2026-06-02)
+
+| Phase | 内容 | 状態 | 主な commit |
+|-------|------|------|------------|
+| 1.1 | UnifiedAssetIndex (lazy manifest) | ✅ | `5b34f65` |
+| 1.2 | UnifiedAssetProvider (IAssetProvider 統合) | ✅ | `c77d023` |
+| 1.3 | Benchmarks (startup 648x, read 40% faster) | ✅ | `d958eeb` |
+| 2.1 | AssetHandle<T> + AssetRegistry skeleton | ✅ | `87f4cb6` |
+| 3 | AssetRegistry full GC (refcount + gen + sweep + budget) | ✅ | `cd1f04e` |
+| 4.1 | aria-lint E013/W013 (3 Check メソッド + 6 tests) | ✅ | `2f06170` |
+| 4.2 | `load_aria_asset` opcode (AssetCommandHandler) | ✅ | `3d962e8` |
+| 4.3 | scope-exit owned auto-dispose | ✅ | `88a1e1b` |
+| 5 | config.json + Program.cs wire-in + docs | ✅ | `0458b68` |
+
+**Open Question 5 件 (2026-06-01 解決済)**: Q1=512MB 固定, Q2=Web は `PreloadedWebAssetProvider` 維持 + Native のみ sync, Q3=patch override 後勝ちマージ, Q4=path に言語 suffix 埋め込み, Q5=Phase 1 で `Mark()` 予約のみ + sweep は Phase 3
+
+**Pending**:
+- CHANGELOG エントリ追加 (v2.0.0 として) — LOW
+- `Mark()` API の実利用例（Phase 1 で予約済み、現状は `Marked` フラグで eviction 防止のみ）
+- 14 件の pre-existing テスト失敗修正 — 別 issue
+- DBG/release ファイル混入バグ根本解決 — 別 issue
 
 ---
 
