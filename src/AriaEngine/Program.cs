@@ -109,6 +109,9 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
         LiveReloadManager? liveReload = null;
         bool windowReady = false;
         bool audioReady = false;
+        // Pak v3 redesign, Phase 5.2: declared at outer scope so the
+        // finally block can dispose it even if construction throws.
+        AriaEngine.Assets.AssetRegistry? assetRegistry = null;
 
         try
         {
@@ -156,6 +159,23 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             IAssetProvider assetProvider = CreateAssetProvider(runOptions, reporter);
             StartupTrace("asset-provider");
 
+            // Pak v3 redesign, Phase 5.2: create the AssetRegistry that
+            // backs `load_aria_asset` and the refcount/generational GC.
+            // Wraps the same UnifiedAssetProvider the rest of the engine
+            // uses, so the registry sees the same on-disk / in-pak bytes
+            // the renderer / parser see. Settings come from config.json's
+            // AssetGc section; Enabled defaults to false for staged rollout.
+            if (assetProvider is UnifiedAssetProvider unified)
+            {
+                var gcCfg = configParams.Config.AssetGc;
+                assetRegistry = new AssetRegistry(
+                    provider: unified,
+                    totalBudgetBytes: gcCfg.TotalBudgetBytes,
+                    gen1Promotion: TimeSpan.FromSeconds(Math.Max(1, gcCfg.Gen1PromotionSeconds)),
+                    gen2Promotion: TimeSpan.FromSeconds(Math.Max(1, gcCfg.Gen2PromotionSeconds)));
+                assetRegistry.Enabled = gcCfg.Enabled;
+            }
+
             CompiledScriptBundle? compiledBundle = TryLoadCompiledBundle(assetProvider, runOptions, reporter);
             // v3 split pak stores .aria scripts directly in scenario.aris; compiled bundle is optional
             RunMode effectiveMode = runOptions.Mode == RunMode.Release ? RunMode.Release : RunMode.Dev;
@@ -175,7 +195,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             StartupTrace("before-runtime-state");
             var saves = new SaveManager(reporter);
             var tweens = new TweenManager();
-            var vm = new VirtualMachine(reporter, tweens, saves, configParams, assetProvider);
+            var vm = new VirtualMachine(reporter, tweens, saves, configParams, assetProvider, runtimeDataRoot: null, assetRegistry: assetRegistry);
             StartupTrace("after-runtime-state");
             if (assetProvider.Exists("assets/i18n/locales.json"))
             {
@@ -284,9 +304,12 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             });
 
             // 開発モードかつディスクロード時のみライブリロードを有効化
+            // (Phase 5.2: assetProvider is now always UnifiedAssetProvider.
+            // The disk root is exposed via .DiskProvider for live-reload.)
             if (effectiveMode == RunMode.Dev &&
                 runOptions.Profile == RuntimeProfile.Debug &&
-                assetProvider is DiskAssetProvider diskProvider)
+                assetProvider is UnifiedAssetProvider unifiedProvider &&
+                unifiedProvider.DiskProvider is DiskAssetProvider diskProvider)
             {
                 liveReload = new LiveReloadManager(vm, scriptLoader, reporter, renderer, diskProvider.Root);
             }
@@ -377,6 +400,10 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
 
             SafeShutdown(() => renderer?.Unload());
             SafeShutdown(() => audio?.Unload());
+            // Pak v3 redesign, Phase 5.2: stop the registry's background
+            // sweeper timer before tearing down the window. Sweep logs
+            // stay in the reporter's error log.
+            SafeShutdown(() => assetRegistry?.Dispose());
             if (audioReady) SafeShutdown(Raylib.CloseAudioDevice);
             if (windowReady) SafeShutdown(Raylib.CloseWindow);
         }
@@ -487,6 +514,12 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
 
     private static IAssetProvider CreateAssetProvider(RunOptions options, ErrorReporter reporter)
     {
+        // Pak v3 redesign, Phase 5.2: every boot path now flows through
+        // UnifiedAssetProvider so the AssetRegistry (Phase 3) can attach
+        // to a single normalized provider. Dev mode = diskFirst=true,
+        // release mode = diskFirst=false (pak wins, disk acts as patch).
+        // Returns IAssetProvider for backward compatibility with all
+        // downstream callers; the underlying type is UnifiedAssetProvider.
         if (options.Mode == RunMode.Release)
         {
             string exeDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -504,7 +537,17 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             {
                 try
                 {
-                    return new PakAssetProviderV3(v3Paks, options.Key);
+                    // Verify the paks are readable before wrapping them.
+                    // PakAssetProviderV3 is IDisposable, but legacy
+                    // PakAssetProvider is not — call Exists() as a cheap
+                    // open-check that throws on a bad key/path.
+                    using (new PakAssetProviderV3(v3Paks, options.Key)) { }
+                    return new UnifiedAssetProvider(
+                        diskRoot: null,
+                        pakPaths: v3Paks,
+                        patchPaths: null,
+                        locale: null,
+                        diskFirst: false);
                 }
                 catch (Exception ex)
                 {
@@ -523,7 +566,17 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                 string pakPath = ResolveDistributionPath(options.PakPath);
                 try
                 {
-                    return new PakAssetProvider(pakPath, options.Key);
+                    // PakAssetProvider is not IDisposable; touching a
+                    // missing path throws FileNotFoundException. Probe
+                    // existence first to keep the try/catch cheap.
+                    if (!File.Exists(pakPath))
+                        throw new FileNotFoundException($"Pak not found: {pakPath}", pakPath);
+                    return new UnifiedAssetProvider(
+                        diskRoot: null,
+                        pakPaths: new[] { pakPath },
+                        patchPaths: null,
+                        locale: null,
+                        diskFirst: false);
                 }
                 catch (Exception ex)
                 {
@@ -537,7 +590,13 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             }
         }
 
-        return new DiskAssetProvider(Directory.GetCurrentDirectory());
+        // Dev mode (or release with no pak found): filesystem only.
+        return new UnifiedAssetProvider(
+            diskRoot: Directory.GetCurrentDirectory(),
+            pakPaths: Array.Empty<string>(),
+            patchPaths: null,
+            locale: null,
+            diskFirst: true);
     }
 
     private static string ResolveDistributionPath(string path)

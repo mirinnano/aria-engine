@@ -11,7 +11,7 @@ namespace AriaEngine.Core;
 
 public class AppConfig
 {
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = 2;
     public int GlobalTextSpeedMs { get; set; } = 30;
     public int DefaultTextSpeedMs { get; set; } = 30; // engine default
     public int BgmVolume { get; set; } = 100;
@@ -23,6 +23,35 @@ public class AppConfig
     public int AutoModeWaitTimeMs { get; set; } = 2000;
     public int WindowWidth { get; set; } = 1280;
     public int WindowHeight { get; set; } = 720;
+
+    /// <summary>
+    /// Pak v3 redesign, Phase 5.1: configuration for the in-engine asset
+    /// garbage collector. Defaults match the design (512 MB budget, 1s
+    /// Gen0→Gen1 promotion, 30s Gen1→Gen2). <c>Enabled = false</c> by
+    /// default so legacy bundles behave exactly as before until the
+    /// staged rollout is fully verified.
+    /// </summary>
+    public AssetGcConfig AssetGc { get; set; } = new();
+}
+
+/// <summary>
+/// Knobs for <see cref="AriaEngine.Assets.AssetRegistry"/>. All fields are
+/// optional in the JSON file; missing values fall back to the design defaults
+/// listed in <c>pak-asset-gc-redesign.md</c>.
+/// </summary>
+public class AssetGcConfig
+{
+    /// <summary>Master switch. Off by default for staged rollout (Phase 5.2).</summary>
+    public bool Enabled { get; set; } = false;
+
+    /// <summary>Total memory budget for cached asset bytes (Q1: 512 MB).</summary>
+    public long TotalBudgetBytes { get; set; } = 512L * 1024 * 1024;
+
+    /// <summary>Seconds idle before Gen0 → Gen1 promotion (default 1s).</summary>
+    public int Gen1PromotionSeconds { get; set; } = 1;
+
+    /// <summary>Seconds idle before Gen1 → Gen2 promotion (default 30s). Gen2 is protected from eviction.</summary>
+    public int Gen2PromotionSeconds { get; set; } = 30;
 }
 
 public class PersistentGameData

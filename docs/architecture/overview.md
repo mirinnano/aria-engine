@@ -856,12 +856,89 @@ public static class PlatformServices
 
 ### IAssetProvider
 
-両ランタイムでアセット読み込みを統一するインターフェース:
-
 - **Native**: ファイルシステム (`File.OpenRead` 等)
 - **Web**: プリロード済み辞書 (`PreloadedWebAssetProvider` が `web-text-assets.json` の `preload` リストに従って全アセットを `Dictionary<string, string>` 化)
 
 これにより `LocalizationManager.Load` / `ScriptPreprocessor.ExpandIncludes` / `ScriptLoader` 等はプラットフォームを意識しない。
+
+## アセット GC (Pak v3 redesign, Phase 5)
+
+`load_aria_asset` オペコードで読み込まれたアセットバイト列をエンジン側でキャッシュし、参照カウント + 世代別 GC で自動解放する仕組み（Native ビルドのみ、Web は `PreloadedWebAssetProvider` を継続利用）。Open Question 5 件の解決と 12 日の段階的ロールアウトの最終段として Phase 5 で Program.cs に wire-in した。
+
+### 構成要素
+
+| 要素 | 役割 | ファイル |
+|------|------|---------|
+| `UnifiedAssetIndex` | 6 個の split pak (`boot.arib` / `scenario.aris` / `data.arid` / `stream.arim` / `voice.ariv`) と patch を遅延マージした単一 index | `AssetIO/UnifiedAssetIndex.cs` |
+| `UnifiedAssetProvider` | `IAssetProvider` のラッパー。`diskFirst` フラグで dev / release を切替 | `AssetIO/UnifiedAssetProvider.cs` |
+| `AssetHandle<T>` | スクリプトへ返すハンドル。所有権 `Owned` / `Borrow` / `Move`、参照カウント 1 で生成、Dispose で通知 | `AssetIO/AssetHandle.cs` |
+| `AssetRegistry` | 参照カウントと世代 (Gen0/1/2) を管理する GC。`Timer` で 1 秒ごとに sweep | `AssetIO/AssetRegistry.cs` |
+| `AssetCommandHandler` | `load_aria_asset` オペコードのハンドラ。`OwnedSprites` 宣言と scope-exit 自動解放を統合 | `Core/Commands/AssetCommandHandler.cs` |
+
+### データの流れ
+
+```
+script:  owned asset @bg
+         load_aria_asset "ui/menu/bg.png", @bg
+                          │
+                          ▼
+            AssetCommandHandler.ExecuteLoadAsset
+                          │
+                          ├── IAssetProvider.ReadAllBytes(path)
+                          │      │
+                          │      ▼
+                          │   UnifiedAssetProvider  (diskFirst 切替)
+                          │      │ (lazy open on first read)
+                          │      ▼
+                          │   UnifiedAssetIndex  →  PakArchiveV3  →  byte[]
+                          │
+                          ├── new AssetHandle<byte[]>(registry, path, bytes, Owned, len)
+                          ├── registry.RegisterHandle(handle)   // refcount++
+                          └── State.AssetHandleTable[@bg] = handle
+                               │
+                               ▼  (scope exit)
+                          ExitScopesUntil → handle.Dispose()
+                               │
+                               ▼
+                          registry.NotifyDisposed(path)  // refcount--
+                               │ (Enabled=true なら sweep に回る)
+                               ▼
+                          Sweep → Gen0/Gen1 エントリを回収 (refcount=0 && !Marked)
+```
+
+### 所有権モデル
+
+- `owned asset @x; load_aria_asset ..., @x` → `Owned` ハンドル。scope 終了時に自動 `Dispose`。
+- `load_aria_asset ..., @x, "borrow"` → `Borrow` ハンドル。呼び出し側の責任で `Dispose`。
+- `load_aria_asset ..., @x, "move"` → 旧ハンドルの `_moved` フラグを立て、テーブルから remove。最終 `Dispose` 時に registry 通知しない（重複防止）。
+
+### 世代別昇格ルール
+
+- Gen0: 新規エントリ。1 秒アイドルで Gen1 へ。
+- Gen1: 1〜30 秒アイドル。予算超過時に sweep で回収される。
+- Gen2: 30 秒以上アイドル。**sweep 対象外**（永続キャッシュ相当）。手動で `Mark()` してさらに保護可能。
+
+### 設定
+
+`config.json` の `AssetGc` セクションで制御（既定はパッシブ観測）：
+
+```json
+{
+  "AssetGc": {
+    "Enabled": false,
+    "TotalBudgetBytes": 536870912,
+    "Gen1PromotionSeconds": 1,
+    "Gen2PromotionSeconds": 30
+  }
+}
+```
+
+- `Enabled = true` にすると sweep が走り、メモリ予算を超過しなくなります。
+- Web ターゲットでは `AssetRegistry` を作成せず（`assetProvider is UnifiedAssetProvider` の絞り込みに失敗）、従来通り `PreloadedWebAssetProvider` が全アセットを `Dictionary<string, string>` で保持します（Q2 解決）。
+
+### スクリプト側 lint
+
+`aria-lint` に E013/W013 が追加され、誤ったハンドル利用は静的解析で検出されます。詳細は [`reference/scripting/core-spec.md`](../reference/scripting/core-spec.md) の「`load_aria_asset`」節を参照。
 
 ## 国際化 (i18n) サブシステム
 

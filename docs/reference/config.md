@@ -76,6 +76,36 @@
 - **説明**: ウィンドウモード時の画面高さをピクセルで指定します。フルスクリーンからウィンドウに戻る際に使用されます。
 - **有効な値**: `1` 以上の整数
 
+### アセット GC（Pak v3 redesign, Phase 5.1〜）
+
+`load_aria_asset` で読み込まれたアセットバイト列をキャッシュし、不要になったものを自動解放するための設定です。`ScriptHandle` 単位の参照カウントと世代別 GC を提供します（詳細は [`architecture/overview.md`](../architecture/overview.md) の「アセット GC」セクションを参照）。
+
+> **注意**: 段階的ロールアウト中のため、既定値では `Enabled = false`（パッシブ観測のみ、解放は行いません）。実運用で GC を有効化する前に [`docs/release/breaking-changes-vNext.md`](../release/breaking-changes-vNext.md) を必ず確認してください。
+
+#### `AssetGc.Enabled`
+- **型**: `bool`
+- **デフォルト値**: `false`
+- **説明**: アセット GC のマスタースイッチ。`true` で参照カウントと世代別 sweep が有効になります。`false` のときは登録と解放通知のみを行い、メモリからの追い出しは行いません（モニタリング用）。
+- **有効な値**: `true` / `false`
+
+#### `AssetGc.TotalBudgetBytes`
+- **型**: `int` / `long`
+- **デフォルト値**: `536870912`（512 MB）
+- **説明**: キャッシュ可能なアセットバイト列の合計予算。これを超えると Gen0 / Gen1 のアイドルエントリを sweep して回収します。Gen2（30 秒以上アイドル）は保護されます。
+- **有効な値**: `1` 以上の整数
+
+#### `AssetGc.Gen1PromotionSeconds`
+- **型**: `int`
+- **デフォルト値**: `1`
+- **説明**: アイドル状態が `N` 秒続いたエントリを Gen0 から Gen1 に昇格させる閾値。
+- **有効な値**: `1` 以上の整数
+
+#### `AssetGc.Gen2PromotionSeconds`
+- **型**: `int`
+- **デフォルト値**: `30`
+- **説明**: アイドル状態が `N` 秒続いた Gen1 エントリを Gen2 に昇格させる閾値。Gen2 は sweep 対象外（永続キャッシュ相当）。
+- **有効な値**: `Gen1PromotionSeconds` 以上の整数
+
 ## 設定例
 
 ```json
@@ -90,7 +120,13 @@
   "AutoModeWaitTimeMs": 2000,
   "Language": "ja-JP",
   "WindowWidth": 1280,
-  "WindowHeight": 720
+  "WindowHeight": 720,
+  "AssetGc": {
+    "Enabled": false,
+    "TotalBudgetBytes": 536870912,
+    "Gen1PromotionSeconds": 1,
+    "Gen2PromotionSeconds": 30
+  }
 }
 ```
 

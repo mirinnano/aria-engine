@@ -29,4 +29,14 @@
 ## Assets
 
 - `src/AriaEngine/assets/fonts/JosefinSans-Thin.ttf` を削除。
+
+## Config schema
+
+- `AppConfig.SchemaVersion` を 1 → 2 にバンプ（Pak v3 redesign, Phase 5.1）。
+  旧 `config.json`（`SchemaVersion` フィールドを持たないか `1`）はそのまま読み込めるが、
+  ファイル保存時は `AssetGc` セクションと `SchemaVersion: 2` が出力される。
+- 新セクション `AssetGc` を追加（既定値は `Enabled=false`、`TotalBudgetBytes=536870912`、
+  `Gen1PromotionSeconds=1`、`Gen2PromotionSeconds=30`）。`Enabled` を `true` にすると
+  世代別 GC が走り、未使用アセットが sweep で解放される。
+- 詳細は [`reference/config.md`](../reference/config.md) の「アセット GC」節を参照。
 - このファイルは TTF ではなく GitHub HTML が混入していたため、UI font は bundled `NotoSansJP-Regular.ttf` に統一。

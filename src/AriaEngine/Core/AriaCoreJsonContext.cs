@@ -26,6 +26,7 @@ internal static class AriaJson
 [JsonSourceGenerationOptions(WriteIndented = false, PropertyNameCaseInsensitive = true)]
 [JsonSerializable(typeof(LocalizationManifest))]
 [JsonSerializable(typeof(AppConfig))]
+[JsonSerializable(typeof(AssetGcConfig))]
 [JsonSerializable(typeof(PersistentGameData))]
 [JsonSerializable(typeof(ChapterData))]
 [JsonSerializable(typeof(ChapterInfo))]
@@ -45,6 +46,7 @@ internal sealed partial class AriaCoreJsonContext : JsonSerializerContext
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNameCaseInsensitive = true)]
 [JsonSerializable(typeof(AppConfig))]
+[JsonSerializable(typeof(AssetGcConfig))]
 [JsonSerializable(typeof(ChapterData))]
 [JsonSerializable(typeof(ErrorLogPayload))]
 [JsonSerializable(typeof(ErrorLogEntry))]
