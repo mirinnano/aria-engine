@@ -179,3 +179,19 @@ publish-fd/
 publish-trimmed/
 publish-aot/
 src/AriaEngine/publish/
+
+# Decompiler / investigation artifacts
+ilspycmd/
+ilspycmd.zip
+src/DumpTools/
+decompiled_source/
+*_recovered.cs
+*_rendering.txt
+*_recovered.txt
+
+# WIP refactor scripts / backup originals (one-off, not part of build)
+rewrite_*.py
+patch_*.py
+fix_*.py
+*_original.aria
+*_true_original.aria
