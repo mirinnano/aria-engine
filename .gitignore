@@ -1,6 +1,7 @@
 # Build results
 /[Dd]ebug/
 /[Rr]elease/
+/target/
 x64/
 x86/
 [Aa]rm/
@@ -77,6 +78,10 @@ StyleCopReport.xml
 *.snupkg
 **/packages/*
 !**/packages/build/
+# The UI SDK is first-party source, not a restored package payload.
+!ui/packages/
+!ui/packages/aria-ui-sdk/
+!ui/packages/aria-ui-sdk/**
 *.nuget.props
 *.nuget.targets
 
@@ -137,6 +142,8 @@ Thumbs.db
 
 # Aria Engine specific
 assets/fonts/*.ttf
+!examples/v3-minimal/assets/fonts/NotoSansJP-Regular.ttf
+!examples/v3-player-smoke/assets/fonts/NotoSansJP-Regular.ttf
 assets/bg/*.png
 assets/bg/*.jpg
 assets/ch/*.png
@@ -160,8 +167,17 @@ src/AriaEngine/aria_error_ai.*
 !src/AriaEngine/assets/bg/ui_save_load_ocean.png
 !src/AriaEngine/assets/bg/ui_chapter_select_ocean.png
 !tests/visual-regression/baseline/*.png
+!examples/umikaze/assets/**/*.png
 *.jpg
 *.jpeg
+
+# Project-owned React/Tauri source is tracked; its install, build, and test
+# products are not.
+**/node_modules/
+**/dist/
+**/test-results/
+**/playwright-report/
+**/src-tauri/target/
 
 # Keys and certificates
 *.pfx

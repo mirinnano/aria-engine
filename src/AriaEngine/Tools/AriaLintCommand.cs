@@ -149,6 +149,7 @@ public static class AriaLintCommand
         Console.WriteLine("  E004 - Potential double-drop of owned sprite");
         Console.WriteLine("  E010 - Sprite use after owning scope");
         Console.WriteLine("  E013 - Asset handle ownership violations (Pak v3 redesign, Phase 4.1)");
+        Console.WriteLine("  asset-preload-group  Invalid asynchronous asset group name");
         Console.WriteLine();
         Console.WriteLine("Exit codes:");
         Console.WriteLine("  0 - Clean (no issues)");
@@ -195,8 +196,39 @@ public static class AriaLintCommand
         CheckAssetHandleLoadWithoutDeclaration(parseResult, filePath, result);
         CheckAssetHandleDoubleLoad(parseResult, filePath, result);
         CheckAssetHandleUseAfterScope(parseResult, filePath, result);
+        CheckAssetPreloadGroups(parseResult, filePath, result);
 
         return result;
+    }
+
+    private static void CheckAssetPreloadGroups(ParseResult parseResult, string filePath, LintResult result)
+    {
+        foreach (Instruction inst in parseResult.Instructions.Where(item => item.Op == OpCode.AssetPreload))
+        {
+            if (inst.Arguments.Count != 1)
+            {
+                result.Issues.Add(new LintIssue(
+                    filePath,
+                    inst.SourceLine,
+                    0,
+                    LintSeverity.Error,
+                    "asset-preload-group",
+                    "asset_preload requires exactly one group name."));
+                continue;
+            }
+
+            string groupName = inst.Arguments[0].Trim();
+            if (!Regex.IsMatch(groupName, @"^[A-Za-z0-9][A-Za-z0-9._-]*$"))
+            {
+                result.Issues.Add(new LintIssue(
+                    filePath,
+                    inst.SourceLine,
+                    0,
+                    LintSeverity.Error,
+                    "asset-preload-group",
+                    $"Invalid asset group name '{groupName}'. Use letters, digits, '.', '_' or '-'."));
+            }
+        }
     }
 
     private static string[] ReadLintLines(string filePath)

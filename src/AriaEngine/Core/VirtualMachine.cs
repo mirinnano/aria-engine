@@ -186,6 +186,7 @@ namespace AriaEngine.Core;
     // 動的 include
     private readonly HashSet<string> _includedFiles = new(StringComparer.OrdinalIgnoreCase);
     private Func<string, ParseResult?>? _includeResolver;
+    private readonly IAssetGroupLoader _assetGroupLoader;
 
     // VMステップ制限（SkipMode時は解除）
     private const int MaxInstructionsPerFrame = 500;
@@ -193,13 +194,16 @@ namespace AriaEngine.Core;
     // T20: ラベルアドレスセット（チャプターラベル検出用）
     private HashSet<int> _labelAddresses = new();
 
-public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager saves, ConfigManager config, IAssetProvider? assetProvider = null, string? runtimeDataRoot = null, AriaEngine.Assets.AssetRegistry? assetRegistry = null)
+public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager saves, ConfigManager config, IAssetProvider? assetProvider = null, string? runtimeDataRoot = null, AriaEngine.Assets.AssetRegistry? assetRegistry = null, IAssetGroupLoader? assetGroupLoader = null)
     {
         _reporter = reporter;
         Tweens = tweens;
         Saves = saves;
         Config = config;
         State = new GameState();
+        _assetGroupLoader = assetGroupLoader ?? ImmediateAssetGroupLoader.Instance;
+        _assetGroupLoader.GroupLoaded += NotifyAssetGroupLoaded;
+        _assetGroupLoader.GroupLoadFailed += NotifyAssetGroupFailed;
         // Phase 4.2: wire the asset registry into GameState so AssetCommandHandler
         // can register handles. Null is OK (test runs / Phase 5 not yet enabled);
         // when null, handles are constructed but not tracked by the GC.
@@ -233,10 +237,9 @@ public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager s
             // Pak v3 redesign, Phase 4.2: load_aria_asset (and future asset opcodes).
             new AssetCommandHandler(this, assetProvider!, assetRegistry)
         };
-        // Pak v3 redesign, Phase 4.2: keep the handler table sized to the largest
-        // known opcode (LoadAsset). Adding opcodes past this point will not be
-        // routed; bump the size when extending the enum.
-        _handlerTable = new ICommandHandler?[(int)OpCode.LoadAsset + 1];
+        // Keep this table tied to the enum rather than a hand-maintained last
+        // member so newly registered commands cannot silently become unroutable.
+        _handlerTable = new ICommandHandler?[Enum.GetValues<OpCode>().Max(op => (int)op) + 1];
         foreach (var handler in _commandHandlers)
         {
             foreach (var code in handler.HandledCodes)
@@ -380,6 +383,113 @@ public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager s
         if (State.Execution.State == VmState.WaitingForClick)
         {
             State.Execution.State = VmState.Running;
+        }
+    }
+
+    internal void BeginAssetPreload(string groupName, Instruction inst)
+    {
+        string normalized = groupName.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            _reporter.Report(new AriaError(
+                "asset_preload: group name is empty",
+                inst.SourceLine,
+                _currentScriptFile,
+                AriaErrorLevel.Error,
+                "ASSET_PRELOAD_EMPTY_GROUP"));
+            return;
+        }
+
+        State.AssetPreload.GroupName = normalized;
+        State.AssetPreload.Error = "";
+        State.AssetPreload.Attempt = 1;
+        ApplyAssetPreloadResult(normalized, RequestAssetGroup(normalized));
+    }
+
+    /// <summary>
+    /// Retries the currently failed browser asset transfer. The VM remains on
+    /// the same wait state until the platform reports success.
+    /// </summary>
+    public bool RetryAssetPreload()
+    {
+        if (State.Execution.State != VmState.WaitingForAssetGroup ||
+            string.IsNullOrWhiteSpace(State.AssetPreload.GroupName))
+        {
+            return false;
+        }
+
+        State.AssetPreload.Error = "";
+        State.AssetPreload.Attempt++;
+        string groupName = State.AssetPreload.GroupName;
+        ApplyAssetPreloadResult(groupName, RequestAssetGroup(groupName));
+        return true;
+    }
+
+    /// <summary>Called by an asynchronous platform loader after verification.</summary>
+    public void NotifyAssetGroupLoaded(string groupName)
+    {
+        if (State.Execution.State != VmState.WaitingForAssetGroup ||
+            !string.Equals(State.AssetPreload.GroupName, groupName, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        State.AssetPreload.GroupName = "";
+        State.AssetPreload.Error = "";
+        State.Execution.State = VmState.Running;
+    }
+
+    /// <summary>Called by an asynchronous platform loader after a failed transfer.</summary>
+    public void NotifyAssetGroupFailed(string groupName, string error)
+    {
+        if (State.Execution.State != VmState.WaitingForAssetGroup ||
+            !string.Equals(State.AssetPreload.GroupName, groupName, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        State.AssetPreload.Error = string.IsNullOrWhiteSpace(error)
+            ? $"Failed to load asset group '{groupName}'."
+            : error;
+    }
+
+    private AssetGroupLoadResult RequestAssetGroup(string groupName)
+    {
+        try
+        {
+            return _assetGroupLoader.Request(groupName);
+        }
+        catch (Exception ex)
+        {
+            _reporter.ReportException(
+                "ASSET_PRELOAD_REQUEST",
+                ex,
+                $"アセットグループ '{groupName}' の取得開始に失敗しました。",
+                AriaErrorLevel.Error);
+            return AssetGroupLoadResult.Failed(ex.Message);
+        }
+    }
+
+    private void ApplyAssetPreloadResult(string groupName, AssetGroupLoadResult result)
+    {
+        switch (result.Status)
+        {
+            case AssetGroupLoadStatus.Available:
+                State.AssetPreload.GroupName = "";
+                State.AssetPreload.Error = "";
+                State.Execution.State = VmState.Running;
+                break;
+
+            case AssetGroupLoadStatus.Loading:
+                State.Execution.State = VmState.WaitingForAssetGroup;
+                break;
+
+            case AssetGroupLoadStatus.Failed:
+                State.Execution.State = VmState.WaitingForAssetGroup;
+                State.AssetPreload.Error = string.IsNullOrWhiteSpace(result.Error)
+                    ? $"Failed to load asset group '{groupName}'."
+                    : result.Error;
+                break;
         }
     }
 
@@ -1606,5 +1716,3 @@ public VirtualMachine(ErrorReporter reporter, TweenManager tweens, SaveManager s
         }
     }
 }
-
-

@@ -11,6 +11,13 @@ namespace AriaEngine.Tests;
 public class FormatTests
 {
     [Fact]
+    public void Format_AssetPreload_PreservesGroupName()
+    {
+        var formatted = AriaFormatCommand.FormatLines(new[] { "  asset_preload   \"scenario_01\"" });
+
+        formatted[0].Should().Be("asset_preload \"scenario_01\"");
+    }
+    [Fact]
     public void Format_EmptyScript_ReturnsEmpty()
     {
         var lines = Array.Empty<string>();

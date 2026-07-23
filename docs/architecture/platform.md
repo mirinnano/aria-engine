@@ -1,6 +1,12 @@
-# プラットフォーム抽象化
+# プラットフォーム抽象化（V3.1）
 
-このドキュメントでは、AriaEngineの **クロスプラットフォーム抽象化レイヤー** について詳しく説明します。Native (Raylib) と Web (Blazor WebAssembly) で同じゲームロジックを実行するための、サービスロケータ・インターフェース実装・Web ランタイム構成を扱います。
+> このページの旧Raylib/Blazor詳細は現行C#版の比較資料です。新規V3.1
+> プロジェクトの正式な境界は [`v3-native-first.md`](v3-native-first.md) と
+> [`../spec/aria-v3-runtime.md`](../spec/aria-v3-runtime.md) です。
+
+このドキュメントでは、AriaEngineの **クロスプラットフォーム抽象化レイヤー** について詳しく説明します。Native (Raylib)、現行Web (Blazor WebAssembly + Canvas 2D)、検証中のRaylib WASMで同じゲームロジックを実行する構成を扱います。
+
+> `AriaEngine.Web` は比較・退避用の現行ターゲットです。Raylib共通ランタイムへの移行検証は `AriaEngine.Wasm` で並行して行います。検証版の詳細は [Raylib WASMプレビュー](web-raylib-wasm.md) を参照してください。
 
 ## 概要
 
@@ -10,6 +16,7 @@ AriaEngineは1つの C# コードベースから2つのランタイムターゲ�
 |-----------|-------------|---------|------|
 | **Native** | Raylib (C ライブラリ) | `Program.cs` | Windows / macOS / Linux 配布 |
 | **Web** | Blazor WebAssembly + Canvas 2D | `App.razor` | PWA ブラウザ配布 |
+| **Web preview** | .NET browser-wasm + Raylib 5.5 | `AriaEngine.Wasm/Program.cs` | Raylib共通化の検証成果物 |
 
 エンジン内部のプラットフォーム依存呼び出しは `Platform/` 配下のインターフェースに抽象化されています。Native ビルドでは Raylib 実装、Web ビルドでは Browser 実装がサービスロケータ経由で注入されます。
 

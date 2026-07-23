@@ -1,0 +1,4101 @@
+{
+  "schema_version": 1,
+  "purpose": "V3 compatibility-corpus candidate inventory; heuristic classifications require review",
+  "test_definitions": 511,
+  "category_counts": {
+    "behavior_regression": 495,
+    "fixture_gap": 1,
+    "legacy_specification": 7,
+    "source_string_dependency": 8
+  },
+  "tests": [
+    {
+      "id": "AssetCommandHandlerTests.HandledCodes_Contains_LoadAsset",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 75,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_UnknownOp_ReturnsFalse",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 83,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_MissingArgs_NoOp",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 96,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_EmptyResultVar_ReportsError",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 107,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_InvalidOwnership_ReportsError",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 118,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_Borrow_StoresNoOp_Warns",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 134,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_Move_StoresNoOp_Warns",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 148,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_Owned_Success_CreatesHandle_StoresInTable",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 165,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_Owned_RegistersWithRegistry_IncrementsBytes",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 186,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_Owned_WithoutRegistry_StillProducesHandle",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 206,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_AssetMissing_Warns_StoresNull",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 222,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_Owned_DefaultOwnership_WhenOmitted",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 236,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_Owned_CaseInsensitive_Ownership",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 251,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Execute_LoadAsset_TwoDistinctPaths_TwoTableEntries",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 265,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Owned_Handle_IsTrackedInScope_OnLoad",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 284,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Unowned_Handle_IsNotTrackedInScope_OnLoad",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 302,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Owned_Handle_IsDisposedAndRemoved_OnScopeExit",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 319,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.Unowned_Handle_PersistsPastScopeExit",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 341,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.OwnedHandle_Registry_Notified_OnScopeExit",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 360,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.MultipleOwnedHandles_AllDisposed_OnScopeExit",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 381,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetCommandHandlerTests.NestedScopes_OnlyCurrentScopeHandlesDisposed",
+      "file": "src/AriaEngine.Tests/AssetCommandHandlerTests.cs",
+      "line": 411,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Construction_Owned_StartsWithRefCountOne",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 54,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Construction_Borrow_StartsWithRefCountZero",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 73,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Construction_NullRegistry_Allowed_ForStandaloneTests",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 84,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Construction_EmptyPath_Throws",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 93,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Construction_NullAsset_Throws",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 102,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Construction_NegativeSize_Throws",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 111,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Dispose_DecrementsRefCount",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 124,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Dispose_IsIdempotent",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 137,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Dispose_NotifiesRegistry",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 151,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Borrow_ReturnsSeparateHandle_SharesAssetReference",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 178,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Borrow_OnBorrowedHandle_Throws",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 201,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Borrow_AfterDispose_Throws",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 212,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.MultipleBorrows_EachHasIndependentRefCount",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 223,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.MoveTo_TransfersOwnership",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 252,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.MoveTo_DifferentPath_Throws",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 265,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.MoveTo_BorrowedTarget_Throws",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 276,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.MoveTo_DisposedSource_Throws",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 287,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.MoveTo_NullTarget_Throws",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 299,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Mark_SetsFlag",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 313,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Mark_OnDisposedHandle_IsNoOp",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 327,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.ResetMark_ClearsFlag",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 339,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.SetGeneration_UpdatesGeneration",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 360,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Touch_UpdatesLastAccessTime",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 382,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Borrow_UpdatesLastAccessTime",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 399,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.ConcurrentDispose_RefCountStaysNonNegative",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 417,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.ConcurrentMark_AllSeeSameFlag",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 437,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Registry_Disabled_DoesNotEvict",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 452,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetHandleTests.Registry_TrackedCount_Increments",
+      "file": "src/AriaEngine.Tests/AssetHandleTests.cs",
+      "line": 470,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetPreloadTests.Parser_CompilerFacingOpcode_IsRegistered",
+      "file": "src/AriaEngine.Tests/AssetPreloadTests.cs",
+      "line": 16,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetPreloadTests.NativeLoader_CompletesImmediately",
+      "file": "src/AriaEngine.Tests/AssetPreloadTests.cs",
+      "line": 28,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetPreloadTests.ScriptCompiler_PreservesAssetPreloadOpcode",
+      "file": "src/AriaEngine.Tests/AssetPreloadTests.cs",
+      "line": 40,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetPreloadTests.AsyncLoader_PausesUntilSuccess",
+      "file": "src/AriaEngine.Tests/AssetPreloadTests.cs",
+      "line": 57,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetPreloadTests.AsyncLoader_FailureCanBeRetriedWithoutAdvancingPc",
+      "file": "src/AriaEngine.Tests/AssetPreloadTests.cs",
+      "line": 74,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.DefaultConfig_HasDesignDocValues",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 51,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.DefaultConfig_DisabledByDefault_ForStagedRollout",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 60,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Register_Owned_AddsToMap_IncrementsBytes",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 71,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Register_Borrow_DoesNotIncrementTrackedCount_IncrementsBorrowCount",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 83,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Register_DuplicatePath_DoesNotDoubleCount",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 106,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Dispose_Owned_NoBorrows_EvictsImmediately",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 126,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Dispose_Owned_WithActiveBorrow_DoesNotEvict",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 140,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Dispose_DisabledRegistry_PassiveObserver_EntryStays",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 161,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.NewEntry_StartsAtGen0",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 181,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Promote_Gen0_To_Gen1_To_Gen2",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 195,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Promote_NonExistentPath_ReturnsFalse",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 215,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Sweep_PromotesByAge_AfterGen1PromotionElapsed",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 222,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Mark_PreventsEviction_OnNotify",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 242,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.ResetMark_AllowsEviction_OnSweep",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 257,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Mark_NonExistentPath_ReturnsFalse",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 273,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Sweep_DisabledRegistry_ReturnsZero",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 284,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Sweep_EvictsIdleGen0",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 296,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Sweep_KeepsLiveRefcount",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 311,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Sweep_KeepsGen2",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 324,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.EnforceBudget_DisabledRegistry_NoOp",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 342,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.EnforceBudget_UnderBudget_NoOp",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 355,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.EnforceBudget_OverBudget_EvictsIdleEntries",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 368,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Register_OverBudget_TriggersSweep",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 393,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Concurrent_RegisterAndDispose_DoesNotCrash",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 417,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Concurrent_Sweep_WhileDisposing_DoesNotCrash",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 440,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Registry_Dispose_ClearsState",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 470,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AssetRegistryTests.Registry_Dispose_IsIdempotent",
+      "file": "src/AriaEngine.Tests/AssetRegistryTests.cs",
+      "line": 484,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Detect_NoFiles_ReturnsNone",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 20,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Detect_OnlyDataArid_ReturnsNone_StraySinglePak",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 27,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Detect_OnlyBootPak_ReturnsNone",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 42,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Detect_OnlyScenarioPak_ReturnsNone",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 55,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Detect_BothBootAndScenario_ReturnsV3Split",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 68,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Detect_V3FullSet_ReturnsV3Split",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 82,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Detect_OnlyDataPak_ReturnsNone",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 100,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Detect_DataPakAndScripts_ReturnsV2SinglePak",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 114,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Apply_V3Detection_UpgradesModeToRelease",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 128,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Apply_V2Detection_UpgradesModeAndSetsPakPath",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 139,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Apply_EnvZero_DisablesAutoRelease",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 150,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Apply_ExplicitReleaseMode_DoesNotDoubleApply",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 160,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Apply_ExplicitPakPath_DoesNotOverwrite",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 172,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Apply_KeyFile_LoadsEncryptionKey",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 182,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "AutoReleaseDetectorTests.Apply_ExistingKey_NotOverwritten",
+      "file": "src/AriaEngine.Tests/AutoReleaseDetectorTests.cs",
+      "line": 198,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "BacklogTests.BacklogEntry_StoresVoicePath",
+      "file": "src/AriaEngine.Tests/BacklogTests.cs",
+      "line": 13,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "BacklogTests.BacklogEntry_RecordsLanguageAndStableReadId",
+      "file": "src/AriaEngine.Tests/BacklogTests.cs",
+      "line": 34,
+      "kind": "fact",
+      "category": "fixture_gap",
+      "v3_disposition": "replace_or_supply_fixture"
+    },
+    {
+      "id": "BacklogTests.BacklogEntry_VoicePathClearedAfterEntry",
+      "file": "src/AriaEngine.Tests/BacklogTests.cs",
+      "line": 66,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "BacklogTests.JumpBack_RestoresCorrectState",
+      "file": "src/AriaEngine.Tests/BacklogTests.cs",
+      "line": 79,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "BacklogTests.JumpBack_WithoutSnapshot_OnlyRestoresPcAndText",
+      "file": "src/AriaEngine.Tests/BacklogTests.cs",
+      "line": 127,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "BacklogTests.Search_FiltersEntries",
+      "file": "src/AriaEngine.Tests/BacklogTests.cs",
+      "line": 150,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "BacklogTests.UnreadEntries_AreMarkedCorrectly",
+      "file": "src/AriaEngine.Tests/BacklogTests.cs",
+      "line": 173,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "BacklogTests.BacklogEntry_CapturesProgramCounter",
+      "file": "src/AriaEngine.Tests/BacklogTests.cs",
+      "line": 198,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "BacklogTests.BacklogEntry_CapturesTimestamp",
+      "file": "src/AriaEngine.Tests/BacklogTests.cs",
+      "line": 211,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "BacklogTests.BacklogEntry_DuplicateText_NotAddedTwice",
+      "file": "src/AriaEngine.Tests/BacklogTests.cs",
+      "line": 226,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.TryGet_RegisteredCommands_ReturnsExpectedOpcodes",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 15,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.TryGet_AliasesResolveToCanonicalOpcode",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 25,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.ScopeCommands_AreRegistered",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 37,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.LocFormat_CommandWritesFormattedLocalizedString",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 46,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.LanguageCommand_RequestsLocaleFontReload",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 81,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.LanguageRuntimeState_ExposesAvailableLanguagesAndScriptCommands",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 123,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.GetProfile_CommandExposesRuntimeProfileToScript",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 163,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.DebugCommand_IsBlockedOutsideDebugProfile",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 178,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.BrowserOpen_RejectsUnsafeSchemesAndWritesResult",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 192,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.BrowserOpen_UsesAllowlistAndPlatformService",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 206,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.EaseCommand_SupportsExpandedEasingNames",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 243,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.ScopeEnterAndExit_DefersSpriteLifetimeCleanup",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 258,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.ScopeEnterAndExit_MultipleDefers_SpritesCleanedUpInLifo",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 279,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.NscrEffectAndPrint_DefineAndRunTransitionEffect",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 303,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.ChapterScroll_AdjustsRenderedChapterCardOffset",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 323,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.GetInfo_ReturnsCategoryAndMinArgs",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 340,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.SubCommand_ResolvesToArithmeticSub",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 354,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.UnknownCommand_ReturnsFalse",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 361,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.FlagCommandHandler_HandlesPersistentFlagRoundTrip",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 367,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.CoreCommandHandler_HandlesStartupCommands",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 392,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.FlowCommandHandler_SetArray_IgnoresNegativeIndexWithoutThrowing",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 423,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.FlowCommandHandler_LetArray_IgnoresNegativeIndexWithoutThrowing",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 440,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.GalleryPageText_UsesEmptyStateWhenGalleryHasNoEntries",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 457,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.ConditionComparison_NamedZeroRegisterGreaterThanZero_IsFalse",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 483,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.BlockIfFalse_SkipsBody",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 495,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.UiControls_RenderAboveDefaultPanels",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 516,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.TryGet_AssertAndPanicCommands_AreRegistered",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 543,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.ScriptCommandHandler_Assert_ReportsErrorWhenConditionIsFalse",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 553,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.ScriptCommandHandler_Panic_StopsVmAndReportsError",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 570,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.RenderCommandHandler_OwnedSprite_TrackLifetimeEvenWithoutScope",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 592,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.RenderCommandHandler_OwnedSprite_CleanedUpOnScopeExit",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 616,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.RenderCommandHandler_NonOwnedSprite_NotTrackedAtTopLevel",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 646,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.RenderCommandHandler_OwnedSprite_LspTextAndLspRect_AlsoTracked",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 666,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.TextboxAlignCommand_UpdatesVerticalAlign",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 698,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "CommandTests.TextboxAlignCommand_AcceptsMixedCaseAndWhitespace",
+      "file": "src/AriaEngine.Tests/CommandTests.cs",
+      "line": 729,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ConfigManagerTests.PortableJsonPersistentMode_SavesPlainJsonAndLoadsIt",
+      "file": "src/AriaEngine.Tests/ConfigManagerTests.cs",
+      "line": 26,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ConfigManagerTests.NativePersistentMode_LoadsPortableJsonForMigration",
+      "file": "src/AriaEngine.Tests/ConfigManagerTests.cs",
+      "line": 58,
+      "kind": "fact",
+      "category": "legacy_specification",
+      "v3_disposition": "migration_boundary"
+    },
+    {
+      "id": "DemoFlowScriptTests.Scenario05_BranchesToDemoEndBeforeUnlockingDay5",
+      "file": "src/AriaEngine.Tests/DemoFlowScriptTests.cs",
+      "line": 12,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DemoFlowScriptTests.MainScript_DefinesLocalizedDemoEndWithBrowserOpenActions",
+      "file": "src/AriaEngine.Tests/DemoFlowScriptTests.cs",
+      "line": 23,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DemoFlowScriptTests.LocalizationResources_UseKnownOfficialAndXLinks",
+      "file": "src/AriaEngine.Tests/DemoFlowScriptTests.cs",
+      "line": 38,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.OpcodeApiIndex_InventoryMatchesCommandRegistry",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 18,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.Parse_DocCommentBeforeFunc_CapturesDocComment",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 49,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.Parse_MultipleDocCommentLinesBeforeFunc_ConcatenatesWithNewlines",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 63,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.Parse_DocCommentBeforeStruct_CapturesDocComment",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 79,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.Parse_MultipleDocCommentLinesBeforeStruct_ConcatenatesWithNewlines",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 94,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.Parse_NoDocComment_FuncHasNullDocComment",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 110,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.Parse_NoDocComment_StructHasNullDocComment",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 123,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.Parse_DocCommentAfterOtherLine_NotCaptured",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 137,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.Parse_DocCommentWithIndented_TrimsWhitespace",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 152,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.Parse_DocCommentAndNormalComments_DocCommentOnlyFromTripleSlash",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 166,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.Parse_FuncAndStructBothWithDocComments_BothCaptured",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 182,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.AriaDoc_ProducesValidJson",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 202,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.AriaDoc_ProducesValidMarkdown",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 246,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "DocTests.AriaDoc_MissingScript_ReturnsError",
+      "file": "src/AriaEngine.Tests/DocTests.cs",
+      "line": 291,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ExpressionParserTests.Parses_Array_Literal",
+      "file": "src/AriaEngine.Tests/ExpressionParserTests.cs",
+      "line": 9,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ExpressionParserTests.Parses_Chained_Comparisons",
+      "file": "src/AriaEngine.Tests/ExpressionParserTests.cs",
+      "line": 20,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ExpressionParserTests.Parses_Ternary_Operator",
+      "file": "src/AriaEngine.Tests/ExpressionParserTests.cs",
+      "line": 36,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FastSpriteDictionaryTests.CopyTo_CopiesFastAndDictionaryBackedSpritesInEnumerationOrder",
+      "file": "src/AriaEngine.Tests/FastSpriteDictionaryTests.cs",
+      "line": 10,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FlowCheckTests.FlowCheck_Passes_WhenAllChapterRoutesAreCovered",
+      "file": "src/AriaEngine.Tests/FlowCheckTests.cs",
+      "line": 11,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FlowCheckTests.FlowCheck_Fails_WhenChapterRouteIsMissing",
+      "file": "src/AriaEngine.Tests/FlowCheckTests.cs",
+      "line": 59,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FlowCheckTests.FlowCheck_ExecutePasses_WhenScenarioReturnsToChapterSelect",
+      "file": "src/AriaEngine.Tests/FlowCheckTests.cs",
+      "line": 100,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FlowCheckTests.FlowCheck_ExecuteFails_WhenScenarioPanicsBeforeReturn",
+      "file": "src/AriaEngine.Tests/FlowCheckTests.cs",
+      "line": 135,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_AssetPreload_PreservesGroupName",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 13,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_EmptyScript_ReturnsEmpty",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 20,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_AddsCorrectIndentation",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 28,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_NestedBlocks_IncreasesIndentation",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 48,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_Idempotent_FormatTwiceProducesSameResult",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 72,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_LabelsRemainLeftAligned",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 89,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_CommentsPreserved",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 107,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_AllBlockTypes",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 125,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_StripTrailingWhitespace",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 161,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_NormalizeInternalWhitespace",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 175,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_OutputIsParseable",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 187,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_EmptyLinesBetweenLogicalBlocks",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 210,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "FormatTests.Format_DedentOnBlockClose",
+      "file": "src/AriaEngine.Tests/FormatTests.cs",
+      "line": 228,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GetReadRate_NoScriptLines_ReturnsZero",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 10,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GetReadRate_NoReadKeys_ReturnsZero",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 21,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GetReadRate_HalfRead_ReturnsFifty",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 32,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GetReadRate_AllRead_ReturnsHundred",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 48,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GetReadRate_SomeRead_ReturnsCorrectPercentage",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 63,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.UnlockCg_ValidId_AddsToUnlockedCgs",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 79,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.UnlockCg_EmptyId_DoesNotAdd",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 89,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.UnlockCg_WhitespaceId_DoesNotAdd",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 100,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.IsCgUnlocked_UnlockedCg_ReturnsTrue",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 111,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.IsCgUnlocked_LockedCg_ReturnsFalse",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 122,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GetCgUnlockRate_ZeroTotal_ReturnsZero",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 132,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GetCgUnlockRate_NoUnlocked_ReturnsZero",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 142,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GetCgUnlockRate_HalfUnlocked_ReturnsFifty",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 152,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GetCgUnlockRate_AllUnlocked_ReturnsHundred",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 167,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GetCgUnlockRate_SomeUnlocked_ReturnsCorrectPercentage",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 179,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.ReadKeys_TracksReadLinesCorrectly",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 193,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.ReadKeys_DoesNotDuplicate",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 209,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.TotalScriptLines_CanBeSetAndRetrieved",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 221,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.UnlockedCgs_IsCaseInsensitive",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 230,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.ReadKeys_IsCaseInsensitive",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 241,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.TextWindowState_DefaultVerticalAlign_IsBottom_ForBackwardCompatibility",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 252,
+      "kind": "fact",
+      "category": "legacy_specification",
+      "v3_disposition": "migration_boundary"
+    },
+    {
+      "id": "GameStateTests.ButtonFeel_Default_HasExpectedDefaults",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 260,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GameState_ButtonFeel_InitializedWithDefaults",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 275,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.GameState_ButtonFeel_CanBeReplaced_ForThemeConfig",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 286,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "GameStateTests.Sprite_IsPressed_DefaultsToFalse_ForBackwardCompatibility",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 307,
+      "kind": "fact",
+      "category": "legacy_specification",
+      "v3_disposition": "migration_boundary"
+    },
+    {
+      "id": "GameStateTests.Sprite_IsPressed_CanBeToggledByInputHandler",
+      "file": "src/AriaEngine.Tests/GameStateTests.cs",
+      "line": 318,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "I18nCheckTests.I18nCheck_FindsMissingAndUnusedLocalizationKeys",
+      "file": "src/AriaEngine.Tests/I18nCheckTests.cs",
+      "line": 12,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "I18nCheckTests.I18nCheck_TreatsUnusedKeysAsWarnings",
+      "file": "src/AriaEngine.Tests/I18nCheckTests.cs",
+      "line": 89,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "I18nCheckTests.I18nCheck_CanCountCodeLocalizationCallsAsReferences",
+      "file": "src/AriaEngine.Tests/I18nCheckTests.cs",
+      "line": 157,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "I18nCheckTests.I18nCheck_FailsWhenLocaleScenarioFileIsMissing",
+      "file": "src/AriaEngine.Tests/I18nCheckTests.cs",
+      "line": 232,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_DetectsUndefinedGotoLabel",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 29,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_DetectsUndefinedGosubLabel",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 46,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_ValidLabel_NoError",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 63,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_IncludeRoot_ResolvesLabelsFromIncludedFiles",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 81,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_StringFunctionArgument_DoesNotWarnForLiteral",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 113,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_Gosub_DoesNotMakeFollowingInstructionUnreachable",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 135,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_FunctionDefinition_DoesNotWarnUnreachableForFunctionBody",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 157,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_ExplicitGoto_MakesFollowingInstructionUnreachable",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 182,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_DetectsUnusedVariable",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 203,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_VariableUsed_NoWarning",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 220,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_IfConditionVariableCountsAsRead",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 237,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_DetectsSpriteLeak",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 259,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_SpriteCleared_NoLeakWarning",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 275,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_ClearsAllSprites_NoLeakWarning",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 292,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_ExitCode2_OnErrors",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 312,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_ExitCode0_OnClean",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 328,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_DetectsUnreachableCodeAfterEnd",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 347,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_NoFalsePositiveAfterLabel",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 363,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_DoesNotCrash_WhenNoOwnedSprites",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 382,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_ConditionalEnd_DoesNotMakeFollowingInstructionUnreachable",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 399,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_NumericRegisterStringAssignment_Warns",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 418,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_ButtonResultReadAfterSubroutine_Warns",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 437,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_ButtonResultCopiedBeforeSubroutine_DoesNotWarn",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 462,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_OutputArgumentsAndInterpolation_DoNotReportUndefinedVariables",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 488,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_LoadAsset_WithoutOwnedDeclaration_W013",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 857,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_LoadAsset_WithOwnedDeclaration_NoWarning",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 874,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_LoadAsset_DoubleLoad_W013",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 892,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_LoadAsset_UseAfterScope_E013",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 911,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_LoadAsset_OwnedSpriteNotCheckedAsAsset",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 939,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LintTests.Lint_LoadAsset_NoLoadStatement_NoWarning",
+      "file": "src/AriaEngine.Tests/LintTests.cs",
+      "line": 962,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LiveReloadTests.FileSystemWatcher_DetectsScriptChange",
+      "file": "src/AriaEngine.Tests/LiveReloadTests.cs",
+      "line": 41,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LiveReloadTests.Reload_PreservesRegisters",
+      "file": "src/AriaEngine.Tests/LiveReloadTests.cs",
+      "line": 66,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LiveReloadTests.Reload_MaintainsCurrentLabel",
+      "file": "src/AriaEngine.Tests/LiveReloadTests.cs",
+      "line": 95,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LiveReloadTests.Reload_ResetsTextState",
+      "file": "src/AriaEngine.Tests/LiveReloadTests.cs",
+      "line": 138,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LiveReloadTests.Reload_PreservesFlagsAndStringRegisters",
+      "file": "src/AriaEngine.Tests/LiveReloadTests.cs",
+      "line": 165,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LiveReloadTests.Reload_PreservesSprites",
+      "file": "src/AriaEngine.Tests/LiveReloadTests.cs",
+      "line": 190,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LiveReloadTests.ResourceManager_ClearTextureCache_DoesNotThrowWhenEmpty",
+      "file": "src/AriaEngine.Tests/LiveReloadTests.cs",
+      "line": 214,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LiveReloadTests.LiveReloadManager_Dispose_DoesNotThrow",
+      "file": "src/AriaEngine.Tests/LiveReloadTests.cs",
+      "line": 225,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LocalizationManagerTests.Lookup_UsesCurrentLanguageThenFallback",
+      "file": "src/AriaEngine.Tests/LocalizationManagerTests.cs",
+      "line": 14,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LocalizationManagerTests.Format_UsesLocalizedTemplateAndDateFormat",
+      "file": "src/AriaEngine.Tests/LocalizationManagerTests.cs",
+      "line": 36,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "LocalizationManagerTests.EngineOwnedMenuLabels_UseCurrentLocalization",
+      "file": "src/AriaEngine.Tests/LocalizationManagerTests.cs",
+      "line": 64,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Build_CreatesValidPakFile",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 27,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Build_MissingInputDirectory_ReturnsHelpfulError",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 47,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Build_VerboseMode_WritesEntryDetails",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 58,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Build_MissingValueForInputFlag_ReturnsErrorCode3",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 71,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Build_MissingValueForFormatFlag_ReturnsErrorCode3",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 79,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Read_CorruptedPayload_Detected",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 90,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Read_InvalidHeader_ReturnsHelpfulError",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 102,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.DiffAndApply_PatchUpdatesPakCorrectly",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 112,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Apply_InvalidPatchHeader_ReturnsHelpfulError",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 137,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Diff_MissingBaseFile_ReturnsError",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 150,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.PakAssetProvider_InvalidPakFile_ReturnsHelpfulError",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 157,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.PakAssetProvider_MissingPakFile_ReturnsHelpfulError",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 167,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.WriteV3_SortsEntriesAndPathStrings_InSameOrder",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 210,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.BuildV3Split_RespectsOutputDirectory",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 247,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.BuildV3Split_InitAria_AppearsOnlyInBoot",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 277,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Build_FormatV3WithSplit_Succeeds",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 316,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Build_V3ScenarioWithIncompressibleData_StoresUncompressedWithFlagsZero",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 328,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Build_V3ScenarioWithCompressibleData_StoresCompressedWithFlagsTwo",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 356,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Build_FormatV3WithoutSplit_ReturnsErrorCode3",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 382,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Lz4Decompress_TooShortInput_ThrowsInvalidDataException",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 396,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Lz4Decompress_IntMinValueHeader_ThrowsInvalidDataException",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 406,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.Lz4Decompress_ExceedsMaxSize_ThrowsInvalidDataException",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 418,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PackTests.ReadV3_ManifestEntryExceedsFileBounds_ThrowsInvalidDataException",
+      "file": "src/AriaEngine.Tests/PackTests.cs",
+      "line": 431,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakAssetProviderV3Tests.ReadAllText_IsThreadSafe_WhenCached",
+      "file": "src/AriaEngine.Tests/PakAssetProviderV3Tests.cs",
+      "line": 15,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakAssetProviderV3Tests.DataCacheEntriesLimit_CanBeOverridden_ForTests",
+      "file": "src/AriaEngine.Tests/PakAssetProviderV3Tests.cs",
+      "line": 55,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakAssetProviderV3Tests.MaterializeToFile_ThrowsArgumentException_ForPathTraversal",
+      "file": "src/AriaEngine.Tests/PakAssetProviderV3Tests.cs",
+      "line": 73,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakAssetProviderV3Tests.MaterializeToFile_CreatesTempFile_ForValidRelativePath",
+      "file": "src/AriaEngine.Tests/PakAssetProviderV3Tests.cs",
+      "line": 84,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakAssetProviderV3Tests.Dispose_DeletesTempDirectory_CreatedByMaterializeToFile",
+      "file": "src/AriaEngine.Tests/PakAssetProviderV3Tests.cs",
+      "line": 112,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakAssetProviderV3Tests.Dispose_DeletesAllTempDirectories_WhenMultipleMaterializeToFileCalled",
+      "file": "src/AriaEngine.Tests/PakAssetProviderV3Tests.cs",
+      "line": 139,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakAssetProviderV3Tests.DataCacheHit_ReturnsCachedData_WithoutTouchingDisk",
+      "file": "src/AriaEngine.Tests/PakAssetProviderV3Tests.cs",
+      "line": 169,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakAssetProviderV3Tests.ReadAllBytes_ReturnsCachedBytes_WithoutMaterializingFile",
+      "file": "src/AriaEngine.Tests/PakAssetProviderV3Tests.cs",
+      "line": 196,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakAssetProviderV3Tests.PakArchiveV3_CanReadWithoutMemoryMappedFile",
+      "file": "src/AriaEngine.Tests/PakAssetProviderV3Tests.cs",
+      "line": 217,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakV3AssetLoadingE2ETests.V3SplitPak_GeneratedPaths_HaveCorrectPrefix",
+      "file": "src/AriaEngine.Tests/PakV3AssetLoadingE2ETests.cs",
+      "line": 11,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakV3AssetLoadingE2ETests.V3SplitPak_ProviderCanLoadAllCategories",
+      "file": "src/AriaEngine.Tests/PakV3AssetLoadingE2ETests.cs",
+      "line": 53,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakV3Benchmarks.ReadSpeedBenchmark",
+      "file": "src/AriaEngine.Tests/PakV3Benchmarks.cs",
+      "line": 37,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakV3Benchmarks.MemoryUsageBenchmark",
+      "file": "src/AriaEngine.Tests/PakV3Benchmarks.cs",
+      "line": 111,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PakV3Benchmarks.StreamingLatencyBenchmark",
+      "file": "src/AriaEngine.Tests/PakV3Benchmarks.cs",
+      "line": 175,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_EmptyScript_ReturnsEmptyInstructions",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 18,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_SimpleCommand_CreatesInstructionWithArguments",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 26,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_Label_ResolvesToInstructionIndex",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 36,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_DialogSyntax_ExpandsToTextAndWait",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 53,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_PlainTextWithColon_DoesNotSplitAsCommand",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 63,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_InlineIfCommand_ProducesConditionalJump",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 72,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_OneLineIfBlockWithoutCommand_DoesNotEmitUnresolvedJump",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 82,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_TextboxAlignCommand_ResolvesToTextboxAlignOpcode",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 93,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_AssetPreloadCommand_ResolvesToAssetPreloadOpcode",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 103,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_UnclosedWhile_ReportsErrorInsteadOfLeavingUnresolvedJump",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 113,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.ExpressionParser_TryParse_RejectsTrailingTokens",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 126,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_MainAriaPatterns_BackwardCompatible",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 132,
+      "kind": "fact",
+      "category": "legacy_specification",
+      "v3_disposition": "migration_boundary"
+    },
+    {
+      "id": "ParserTests.Parse_ScopeBlocks_GenerateScopeEnterAndExitOpcodes",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 166,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_LocalGlobalDeclaration_PopulatesDeclaredVariablesAndEmitsLet",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 175,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Expression_StringComparison_UsesStringValues",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 190,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_BlockIf_WithEndif_ProducesJumpIfFalseAndLabels",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 206,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_BlockIf_WithElse_ProducesElseAndEndLabels",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 222,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_BlockIf_WithBraces_PreprocessedToEndif",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 241,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_BlockIf_WithBracesAndElse_PreprocessedCorrectly",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 257,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_DeferCommand_ParsesAtomsCorrectly",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 276,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_OneLineIfBlock_WithValidCommand_ProducesConditionalInstruction",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 292,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_OneLineIfBlock_WithGoto_ProducesConditionalJmp",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 307,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_OneLineIfBlock_WithInvalidCommand_ReportsError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 321,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_InlineIf_WithoutBraces_ProducesConditionalInstruction",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 335,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_ResultOption_Constructors_TranspileToValAndErr",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 349,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_Func_ReturnType_ResultType_IsStored",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 371,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_BlockWhile_WithWend_ProducesLoopLabels",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 378,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_Match_BasicTwoCasesAndDefault_TranspilesToTexts",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 395,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_Match_WithWildcard_Default",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 416,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_Match_WithGuard_IncludesGuardedBody",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 432,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_Match_NonExhaustive_Warns",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 448,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_Match_InsideFunction_Works",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 462,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_BlockWhile_WithBraces_PreprocessedToWend",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 480,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_Break_InWhile_ProducesJmpToEndLabel",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 498,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_Continue_InWhile_ProducesJmpToStartLabel",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 513,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_MixedIfStyles_DoNotInterfere",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 530,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_EnumTypedParameter_WithValidValue_PassesValidation",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 557,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_EnumTypedParameter_WithInvalidValue_ReportsError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 575,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_FuncLocalConst_NotAccessibleOutside",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 591,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_GlobalConst_AccessibleInsideFunc",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 613,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_NamespaceEnum_AccessibleWithQualifiedName",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 631,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_NamespaceEnum_UnqualifiedNameStillWorks",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 652,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_ReadonlyDeclaration_FollowedByReassignment_ReportsError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 674,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_MutDeclaration_FollowedByReassignment_NoError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 689,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_LetWithoutReadonly_FollowedByReassignment_NoError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 704,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_ReadonlyInsideFunction_ReassignedInSameFunction_ReportsError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 719,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_ReadonlyInsideFunction_NotReassigned_NoError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 736,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_ReadonlyInFunctionA_ReassignedInFunctionB_NoError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 753,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_OwnedSpriteDeclaration_PopulatesOwnedSprites",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 776,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_OwnedSpriteDeclaration_CaseInsensitive",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 786,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructInstantiation_TranspilesToFieldAssignments",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 800,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructInstantiation_FieldAccessRewritten",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 818,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructInstantiation_StringField_Works",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 837,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructInstantiation_StringFieldAccess_RewritesToStringRegister",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 855,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructInstantiation_QualifiedName_Works",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 873,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructInstantiation_FieldAccessInExpression_Rewritten",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 891,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructInstantiation_UnknownStruct_ReportsError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 912,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructInstantiation_DefaultValuesForUnspecifiedFields",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 926,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructInstantiation_UnknownField_ReportsError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 944,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructInstantiation_DuplicateInitializerField_ReportsError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 965,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructDefinition_DuplicateField_ReportsError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 985,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructInstantiation_TypeMismatch_ReportsError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 1005,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_StructFieldAccess_UnknownField_ReportsError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 1030,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_UseModule_ImportsFunctionsFromModuleFile",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 1056,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_UseQualifiedName_RewritesQualifiedCall",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 1082,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_UseModule_DuplicateImports_NoError",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 1100,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ParserTests.Parse_UsingNamespace_ResolvesUnqualifiedCalls",
+      "file": "src/AriaEngine.Tests/ParserTests.cs",
+      "line": 1125,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.CoreState_DoesNotExposeRaylibTypes",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 19,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.CanvasScaleMapper_PreservesNativeLogicalCoordinatesAcross16x9Viewports",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 33,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.BrowserInputMapper_MapsPointerHitTestsBackToNativeLogicalRects",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 50,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.BrowserRenderer_PreservesNativeSpriteLayoutInDrawCommands",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 66,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.BrowserRenderer_MarksZeroSizedImagesForNaturalSizeFallback",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 109,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.BrowserRenderer_NormalizesNativeAssetRootImagePathsForStaticWebPackage",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 133,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.BrowserRenderer_PreservesNativeDecorationForCanvasParity",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 152,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.BrowserFontLoader_UsesLocaleFontAndNormalizesAssetUrl",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 197,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.WebRuntimeHost_BootsInitAndMainScriptIntoPlayableFrame",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 228,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.WebRuntimeHost_MapsPointerPressThroughNativeButtonState",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 244,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.WebRuntimeHost_RendersCompatScenarioTextAfterClickWait",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 256,
+      "kind": "fact",
+      "category": "legacy_specification",
+      "v3_disposition": "migration_boundary"
+    },
+    {
+      "id": "PlatformBoundaryTests.PreloadedWebAssetProvider_OnlyStoresTextPayloadsAndTreatsMediaAsExternalAssets",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 273,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.WebRuntimeHost_RendersNativeAssetRootBackgroundThroughWebAssetProvider",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 292,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.WebRuntimeHost_FinishesInteractiveScreenTweensBeforeCapturingFrame",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 323,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.IndexedDbSaveStore_ReadSave_UsesSameSlotKeyAsWriteSave",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 363,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.WebRuntimeHost_RightClickOpensMenuOverlayWithSaveLoadEntries",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 376,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.WebRuntimeHost_MenuSaveClickQueuesIndexedDbSaveWrite",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 390,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "PlatformBoundaryTests.WebRuntimeHost_MenuLoadClickQueuesIndexedDbReadAndAppliesLoadedSave",
+      "file": "src/AriaEngine.Tests/PlatformBoundaryTests.cs",
+      "line": 407,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.PackageScript_RecordsReleaseNotesAndSigningStateInManifest",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 15,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.PackageScript_RemovesRawScriptsBeforeBuildingProductionPak",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 31,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.PackageZip_DoesNotIncludeItsOwnDistDirectory",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 44,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.PackageScript_PublishesToTemporaryStagingDirectory",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 53,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReleaseScript_UsesStrictDoctorForReleaseCandidates",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 65,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.CiWorkflow_BuildsInstallerFromVersionedReleasePackage",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 74,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.CiWorkflow_RunsProfileMatrixGates",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 85,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.CiWorkflow_InstallsNsisBeforeReleaseScriptBuildsInstaller",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 97,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReleaseScript_ExposesNativeBuildFlavorFlags",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 107,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReleaseScript_PassesNativeBuildFlavorFlagsToPackageScript",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 120,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.PackageScripts_RecordRuntimeProfileAndBrowserOpenPolicy",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 135,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.InstallerScript_CanGenerateNativeAotPackageBeforeNsis",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 162,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.Program_LoadsCompiledBundleFromDistributionFileForNativeAotReleaseLaunch",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 177,
+      "kind": "fact",
+      "category": "source_string_dependency",
+      "v3_disposition": "replace_with_structural_test"
+    },
+    {
+      "id": "ReleasePipelineTests.Program_SetsRuntimeWindowIconFromPackagedBrandingAsset",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 186,
+      "kind": "fact",
+      "category": "source_string_dependency",
+      "v3_disposition": "replace_with_structural_test"
+    },
+    {
+      "id": "ReleasePipelineTests.SigningVerifier_FailsRequiredUnsignedArtifactsAndCanAuditInstaller",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 197,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.SigningScript_RequiresExplicitProductionSigningConfiguration",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 210,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.InstallerScript_VerifiesSignedSetupWhenSignIsRequested",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 233,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.CiWorkflow_VerifiesSignedNativeArtifactsBeforeUpload",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 244,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.CiWorkflow_ExportsCodeSigningSecretsToSigningScript",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 265,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.CiWorkflow_AlwaysUploadsReleaseReadinessReportEvidence",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 278,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.CiWorkflow_BuildsNativeAotAndWebPackagesBeforeReleaseReadinessReport",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 295,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.CiWorkflow_OnlyRequestsSigningForReleaseBuilds",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 318,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.WebPwaProject_IsFirstClassStaticWasmTarget",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 330,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.WebPackageAndQaScripts_ArePresentForStaticPwaRelease",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 348,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.WebNativeVisualCompare_DoesNotClaimReadyWhenMissingCapturesAreOnlyAllowedForAudit",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 398,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.WebNativeVisualCompare_ComparesMatchingCapturesAndReportsPixelParity",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 434,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.WebNativeVisualCompare_AllowsBrowserFontRasterizationTolerance",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 480,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReleaseReadinessAuditScript_MapsNativeAndWebEvidenceToBlockingGates",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 524,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReleaseReadinessAudit_FailsWhenNativeWebPackageOrTrustedSigningEvidenceIsMissing",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 561,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReleaseReadinessAudit_PassesWithCompleteArtifactEvidence",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 612,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReleaseEvidencePreparation_CreatesMissingSigningAuditAndNativeReadinessReport",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 672,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReleaseReadinessReport_ExplainsChecklistEvidenceAndRemainingBlockers",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 733,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.PackageScript_RecordsPublishFlavorInManifest",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 790,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.PackageScript_PrunesWindowsPackageNoiseBeforeManifestAndChecksums",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 809,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.NativeAotRelease_KeepsJsonAndV3SplitPakBootViable",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 822,
+      "kind": "fact",
+      "category": "source_string_dependency",
+      "v3_disposition": "replace_with_structural_test"
+    },
+    {
+      "id": "ReleasePipelineTests.PackageScript_RecordsSteamBuildMetadata",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 859,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReleaseScript_PassesSteamBuildFlagsToPackageScript",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 871,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.PackageScript_KeepsLocalizationAssetsInProductionPackage",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 883,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.PackCommand_ClassifiesLocalizationJsonAsData",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 895,
+      "kind": "fact",
+      "category": "source_string_dependency",
+      "v3_disposition": "replace_with_structural_test"
+    },
+    {
+      "id": "ReleasePipelineTests.PackageScript_InvokesPublishedExeDirectlyForSingleFileCli",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 905,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.CicdScript_DelegatesProductionPackagingToPackageScript",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 918,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.VisualCompareGate_FailsWhenNoBaselineImagesExist",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 928,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.VisualRegressionScript_CanCapturePackagedLaunch",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 939,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.VisualRegressionBaseline_IsTrackedForReleaseCompare",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 954,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.VisualRegressionScript_CanCaptureScriptOwnedUiFlow",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 979,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.TitleScript_ClearsTitleUiBeforeOpeningScriptOwnedUtilityScreens",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 999,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.TitleScript_PreservesTitleSelectionAcrossScriptOwnedUtilityScreens",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1011,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ScriptOwnedUtilityScreens_UseLocalizationLookupForLabels",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1023,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.LocalizationResources_IncludeChineseLocalesAndStoryFilePattern",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1033,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.SteamReleaseDocs_AreTracked",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1068,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.PlatformReleaseDocs_CoverWindowsWebLanguageAndSteamTargets",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1078,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.NativeUxPhase1_LocalizesMenuAndAddsImmediateUxPolish",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1108,
+      "kind": "fact",
+      "category": "source_string_dependency",
+      "v3_disposition": "replace_with_structural_test"
+    },
+    {
+      "id": "ReleasePipelineTests.NativeUxPhase2_MenuSystemAddsGamepadNavigationForSteamDeck",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1134,
+      "kind": "fact",
+      "category": "source_string_dependency",
+      "v3_disposition": "replace_with_structural_test"
+    },
+    {
+      "id": "ReleasePipelineTests.GalleryScript_OwnsScreenAndDoesNotOverlayOmakeUi",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1157,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.GalleryScript_UsesStringRegisterForPageText",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1170,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.GalleryScript_UsesDistinctSpriteIdsForNavigationButtonsAndLabels",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1183,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReleaseReplaySpec_IsTracked",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1199,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReplayScript_ResolvesOutputDirectoryBeforeChangingCaseWorkingDirectory",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1212,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.InstallerPipeline_UsesNsisAndDoesNotBuildDeprecatedInstallers",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1221,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.ReleaseStartup_ResolvesPackagedDataFromInstallDirectory",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1245,
+      "kind": "fact",
+      "category": "source_string_dependency",
+      "v3_disposition": "replace_with_structural_test"
+    },
+    {
+      "id": "ReleasePipelineTests.Codebase_DoesNotKeepDeprecatedLoadScriptCompatibilityPath",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1256,
+      "kind": "fact",
+      "category": "source_string_dependency",
+      "v3_disposition": "replace_with_structural_test"
+    },
+    {
+      "id": "ReleasePipelineTests.RuntimeSaveData_IsIgnoredAndNotTracked",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1267,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.MainScript_DoesNotDescribeReleaseUtilityScreensAsBroken",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1277,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ReleasePipelineTests.TrackedFontAssets_AreRealFontFiles",
+      "file": "src/AriaEngine.Tests/ReleasePipelineTests.cs",
+      "line": 1285,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "RuntimeProfileTests.ParseRunOptions_DefaultsToDebugProfile",
+      "file": "src/AriaEngine.Tests/RuntimeProfileTests.cs",
+      "line": 9,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "RuntimeProfileTests.ParseRunOptions_ParsesExplicitProfile",
+      "file": "src/AriaEngine.Tests/RuntimeProfileTests.cs",
+      "line": 17,
+      "kind": "theory",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "RuntimeProfileTests.ApplyRuntimeProfilePolicy_InjectsBrowserAllowlistForProductionProfiles",
+      "file": "src/AriaEngine.Tests/RuntimeProfileTests.cs",
+      "line": 29,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.Constructor_CreatesSaveDirectory",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 38,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.Save_ValidGameState_CreatesPackedSaveFile",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 44,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.PortableJsonSaveMode_WritesJsonToAriaSavePathAndLoadsIt",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 53,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.BrowserStorageContracts_RouteSavesSettingsLargeFilesAndBackupsToExpectedWebStores",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 77,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.Load_ExistingSave_RestoresRuntimeAndMetadata",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 113,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.SaveFile_RecordsLanguage",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 143,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.Load_MissingSave_ReturnsFalse",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 158,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.DeleteSave_ExistingSave_RemovesFile",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 167,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.Save_CreatesAriaSave3File",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 179,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.Load_AriaSave3_WithDeclarations_RestoresDeclarations",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 198,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.Load_AriaSave2_TriggersMigrationAndPreservesData",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 218,
+      "kind": "fact",
+      "category": "legacy_specification",
+      "v3_disposition": "migration_boundary"
+    },
+    {
+      "id": "SaveManagerTests.Load_MigratedSave_ResavesAsAriaSave3",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 261,
+      "kind": "fact",
+      "category": "legacy_specification",
+      "v3_disposition": "migration_boundary"
+    },
+    {
+      "id": "SaveManagerTests.Load_InvalidVersionHeader_ReturnsFalse",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 301,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.Quicksave_Quickload_Slot0_Works",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 368,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.Autosave_AfterChoice_TriggersAutoSave",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 385,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.Autosave_AtChapterLabel_TriggersAutoSave",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 397,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.SaveMetadata_IncludesChapterAndPreviewText",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 418,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.Thumbnail_IsSavedAndLoaded",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 435,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.DeleteSave_RemovesThumbnail",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 450,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "SaveManagerTests.VirtualMachine_SaveGame_WithoutWindow_DoesNotCrashAndSavesState",
+      "file": "src/AriaEngine.Tests/SaveManagerTests.cs",
+      "line": 465,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UiThemeManagerTests.ApplyTheme_Classic_ConfiguresButtonFeel",
+      "file": "src/AriaEngine.Tests/UiThemeManagerTests.cs",
+      "line": 14,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UiThemeManagerTests.ApplyTheme_Soft_ConfiguresButtonFeel_WithLargerSink",
+      "file": "src/AriaEngine.Tests/UiThemeManagerTests.cs",
+      "line": 29,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UiThemeManagerTests.ApplyTheme_Glass_ConfiguresButtonFeel_WithShortAnimation",
+      "file": "src/AriaEngine.Tests/UiThemeManagerTests.cs",
+      "line": 43,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UiThemeManagerTests.ApplyTheme_Mono_ConfiguresButtonFeel_WithSharpSubtleSink",
+      "file": "src/AriaEngine.Tests/UiThemeManagerTests.cs",
+      "line": 56,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UiThemeManagerTests.ResetToDefaults_ResetsButtonFeel_ToFactoryDefaults",
+      "file": "src/AriaEngine.Tests/UiThemeManagerTests.cs",
+      "line": 72,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UiThemeManagerTests.ApplyTheme_AllThemes_ProduceNonDefaultButtonFeel",
+      "file": "src/AriaEngine.Tests/UiThemeManagerTests.cs",
+      "line": 94,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetBenchmarks.StartupTime_LazyVsEager",
+      "file": "src/AriaEngine.Tests/UnifiedAssetBenchmarks.cs",
+      "line": 108,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetBenchmarks.ReadPerformance_LazyVsEager",
+      "file": "src/AriaEngine.Tests/UnifiedAssetBenchmarks.cs",
+      "line": 155,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetBenchmarks.UnifiedAssetProvider_DiskFirst_ResolveFromDisk",
+      "file": "src/AriaEngine.Tests/UnifiedAssetBenchmarks.cs",
+      "line": 213,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetBenchmarks.LazyOpen_DoesNotReadUntilNeeded",
+      "file": "src/AriaEngine.Tests/UnifiedAssetBenchmarks.cs",
+      "line": 251,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetBenchmarks.StatsCounters_ReportAccurateValues",
+      "file": "src/AriaEngine.Tests/UnifiedAssetBenchmarks.cs",
+      "line": 282,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.EmptyIndex_ReturnsNull",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 54,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.LazyOpen_DoesNotReadPakFiles_BeforeFirstLookup",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 63,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.SinglePak_FindEntry_ReturnsEntry",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 94,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.LookupIsCaseInsensitive",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 116,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.NotFound_ReturnsNull_AndCachesNegatively",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 137,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.MultiplePaks_FindEntry_FindsCorrectOne",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 164,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.PatchOverride_PatchWinsOverBase",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 197,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.LocalePath_ResolvedToLocalizedDirectory",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 231,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.LocalePath_FallsBackToNonLocalized_WhenLocaleMissing",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 280,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.TopLevelFile_DoesNotGetLocaleSuffix",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 302,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.MissingPakFile_SkippedGracefully",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 324,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.RegisterReader_AddsCustomReader",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 351,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.Dispose_ClosesAllReaders",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 388,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.CacheHitCount_Increments_OnRepeatedLookup",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 411,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetIndexTests.PakPatch_FallsBackToBase_WhenPathNotInPatch",
+      "file": "src/AriaEngine.Tests/UnifiedAssetIndexTests.cs",
+      "line": 435,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.DiskOnly_ResolvesFromDisk",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 58,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.PakOnly_ResolvesFromPak",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 77,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.DiskFirst_DiskTakesPrecedence_WhenBothExist",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 98,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.PakFirst_PakTakesPrecedence_WhenBothExist",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 124,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.DiskFirst_FallsBackToPak_WhenNotOnDisk",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 149,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.NotFound_ThrowsFileNotFoundException",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 175,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.ReadAllLines_NormalizesLineEndings",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 195,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.OpenRead_ReturnsReadableStream",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 216,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.LocalePath_AppliesToPakResolution",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 236,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.PakPatch_OverridesBase",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 271,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.MaterializeToFile_DiskProvider_ReturnsRealPath",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 298,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.MaterializeToFile_RejectsPathTraversal",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 318,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.MaterializeToFile_RejectsRootedPath",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 335,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.MaterializeToFile_PakSource_MaterializesToTemp",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 352,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.Dispose_CleansUpTempDirs",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 374,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.Constructor_RejectsEmptyConfig",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 398,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "UnifiedAssetProviderTests.HitCount_IncrementsCorrectly",
+      "file": "src/AriaEngine.Tests/UnifiedAssetProviderTests.cs",
+      "line": 405,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "WebAssetManifestTests.CheckedManifest_CoversEveryAssetWithCurrentIntegrityMetadata",
+      "file": "src/AriaEngine.Tests/WebAssetManifestTests.cs",
+      "line": 19,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "WebAssetManifestTests.CheckedManifest_HasBootUiAndEveryScenarioGroup",
+      "file": "src/AriaEngine.Tests/WebAssetManifestTests.cs",
+      "line": 57,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ZstdCompressionTests.Decompress_NormalCompressedData_Succeeds",
+      "file": "src/AriaEngine.Tests/ZstdCompressionTests.cs",
+      "line": 25,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ZstdCompressionTests.Compress_Decompress_RoundTripsCorrectly",
+      "file": "src/AriaEngine.Tests/ZstdCompressionTests.cs",
+      "line": 41,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ZstdCompressionTests.Decompress_HighlyCompressibleData_Exceeding256MB_ThrowsInvalidDataException",
+      "file": "src/AriaEngine.Tests/ZstdCompressionTests.cs",
+      "line": 56,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ZstdCompressionTests.Decompress_NullInput_ThrowsArgumentNullException",
+      "file": "src/AriaEngine.Tests/ZstdCompressionTests.cs",
+      "line": 80,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    },
+    {
+      "id": "ZstdCompressionTests.Compress_LevelBounds_ClampedToValidRange",
+      "file": "src/AriaEngine.Tests/ZstdCompressionTests.cs",
+      "line": 88,
+      "kind": "fact",
+      "category": "behavior_regression",
+      "v3_disposition": "candidate_for_v3_corpus"
+    }
+  ]
+}

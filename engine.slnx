@@ -2,5 +2,6 @@
   <Folder Name="/src/">
     <Project Path="src/AriaEngine/AriaEngine.csproj" />
     <Project Path="src/AriaEngine.Web/AriaEngine.Web.csproj" />
+    <Project Path="src/AriaEngine.Wasm/AriaEngine.Wasm.csproj" />
   </Folder>
 </Solution>

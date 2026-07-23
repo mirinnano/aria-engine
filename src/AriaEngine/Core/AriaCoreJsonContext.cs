@@ -79,6 +79,7 @@ internal sealed partial class AriaCoreIndentedJsonContext : JsonSerializerContex
 [JsonSerializable(typeof(SceneRuntimeState))]
 [JsonSerializable(typeof(SaveRuntimeState))]
 [JsonSerializable(typeof(FlagRuntimeState))]
+[JsonSerializable(typeof(AssetPreloadRuntimeState))]
 [JsonSerializable(typeof(Sprite))]
 [JsonSerializable(typeof(FastSpriteDictionary))]
 [JsonSerializable(typeof(Dictionary<int, Sprite>))]

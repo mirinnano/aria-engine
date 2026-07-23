@@ -1,0 +1,9 @@
+{
+  "name": "AriaEngine Raylib WASM",
+  "short_name": "AriaEngine",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#050607",
+  "theme_color": "#050607",
+  "orientation": "landscape"
+}

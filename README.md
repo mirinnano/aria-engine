@@ -1,126 +1,90 @@
-# AriaEngine / umikaze
+# Aria Engine
 
-.NET 8.0 + Raylibで動くビジュアルノベルゲームエンジンと、その同梱作品 `umikaze` のリリース作業リポジトリです。NScripter互換の `.aria` スクリプト言語をサポートします。
+Aria Engine は、物語のための Rust 風・所有権対応スクリプト言語 **Aria** と、
+Native/Web で同じバイトコードを実行する決定論的ランタイムです。
 
-> **v2.0.0-rc.1**: Aria v2 strict（型安全・寿命管理・構造化）の基盤実装が完了。`strict on` で有効化。詳細は [`docs/spec/aria-v2-strict.md`](docs/spec/aria-v2-strict.md) を参照。
-
-## 方針
-
-- **スクリプト駆動**: `.aria`ファイルでゲーム全体を記述
-- **NScripter互換**: テキスト、スプライト、ボタン、セーブ、互換UI、`effect` / `print` をサポート
-- **v2 strict**: `# aria-version: 2.0` + `strict on` で型安全・所有権・スコープ管理を有効化
-- **作者主導UI**: 高レベル自動生成に寄せすぎず、描画命令と script-owned screen を重視
-- **Release品質**: `data.pak` + `scripts/scripts.ariac` + NSIS installer を正式配布経路にする
-- **Windows配布**: `scripts/package.ps1` と `scripts/installer.ps1` で win-x64 artifact を生成
-
-## クイックスタート
-
-```powershell
-dotnet build
-dotnet run --project src/AriaEngine/AriaEngine.csproj
-```
-
-## リリースビルド
-
-```powershell
-scripts/doctor.ps1 -Project src/AriaEngine/AriaEngine.csproj -InitScript init.aria -MainScript assets/scripts/main.aria -Strict
-scripts/package.ps1 -Version v1.0.0-rc.2 -Runtime win-x64
-scripts/installer.ps1 -Version v1.0.0-rc.2 -Runtime win-x64 -PackageDir artifacts/release/AriaEngine-v1.0.0-rc.2-win-x64/app
-```
-
-主な成果物:
-
-```text
-artifacts/release/AriaEngine-v1.0.0-rc.2-win-x64/app
-artifacts/release/AriaEngine-v1.0.0-rc.2-win-x64/dist/AriaEngine-v1.0.0-rc.2-win-x64.zip
-artifacts/installer/AriaEngine-v1.0.0-rc.2-win-x64-installer.zip
-```
-
-production launch args:
-
-```text
---run-mode release --pak data.pak --compiled scripts/scripts.ariac
-```
-
-## プロジェクト構成
-
-```
-engine/
-├── src/AriaEngine/     # エンジン本体
-│   ├── Core/           # VM、Parser、状態管理、CommandHandler
-│   ├── Rendering/      # スプライト描画、アニメーション
-│   ├── Input/          # 入力処理
-│   ├── Audio/          # オーディオ管理
-│   └── assets/         # フォント、背景、キャラクター、scripts
-├── installer/          # NSIS installer
-├── scripts/            # doctor/package/installer/release tooling
-├── docs/               # ドキュメント
-└── init.aria           # engine initialization
-```
-
-## スクリプト例
+新規作品の作者言語は一つだけです。
 
 ```aria
-# aria-version: 2.0
-strict on
-
-*start
-    bg "forest.png", 0
-    textclear
-    ミオ「ようこそ！」
-
-    ; scope でUIリソースの寿命を管理
-    scope "menu"
-        owned @btn_start = lsp_rect(100, 400, 300, 200, 50)
-        spbtn @btn_start, 1
-        btnwait %result
-    end_scope
-    ; @btn_start はここで自動解放
-
-    if %result == 1
-        text "クリックされました"
-    endif
-
-    ; func で構造化
-    func show_message(msg: string) -> void
-        textclear
-        text $msg
-    endfunc
-
-    show_message("次の章へ")
+aria;
 ```
 
-## ツール
+互換モード、`strict` モード、言語バージョン選択、NScripter 命令の実行経路はありません。
+仕様、サンプル、CLI、Native Player、Web runtime はこの構文だけを扱います。
 
-| ツール | 説明 |
-|--------|------|
-| `aria-lint` | 静的解析（型チェック、寿命チェック、未使用変数検出） |
-| `aria-compile` | スクリプトの暗号化コンパイル |
-| `aria-pack` | アセットのパッケージング |
-| `aria-doc` | ドキュメント生成 |
-| `aria-format` | コードフォーマット |
-| `aria-save` | セーブデータ操作 |
+## はじめる
 
-## ドキュメント
+```bash
+# 構文・型・所有権・制御フローを検査
+cargo run --locked -p aria-cli -- check examples/umikaze --release
 
-- [ドキュメント一覧](docs/README.md) - チュートリアル、リファレンス、ガイド (Diátaxis 構成)
-- [Aria v2 Strict 仕様書](docs/spec/aria-v2-strict.md) - 型安全・寿命管理・構造化の詳細仕様
-- [スクリプト言語リファレンス](docs/reference/opcodes/) - 全オペコード詳細
-- [アーキテクチャ: 概要](docs/architecture/overview.md) - エンジン構成と責務分担
-- [アーキテクチャ: プラットフォーム](docs/architecture/platform.md) - `.pak` / `.ariac` と dev/release モード
-- [リリースビルドの作成](docs/how-to-guides/compile-and-package.md)
-- [NSIS installer](docs/release/installer.md)
-- [v1.0.0 compatibility contract](docs/release/compatibility-v1.0.0.md)
+# ヘッドレス実行
+cargo run --locked -p aria-cli -- run examples/umikaze --headless
 
-### 🆕 UX Quick Wins (T1/T2/T3)
+# Web bundle を作成
+cargo run --locked -p aria-cli -- build examples/umikaze --target web --out target/umikaze-web
+```
 
-- **T1: セーブサムネイル** — セーブメニュー open 時にゲーム画面をキャプチャ → ゲーム本編の画像が記録される ([詳細](docs/tutorials/save-load.md#ステップ6-セーブサムネイルの仕組みを理解する))
-- **T2: ボタンの押下感** — `theme "soft"` などで全ボタンに押下アニメーション (`ButtonFeel`) を自動適用 ([詳細](docs/reference/ui/button-feel.md))
-- **T3: ADV テキスト垂直配置** — `textbox_align center` / `top` / `bottom` で垂直位置を制御 ([詳細](docs/reference/opcodes/textbox_align.md))
+実行可能なプレゼンテーション例は [`examples/umikaze`](examples/umikaze/README.md) にあります。
 
-## AIエージェント向け
+## Aria の例
 
-- [AGENTS.md](docs/ai-agent/AGENTS.md) - プロジェクト構造、コードパターン、貢献方法
+```aria
+aria;
+
+entry opening;
+state mut route: Int = 0;
+
+scene opening {
+    background asset("assets/bg/shore.webp") with fade(300ms);
+    let mut mio = show image(asset("assets/ch/mio.webp")) at (760px, 86px) z 20;
+
+    say Mio: "海へ行こう。";
+    await advance;
+
+    borrow mut mio as portrait {
+        move &mut portrait to (720px, 86px);
+    }
+
+    choice {
+        "堤防へ" => breakwater;
+        "駅へ" => station;
+    }
+}
+
+scene breakwater { narrate "波が足元でほどけた。"; end; }
+scene station { narrate "発車ベルが遠くで鳴った。"; end; }
+```
+
+`Node` は GC 任せではありません。`show` で作られた Node は一つの所有者を持ち、
+`drop`、所有権移動、または字句スコープ終了で決定的に一度だけ解放されます。Node を
+変形する操作には `&mut`、借用には `borrow` が必要です。
+
+## 仕様とツール
+
+- [Aria 言語仕様](docs/spec/aria.md) — 構文、型、所有権、借用、診断、非互換
+- [ランタイム・ファイル形式](docs/spec/aria-v3-runtime.md) — ARIAC7、pak、bundle、保存
+- [Umikaze の実行方法](examples/umikaze/README.md#run) — React/WASM と Tauri shell
+- [ドキュメント一覧](docs/README.md)
+
+CLI は以下を提供します。
+
+- `aria check` — 解析、型検査、所有権検査、制御フロー検査
+- `aria run` — Native runtime または headless replay
+- `aria build` — Windows/Linux/macOS/Web 用の player data bundle
+- `aria import-novel` — Markdown 章を `aria;` ライブラリソースへ変換
+- `aria bench` — VM hot loop の計測
+
+## 設計上の境界
+
+- Aria source は物語状態、演出、Node 資源、意味的な `screen` 遷移を所有します。
+- React/Tauri/Web の presentation package はレイアウト、配色、フォント、アクセシビリティ、
+  入力表示を所有します。
+- コンパイラは ARIAC7 を生成します。旧 `.ariac`、互換 opcode、実行時言語モードは受理しません。
+
+歴史的な C# 実装・旧仕様書はリポジトリに残っていますが、現在の `aria` ツールチェーンの
+作者経路ではありません。新規コードとドキュメントは必ず [Aria 言語仕様](docs/spec/aria.md)
+を正としてください。
 
 ## ライセンス
 

@@ -1,5 +1,9 @@
 # オペコードリファレンス
 
+> **履歴資料です。** この C#/V1/V2 opcode は現行 compiler/runtime に存在しません。
+> 新規コードは [`../../spec/aria.md`](../../spec/aria.md) の単一 `aria;` 構文と
+> [`../../spec/aria-v3-runtime.md`](../../spec/aria-v3-runtime.md) を参照してください。
+
 AriaEngineで使用可能なすべてのスクリプトコマンド（オペコード）をカテゴリごとに整理したリファレンスです。
 
 ## カテゴリ概要
@@ -17,6 +21,7 @@ AriaEngineで使用可能なすべてのスクリプトコマンド（オペコ�
 | [Save](system.md) | セーブ/ロード機能 | system.md |
 | [Flags](flag.md) | フラグ・カウンター管理 | flag.md |
 | [Compatibility](init.md) | NScripter互換、チャプター/キャラクター操作 | init.md, chapter.md, character.md |
+| [Asset](asset.md) | アセットハンドルとWeb向け非同期グループ取得 | asset.md |
 
 ## ナビゲーション
 
@@ -36,6 +41,9 @@ AriaEngineで使用可能なすべてのスクリプトコマンド（オペコ�
 
 ### オーディオ
 - [**オーディオ再生**](audio.md) — `play_bgm`, `play_se`, `bgmvol` など
+
+### アセット
+- [**アセット読込**](asset.md) — `asset_preload`, `load_aria_asset`
 
 ### システム・セーブ
 - [**システム・セーブ**](system.md) — `save`, `load`, `end`, `window` など
@@ -57,6 +65,7 @@ AriaEngineで使用可能なすべてのスクリプトコマンド（オペコ�
 | `amsp` | Render | [animation.md](animation.md) |
 | `ascale` | Render | [animation.md](animation.md) |
 | `assert` | Core | [basic.md](basic.md) |
+| `asset_preload` | Asset | [asset.md](asset.md) |
 | `await` | Render | [animation.md](animation.md) |
 | `bg` | Compatibility | [init.md](init.md) |
 | `blt` | Core | [basic.md](basic.md) |

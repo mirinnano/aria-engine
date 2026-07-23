@@ -308,6 +308,7 @@ public static class CommandRegistry
         Register(CommandCategory.Text, OpCode.TextboxAlign, "textbox_align");
         // Pak v3 redesign, Phase 4.2: load_aria_asset (raw bytes AssetHandle into GameState.AssetHandleTable).
         Register(CommandCategory.Asset, OpCode.LoadAsset, "load_aria_asset");
+        Register(CommandCategory.Asset, OpCode.AssetPreload, "asset_preload");
     }
 
     public static IReadOnlyDictionary<string, CommandInfo> All => Commands;
@@ -455,6 +456,7 @@ public static class CommandRegistry
             OpCode.BrowserOpen => 1,
             OpCode.TextboxAlign => 1,
             OpCode.LoadAsset => 2,
+            OpCode.AssetPreload => 1,
             _ => 0
         };
     }

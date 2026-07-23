@@ -101,6 +101,16 @@ public class ParserTests
     }
 
     [Fact]
+    public void Parse_AssetPreloadCommand_ResolvesToAssetPreloadOpcode()
+    {
+        var result = CreateParser().Parse(new[] { "asset_preload \"scenario_01\"" }, "assets.aria");
+
+        result.Instructions.Should().ContainSingle();
+        result.Instructions[0].Op.Should().Be(OpCode.AssetPreload);
+        result.Instructions[0].Arguments.Should().Equal("scenario_01");
+    }
+
+    [Fact]
     public void Parse_UnclosedWhile_ReportsErrorInsteadOfLeavingUnresolvedJump()
     {
         var reporter = new ErrorReporter();

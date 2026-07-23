@@ -1,4 +1,7 @@
-# Reference: Scripting
+# Historical reference: Scripting
+
+> このフォルダは C# 行指向 runtime の履歴資料です。新規の `.aria` source は
+> [Aria 言語仕様](../../spec/aria.md) を参照してください。
 
 スクリプト言語 (`.aria`) に関する reference ドキュメント。
 `reference/opcodes/` の各ファイル（opcodes 単位）と対比して、**機能横断的な reference** をここに集約する。
@@ -22,7 +25,7 @@
 
 ## 関連
 
-- [Aria v2 Strict 技術仕様書](../../spec/aria-v2-strict.md) — v2 strict 拡張仕様（`strict on` モード時の型・所有権・スコープ規則）
+- [Aria 言語仕様](../../spec/aria.md) — 現行の構文・型・所有権・借用
 - [Reference: Opcodes](../opcodes/) — opcodes 単位のリファレンス
 - [Reference: Syntax](../syntax.md) — 文法規則
 - [Reference: UI](../ui/) — `button-feel.md` ほか

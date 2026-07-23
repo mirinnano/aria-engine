@@ -1,0 +1,656 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "group": "boot",
+      "logicalPath": "init.aria",
+      "url": "init.aria",
+      "size": 1011,
+      "sha256": "c159529f8df98bcdcb42fc8cf7bb182f8fd81a36c9586501a15c1e4c7fc0f149"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/fonts/NotoSansJP-Regular.ttf",
+      "url": "assets/fonts/NotoSansJP-Regular.ttf",
+      "size": 16467736,
+      "sha256": "68a3fc98800b2a27b371f2fb79991daf3633bd89309d4ffaa6946fd587f375b5"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/i18n/locales.json",
+      "url": "assets/i18n/locales.json",
+      "size": 938,
+      "sha256": "24f0bcc36b7cba498aa737b976f6f3b78caade73e605be0271feb115dd16de31"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/i18n/ui.en-US.json",
+      "url": "assets/i18n/ui.en-US.json",
+      "size": 4027,
+      "sha256": "3c33e22d1ab982312b905c6b8175634ce9f0496c9cdac96f7d8efe4826926e63"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/i18n/ui.ja-JP.json",
+      "url": "assets/i18n/ui.ja-JP.json",
+      "size": 4697,
+      "sha256": "3f5b4d80f950011497ceb1a6cea6c89141ce9333899c5a5a39e548b63c355cdb"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/i18n/ui.zh-CN.json",
+      "url": "assets/i18n/ui.zh-CN.json",
+      "size": 4139,
+      "sha256": "458fc5d89abb899b69b8489c80b8e384a59cb5e0ac70ccd2c57ae66fca561654"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/i18n/ui.zh-TW.json",
+      "url": "assets/i18n/ui.zh-TW.json",
+      "size": 4139,
+      "sha256": "1f70754358d9a8a77ec39e4ba1ec406f594297b77565c8233b2387fe2b50ee77"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/00_converted.aria",
+      "url": "assets/scripts/00_converted.aria",
+      "size": 12808,
+      "sha256": "daf839692aa60f99ccb448fe97cffe495798c006430ee59fcdde6a5404d981a7"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/backlog_ui.aria",
+      "url": "assets/scripts/backlog_ui.aria",
+      "size": 4246,
+      "sha256": "8d8ec3137a6aa23a389e494c590961cbe3136af9fee9ff8986f97976dc52afda"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/debug_ui.aria",
+      "url": "assets/scripts/debug_ui.aria",
+      "size": 2379,
+      "sha256": "aa4ed2311c45e103445053d9868f164828b694dfe4759e473864aa3d8b4a59d5"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/gallery_ui.aria",
+      "url": "assets/scripts/gallery_ui.aria",
+      "size": 5175,
+      "sha256": "00398015e35b0ac46855837c1b499bed8184d18d0f448711b506801c5047c2a1"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/load_ui.aria",
+      "url": "assets/scripts/load_ui.aria",
+      "size": 4060,
+      "sha256": "9d3b387cf52c1e32a6e30f15801c55c2ac56d872de5ffb3934ac1ad7877be460"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/main.aria",
+      "url": "assets/scripts/main.aria",
+      "size": 25614,
+      "sha256": "47b579377067648843fcee60837156f0a3425e975fe2cf0442680a995ed99fe1"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/main.sample.aria",
+      "url": "assets/scripts/main.sample.aria",
+      "size": 3405,
+      "sha256": "ab5c335832f01c8dac8455acddfd7d89d368c4880bd6119d2eeec86e94010197"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/omake_ui.aria",
+      "url": "assets/scripts/omake_ui.aria",
+      "size": 4923,
+      "sha256": "843c4d88f801c68cc049167b8f5899e183a5cbf87b310ea7e7429d2a0057f24f"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/save_ui.aria",
+      "url": "assets/scripts/save_ui.aria",
+      "size": 3399,
+      "sha256": "8a261db2a7c2134ef17003395d483378342e51e5c0b15596422a5651e976e651"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/en-US/scenario_01.aria",
+      "url": "assets/scripts/scenario/en-US/scenario_01.aria",
+      "size": 126,
+      "sha256": "e4f9d2ca0e33f2ebf4399a71b4e8fe141881f2d8693ef94ac09002a9da205ab8"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/en-US/scenario_02.aria",
+      "url": "assets/scripts/scenario/en-US/scenario_02.aria",
+      "size": 126,
+      "sha256": "f62d243796e9646b5223e4d5e909f37f9b078d34cbe817cf129d7e64c3061a59"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/en-US/scenario_03.aria",
+      "url": "assets/scripts/scenario/en-US/scenario_03.aria",
+      "size": 126,
+      "sha256": "a485a93750a4a2c66a00af835435a8ee18417eede9a979197171ee61f08d139a"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/en-US/scenario_04.aria",
+      "url": "assets/scripts/scenario/en-US/scenario_04.aria",
+      "size": 126,
+      "sha256": "95b2af34f89f28002210253b0e930e5163d97e3d2fa09ec43ae905685d2cd011"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/en-US/scenario_05.aria",
+      "url": "assets/scripts/scenario/en-US/scenario_05.aria",
+      "size": 126,
+      "sha256": "9a7d9b184b1210aa828ec8fa1bd4c62daca5816c3a6833df085c676fef7a5877"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/en-US/scenario_06.aria",
+      "url": "assets/scripts/scenario/en-US/scenario_06.aria",
+      "size": 126,
+      "sha256": "1790ef9542cea55a05b799506e94b1affb23f8632c82435e4405d2b86360b787"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/en-US/scenario_07.aria",
+      "url": "assets/scripts/scenario/en-US/scenario_07.aria",
+      "size": 126,
+      "sha256": "032a22348f4b411204f6316f3e0412c2ebbdfc15ecc659933b31b56d4084127c"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/en-US/scenario_08.aria",
+      "url": "assets/scripts/scenario/en-US/scenario_08.aria",
+      "size": 126,
+      "sha256": "74b3d17cf82c2a37a3ed6ff97f4646d6c496fcd20715bc5ee0c1b0efa24d9b13"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/ja-JP/scenario_01.aria",
+      "url": "assets/scripts/scenario/ja-JP/scenario_01.aria",
+      "size": 63,
+      "sha256": "725af815318be9e79a967297a13d1503fdb495c7e7f5d537db64f6b4f4e4e981"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/ja-JP/scenario_02.aria",
+      "url": "assets/scripts/scenario/ja-JP/scenario_02.aria",
+      "size": 63,
+      "sha256": "53b423e6ef1638df96651c2801b9a1dbd91b0bf326348f802f1e0641fc6dd240"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/ja-JP/scenario_03.aria",
+      "url": "assets/scripts/scenario/ja-JP/scenario_03.aria",
+      "size": 63,
+      "sha256": "57e818638686f7c9fd66c4057283b2edc538f8adff83eb9965815fff03265326"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/ja-JP/scenario_04.aria",
+      "url": "assets/scripts/scenario/ja-JP/scenario_04.aria",
+      "size": 63,
+      "sha256": "84e1a69aae80fe4565729592f85c49d01bb6bacc5e41c6be1fb4c68f4fd08b1d"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/ja-JP/scenario_05.aria",
+      "url": "assets/scripts/scenario/ja-JP/scenario_05.aria",
+      "size": 63,
+      "sha256": "f74fd4ac9ef4803107f0922b48860dd55eeeb9013941e9abca90fe04e9d6c735"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/ja-JP/scenario_06.aria",
+      "url": "assets/scripts/scenario/ja-JP/scenario_06.aria",
+      "size": 63,
+      "sha256": "5e1875674327170282366a92a2177f54f2087521d96c8fbfa79b796b91ac9f45"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/ja-JP/scenario_07.aria",
+      "url": "assets/scripts/scenario/ja-JP/scenario_07.aria",
+      "size": 63,
+      "sha256": "ce773cd57bbf597c0dd18c63000bed50542fa770611c2acfd03e3d8074605f7d"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/ja-JP/scenario_08.aria",
+      "url": "assets/scripts/scenario/ja-JP/scenario_08.aria",
+      "size": 63,
+      "sha256": "b4e125622904831cd95f5f7ff4f73239430b7f676d456ae9551f529097f0522c"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-CN/scenario_01.aria",
+      "url": "assets/scripts/scenario/zh-CN/scenario_01.aria",
+      "size": 126,
+      "sha256": "52f792f73422845cb530395f676714a48a124fe9069e65e0317b9c7b65420615"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-CN/scenario_02.aria",
+      "url": "assets/scripts/scenario/zh-CN/scenario_02.aria",
+      "size": 126,
+      "sha256": "e9776111627fc8a1b85da8c1ef56d048c8edab45f05d06845fc971a75031f6c3"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-CN/scenario_03.aria",
+      "url": "assets/scripts/scenario/zh-CN/scenario_03.aria",
+      "size": 126,
+      "sha256": "344996988ee2b997d5e783a7d016e434c99b0bb82f4c9a25fd783f686f08a31c"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-CN/scenario_04.aria",
+      "url": "assets/scripts/scenario/zh-CN/scenario_04.aria",
+      "size": 126,
+      "sha256": "a61dae2317e90906b940c99b821abc5d7ef9fdd463651b70770bfe410d6b58b5"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-CN/scenario_05.aria",
+      "url": "assets/scripts/scenario/zh-CN/scenario_05.aria",
+      "size": 126,
+      "sha256": "fb2a80bffa53b62af89f9d150630612634b09218e4231643309c52683db7a3ba"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-CN/scenario_06.aria",
+      "url": "assets/scripts/scenario/zh-CN/scenario_06.aria",
+      "size": 126,
+      "sha256": "873b01fb62b7915635fad0340e6bbd32705896afeaebd3e1b2afe92c13d77957"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-CN/scenario_07.aria",
+      "url": "assets/scripts/scenario/zh-CN/scenario_07.aria",
+      "size": 126,
+      "sha256": "78e10852f849dbca3c47fa0ec72ac57c85e9d5c1c06d4ea1f11c5078f77ff5cf"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-CN/scenario_08.aria",
+      "url": "assets/scripts/scenario/zh-CN/scenario_08.aria",
+      "size": 126,
+      "sha256": "3ff1cf6d4f84121b1c24d97fc4963b0bf545ae57be0eb61eed500c425562f4a7"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-TW/scenario_01.aria",
+      "url": "assets/scripts/scenario/zh-TW/scenario_01.aria",
+      "size": 126,
+      "sha256": "a034f1f87b5d788fe632d79840f9780ad32682fb1f8a2cc902147971acd10883"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-TW/scenario_02.aria",
+      "url": "assets/scripts/scenario/zh-TW/scenario_02.aria",
+      "size": 126,
+      "sha256": "0e5fe872b6634381bbca8412e3133e881a91d7dbc89639277ca0796a9f32d6be"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-TW/scenario_03.aria",
+      "url": "assets/scripts/scenario/zh-TW/scenario_03.aria",
+      "size": 126,
+      "sha256": "1492e13931ff955b31aff709f27ff5bb1d70ae26c88c2787973e0614d796cd0d"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-TW/scenario_04.aria",
+      "url": "assets/scripts/scenario/zh-TW/scenario_04.aria",
+      "size": 126,
+      "sha256": "4ad7ac3ae9a67dda5d8308e68b63b6ecdcdc8744f43455507e709e07635abf57"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-TW/scenario_05.aria",
+      "url": "assets/scripts/scenario/zh-TW/scenario_05.aria",
+      "size": 126,
+      "sha256": "ecebf11b4391ecd2c6d0163781fd7ca56a3f791de64c54a6da142ef6f056bea4"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-TW/scenario_06.aria",
+      "url": "assets/scripts/scenario/zh-TW/scenario_06.aria",
+      "size": 126,
+      "sha256": "4f8aae9e12b68e54238ecbc789b67bcb1e8f84414dfecf3008fcdfc590361dc6"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-TW/scenario_07.aria",
+      "url": "assets/scripts/scenario/zh-TW/scenario_07.aria",
+      "size": 126,
+      "sha256": "a3bb1f110034f25400082870099e9529caf5ed11386c80c0ad73a5122d079f03"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario/zh-TW/scenario_08.aria",
+      "url": "assets/scripts/scenario/zh-TW/scenario_08.aria",
+      "size": 126,
+      "sha256": "3150798d5753823f03105edd629aff6bebe77b93072de4e92e99703a646fe5f5"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario_01.aria",
+      "url": "assets/scripts/scenario_01.aria",
+      "size": 11146,
+      "sha256": "71d2036ea5856b4295690f9369318b69d0e707d80b921955314fa7fee71e480e"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario_02.aria",
+      "url": "assets/scripts/scenario_02.aria",
+      "size": 36190,
+      "sha256": "e59dd31e3ea3b2eec7e67ed9af9cbad2467adbebe634865bfec5f960314aa8e8"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario_03.aria",
+      "url": "assets/scripts/scenario_03.aria",
+      "size": 59928,
+      "sha256": "12e30f7772e9bfb3193cc72a242f5c8757f6d18e65a89ccf29bbd46e25b61b38"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario_04.aria",
+      "url": "assets/scripts/scenario_04.aria",
+      "size": 31134,
+      "sha256": "d6e105668ab2b3745cd34799b2c41ee9fb6d7947aa72ed4ffb0f1a582d3abe43"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario_05.aria",
+      "url": "assets/scripts/scenario_05.aria",
+      "size": 40816,
+      "sha256": "ab6209669c955baefc57159f33d59854d59a393dba48622ab3e574b9363e823e"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario_06.aria",
+      "url": "assets/scripts/scenario_06.aria",
+      "size": 31461,
+      "sha256": "ce7588cbfed72c5b288aa7e863eeec1d4a9caf918634e7b81282467f5d40659e"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario_07.aria",
+      "url": "assets/scripts/scenario_07.aria",
+      "size": 20278,
+      "sha256": "0344dc32096410497a3438874a03de76c72a56e1b0ab09d0006ea911a7b89649"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/scenario_08.aria",
+      "url": "assets/scripts/scenario_08.aria",
+      "size": 27434,
+      "sha256": "d70ed1abdb6bc3df7c83f21494df3544ef57074b9b3cdca9a9a3448c22b454dc"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/settings_ui.aria",
+      "url": "assets/scripts/settings_ui.aria",
+      "size": 3995,
+      "sha256": "e7ef1822d7c05284bdb9b20f7007afc037343b6f26ea1d302e08e58a46c7c99a"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/ui_kit.aria",
+      "url": "assets/scripts/ui_kit.aria",
+      "size": 1638,
+      "sha256": "6d66a66ddb81903df759a3e3eeb51aa1832ee710e6342c4f940fe83188fc9b91"
+    },
+    {
+      "group": "boot",
+      "logicalPath": "assets/scripts/ui_presets.aria",
+      "url": "assets/scripts/ui_presets.aria",
+      "size": 1633,
+      "sha256": "587425c32b56a4afc9e8b6977c9d03359612bd64f8b6a097c03f66c08f5206bb"
+    },
+    {
+      "group": "scenario_01",
+      "logicalPath": "assets/scripts/scenario_01.aria",
+      "url": "assets/scripts/scenario_01.aria",
+      "size": 11146,
+      "sha256": "71d2036ea5856b4295690f9369318b69d0e707d80b921955314fa7fee71e480e"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/scripts/scenario_02.aria",
+      "url": "assets/scripts/scenario_02.aria",
+      "size": 36190,
+      "sha256": "e59dd31e3ea3b2eec7e67ed9af9cbad2467adbebe634865bfec5f960314aa8e8"
+    },
+    {
+      "group": "scenario_03",
+      "logicalPath": "assets/scripts/scenario_03.aria",
+      "url": "assets/scripts/scenario_03.aria",
+      "size": 59928,
+      "sha256": "12e30f7772e9bfb3193cc72a242f5c8757f6d18e65a89ccf29bbd46e25b61b38"
+    },
+    {
+      "group": "scenario_04",
+      "logicalPath": "assets/scripts/scenario_04.aria",
+      "url": "assets/scripts/scenario_04.aria",
+      "size": 31134,
+      "sha256": "d6e105668ab2b3745cd34799b2c41ee9fb6d7947aa72ed4ffb0f1a582d3abe43"
+    },
+    {
+      "group": "scenario_05",
+      "logicalPath": "assets/scripts/scenario_05.aria",
+      "url": "assets/scripts/scenario_05.aria",
+      "size": 40816,
+      "sha256": "ab6209669c955baefc57159f33d59854d59a393dba48622ab3e574b9363e823e"
+    },
+    {
+      "group": "scenario_06",
+      "logicalPath": "assets/scripts/scenario_06.aria",
+      "url": "assets/scripts/scenario_06.aria",
+      "size": 31461,
+      "sha256": "ce7588cbfed72c5b288aa7e863eeec1d4a9caf918634e7b81282467f5d40659e"
+    },
+    {
+      "group": "scenario_07",
+      "logicalPath": "assets/scripts/scenario_07.aria",
+      "url": "assets/scripts/scenario_07.aria",
+      "size": 20278,
+      "sha256": "0344dc32096410497a3438874a03de76c72a56e1b0ab09d0006ea911a7b89649"
+    },
+    {
+      "group": "scenario_08",
+      "logicalPath": "assets/scripts/scenario_08.aria",
+      "url": "assets/scripts/scenario_08.aria",
+      "size": 27434,
+      "sha256": "d70ed1abdb6bc3df7c83f21494df3544ef57074b9b3cdca9a9a3448c22b454dc"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/bg/bg_hotel_room.bmp",
+      "url": "assets/bg/bg_hotel_room.bmp",
+      "size": 1228854,
+      "sha256": "d20e5f25bd24d27aef816cf6dc111124f31c49df251b83d506bcb3567aa647d3"
+    },
+    {
+      "group": "scenario_03",
+      "logicalPath": "assets/bg/bg_hotel_room.bmp",
+      "url": "assets/bg/bg_hotel_room.bmp",
+      "size": 1228854,
+      "sha256": "d20e5f25bd24d27aef816cf6dc111124f31c49df251b83d506bcb3567aa647d3"
+    },
+    {
+      "group": "scenario_04",
+      "logicalPath": "assets/bg/bg_hotel_room.bmp",
+      "url": "assets/bg/bg_hotel_room.bmp",
+      "size": 1228854,
+      "sha256": "d20e5f25bd24d27aef816cf6dc111124f31c49df251b83d506bcb3567aa647d3"
+    },
+    {
+      "group": "scenario_05",
+      "logicalPath": "assets/bg/bg_hotel_room.bmp",
+      "url": "assets/bg/bg_hotel_room.bmp",
+      "size": 1228854,
+      "sha256": "d20e5f25bd24d27aef816cf6dc111124f31c49df251b83d506bcb3567aa647d3"
+    },
+    {
+      "group": "scenario_06",
+      "logicalPath": "assets/bg/bg_hotel_room.bmp",
+      "url": "assets/bg/bg_hotel_room.bmp",
+      "size": 1228854,
+      "sha256": "d20e5f25bd24d27aef816cf6dc111124f31c49df251b83d506bcb3567aa647d3"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/bg/bg_lovehotel_street.bmp",
+      "url": "assets/bg/bg_lovehotel_street.bmp",
+      "size": 1228854,
+      "sha256": "8d65c9763b656c72c58894be60d3311f71dfa55307e2546cc5ca38b8a1d4b3ce"
+    },
+    {
+      "group": "scenario_03",
+      "logicalPath": "assets/bg/bg_lovehotel_street.bmp",
+      "url": "assets/bg/bg_lovehotel_street.bmp",
+      "size": 1228854,
+      "sha256": "8d65c9763b656c72c58894be60d3311f71dfa55307e2546cc5ca38b8a1d4b3ce"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/bg/bg_maibara_platform.bmp",
+      "url": "assets/bg/bg_maibara_platform.bmp",
+      "size": 1228854,
+      "sha256": "4cb072689ebc93e23da4822be58ab68697e2bf8b1ec7eec7a60e80f9550914a4"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/bg/bg_numazu16.bmp",
+      "url": "assets/bg/bg_numazu16.bmp",
+      "size": 1228854,
+      "sha256": "0268f35a54a0ed1b026885a80e1cb6c4ad73e78ab61eb0801ace499d7e5ef0c5"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/bg/bg_ogaki_platform.bmp",
+      "url": "assets/bg/bg_ogaki_platform.bmp",
+      "size": 1228854,
+      "sha256": "b7e0ba794cc3f33e7ed35881aca59ffbc9851adda760eda3711f52198dbd31ef"
+    },
+    {
+      "group": "scenario_01",
+      "logicalPath": "assets/bg/bg_rooftop.bmp",
+      "url": "assets/bg/bg_rooftop.bmp",
+      "size": 1228854,
+      "sha256": "3d2a5b1300ba438a654d7e6a94d0ec50e27cb33520a6b16e8530c174fe57b010"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/bg/bg_sannomiya_night.bmp",
+      "url": "assets/bg/bg_sannomiya_night.bmp",
+      "size": 1228854,
+      "sha256": "511508937df57cd7a96626dd8fa65f4da1bd518297ac5668ff27d357e5d82888"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/bg/bg_shizuoka_station.bmp",
+      "url": "assets/bg/bg_shizuoka_station.bmp",
+      "size": 1228854,
+      "sha256": "91868bf30566e66d06ee94ed5717569186c9f3b0112c486370d574b64509e31d"
+    },
+    {
+      "group": "ui",
+      "logicalPath": "assets/bg/bg_title.bmp",
+      "url": "assets/bg/bg_title.bmp",
+      "size": 1228854,
+      "sha256": "5f412dea1e4cbcd6cf471d83a4a1556773861a05aa0e4933ec3078b8354d4a54"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/bg/bg_train_inside.bmp",
+      "url": "assets/bg/bg_train_inside.bmp",
+      "size": 1228854,
+      "sha256": "997445e7c50f9080a74aafee3922d74fa7df9bd710c75045ec76db53794ac95a"
+    },
+    {
+      "group": "scenario_03",
+      "logicalPath": "assets/bg/bg_train_inside.bmp",
+      "url": "assets/bg/bg_train_inside.bmp",
+      "size": 1228854,
+      "sha256": "997445e7c50f9080a74aafee3922d74fa7df9bd710c75045ec76db53794ac95a"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/bg/bg_train_inside_tokai.bmp",
+      "url": "assets/bg/bg_train_inside_tokai.bmp",
+      "size": 1228854,
+      "sha256": "c8efbe851733aea437750e4fe014ffd8f851eb5b7e63d36852c22207ecac798d"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/bg/bg_yokohama_platform.bmp",
+      "url": "assets/bg/bg_yokohama_platform.bmp",
+      "size": 1228854,
+      "sha256": "a5e92d382df24f3c929f76406d0ea3935700dceb629d00a1f1f7621a1927f28b"
+    },
+    {
+      "group": "ui",
+      "logicalPath": "assets/bg/black.bmp",
+      "url": "assets/bg/black.bmp",
+      "size": 921738,
+      "sha256": "6375800183408c2b169243c029605b0f711f2f02d1093010ee931d1c2e03a332"
+    },
+    {
+      "group": "ui",
+      "logicalPath": "assets/bg/doffcur.bmp",
+      "url": "assets/bg/doffcur.bmp",
+      "size": 1654,
+      "sha256": "eaac52bb3dbeab4a529a152c30841686411c21b6a004bd77b545f3712e0478a1"
+    },
+    {
+      "group": "ui",
+      "logicalPath": "assets/bg/doncur.bmp",
+      "url": "assets/bg/doncur.bmp",
+      "size": 1654,
+      "sha256": "70506f3b6f8b6001807d6af357e1c195c9323bc2448a331874f9e2d9f5932a5d"
+    },
+    {
+      "group": "ui",
+      "logicalPath": "assets/bg/ui_chapter_select_ocean.png",
+      "url": "assets/bg/ui_chapter_select_ocean.png",
+      "size": 1933236,
+      "sha256": "24065e702df6e38438dc2860e87f35dee774d5009f04dd489cfcbe579ad57044"
+    },
+    {
+      "group": "ui",
+      "logicalPath": "assets/bg/ui_save_load_ocean.png",
+      "url": "assets/bg/ui_save_load_ocean.png",
+      "size": 1322077,
+      "sha256": "2c7dd0891c650970c5a165ff1c6df515e5acd734f576a29fb0fe06b097c9f182"
+    },
+    {
+      "group": "ui",
+      "logicalPath": "assets/bg/ui_title_menu_ocean.png",
+      "url": "assets/bg/ui_title_menu_ocean.png",
+      "size": 2039346,
+      "sha256": "c3a494078a60717dc4538f239db602e9c74656bafcbeee42a9b0b879e20bb991"
+    },
+    {
+      "group": "ui",
+      "logicalPath": "assets/branding/umikaze.ico",
+      "url": "assets/branding/umikaze.ico",
+      "size": 129198,
+      "sha256": "c073c6e2e227aac2d4991ea5941dee2ab95b5322419ea85e0a269287ead4fe6d"
+    },
+    {
+      "group": "scenario_02",
+      "logicalPath": "assets/sound/shutter.mp3",
+      "url": "assets/sound/shutter.mp3",
+      "size": 8149,
+      "sha256": "54bbf729445697aad98d6c530c9c8365ce07684834b4ff1e10f375b25e8dcf2d"
+    }
+  ]
+}

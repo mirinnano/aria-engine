@@ -1,0 +1,57 @@
+aria;
+module umikaze.main;
+entry start;
+
+use "scenario/ja-JP.aria";
+use "scenario/en-US.aria";
+use "scenario/zh-CN.aria";
+use "scenario/zh-TW.aria";
+
+state visit_count: Int = 0;
+
+// Visual composition is deliberately not authored in Aria. The package in
+// ../ui owns DOM structure, typography, responsive layout, and accessibility.
+// These screen names are semantic routes supplied by the runtime contract.
+
+scene start {
+  locale "ja-JP";
+  text_speed 28;
+  // The React presentation owns the stage treatment. A plain, deterministic
+  // scene colour keeps the title free of the old generative-looking backdrop.
+  background asset("#264450") with fade(240ms);
+  screen setup;
+  choice {
+    "日本語" => locale_ja;
+    "English" => locale_en;
+    "简体中文" => locale_zh_cn;
+    "繁體中文" => locale_zh_tw;
+  }
+}
+
+scene locale_ja {
+  locale "ja-JP";
+  persistent flag "umikaze_setup_complete" = true;
+  screen title;
+  choice { "記録をはじめる" => chapter_select_ja; }
+}
+
+scene locale_en {
+  locale "en-US";
+  persistent flag "umikaze_setup_complete" = true;
+  screen title;
+  choice { "Begin the record" => chapter_select_en; }
+}
+
+scene locale_zh_cn {
+  locale "zh-CN";
+  persistent flag "umikaze_setup_complete" = true;
+  screen title;
+  choice { "开始阅读" => chapter_select_zh_cn; }
+}
+
+scene locale_zh_tw {
+  locale "zh-TW";
+  persistent flag "umikaze_setup_complete" = true;
+  screen title;
+  choice { "開始閱讀" => chapter_select_zh_tw; }
+}

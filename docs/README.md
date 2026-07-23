@@ -5,6 +5,16 @@
 AriaEngineビジュアルノベルエンジンのドキュメントへようこそ！
 Welcome to the AriaEngine documentation hub!
 
+新規プロジェクトの作者言語は、モードなしの単一構文 `aria;` です。
+[Aria 言語仕様](spec/aria.md)を唯一の正とします。Rust の可変性・所有権・借用を採り入れた
+物語言語であり、旧 C# コマンド一覧、`strict`、言語バージョン指定、互換モードは
+新規作品に使用しません。React/Tauri の presentation 境界、ARIAC7/PAK4、同梱フォント、
+Player 包装は [ランタイム・ファイル形式](spec/aria-v3-runtime.md) に集約しています。
+
+> **履歴資料について**: `aria-v2-strict.md`、`aria-3.1.md`、`aria-3.2.md`、旧 opcode
+> reference と C# 向けチュートリアルは、移行前の記録です。現行コンパイラはそこにある
+> ヘッダーや命令を受け付けません。
+
 ---
 
 ## 何をお探しですか？ | What are you looking for?
@@ -14,7 +24,7 @@ Welcome to the AriaEngine documentation hub!
 >AriaEngine使ったことがなく、、まずは概要を知りたい
 >You want to learn what AriaEngine is and how to get started
 
-→ [README.md](../README.md) または [tutorials/getting-started.md](tutorials/getting-started.md)
+→ [README.md](../README.md) → [Aria 言語仕様](spec/aria.md)
 
 ---
 
@@ -32,10 +42,10 @@ Welcome to the AriaEngine documentation hub!
 ### 🚀 迷ったら | Not sure where to start?
 
 ```
-初めてですか？     → tutorials/getting-started.md へ
-スクリプトの書き方 → how-to-guides/ へ
-コマンドの詳細     → reference/ へ
-仕組みを理解したい → architecture/ へ
+初めてですか？     → ../README.md → spec/aria.md へ
+スクリプトの書き方 → spec/aria.md へ
+コマンドの詳細     → spec/aria-v3-runtime.md へ
+仕組みを理解したい → architecture/language-philosophy.md へ
 AI agentで拡張     → ai-agent/ へ
 ```
 
@@ -43,8 +53,9 @@ AI agentで拡張     → ai-agent/ へ
 
 ## 📚 ドキュメント構成 | Documentation Structure
 
-### 🎓 チュートリアル | Tutorials
-学習向き | Learning-oriented
+### 🎓 歴史的 C# チュートリアル | Historical C# Tutorials
+
+> 下記は現行 `aria;` の入門ではありません。C# runtime の資料を参照する場合だけ使用してください。
 
 - [最初プロジェクト作成](tutorials/getting-started.md) — はじめての方へ
 - [UI作成](tutorials/creating-ui.md) — タイトル画面・ボタン
@@ -66,13 +77,10 @@ AI agentで拡張     → ai-agent/ へ
 ### 📋 リファレンス | Reference
 情報参照向き | Information-oriented
 
-- [オペコード一覧](reference/opcodes/) — 全コマンド
-- [`textbox_align` 詳細](reference/opcodes/textbox_align.md) — ADV テキストの垂直配置
-- [`ButtonFeel` 詳細](reference/ui/button-feel.md) — ボタンの押下感
-- [スクリプト機能 reference](reference/scripting/) — 機能横断的 reference (画面遷移 / FX / バックグラウンド時刻フィルタ / 多言語 など)
-- [スクリプト構文](reference/syntax.md) — 文法規則
-- [設定](reference/config.md) — config.json
-- [init.aria](reference/init-aria.md) — 初期化スクリプト
+- [Aria 言語仕様](spec/aria.md) — 現行構文・型・所有権・借用
+- [旧オペコード一覧](reference/opcodes/) — 履歴資料。新規作品には使わない
+- [旧スクリプト構文](reference/syntax.md) — 履歴資料
+- [旧 opcode / UI reference](reference/opcodes/) — 履歴資料
 
 📍 パス: `docs/reference/`
 
@@ -80,7 +88,8 @@ AI agentで拡張     → ai-agent/ へ
 理解促進向き | Understanding-oriented
 
 **Core (コア設計)**
-- [言語理念](architecture/language-philosophy.md) — 設計思想
+- [言語理念](architecture/language-philosophy.md) — 単一言語と所有権の設計判断
+- [Semantic-runtime architecture](architecture/v3-native-first.md) — Rust Core、Native/Web adapter、配布境界
 - [概要](architecture/overview.md) — エンジン構成と責務分担
 - [VM](architecture/vm.md) — 仮想マシン
 - [Parser](architecture/parser.md) — 解析処理
@@ -99,7 +108,12 @@ AI agentで拡張     → ai-agent/ へ
 ### 📋 仕様書 | Specifications
 技術仕様 | Technical specifications
 
-- [Aria v2 Strict 技術仕様書](spec/aria-v2-strict.md) — v2 strict言語拡張の完全仕様
+- [Aria 言語仕様](spec/aria.md) — **現行**。`aria;`、型、所有権、借用、診断
+- [Aria runtime/file-format contract](spec/aria-v3-runtime.md) — ARIAC7、manifest、bytecode、save、pak
+- [履歴: Aria v2 Strict](spec/aria-v2-strict.md)
+- [履歴: Aria 3.1 author language](spec/aria-3.1.md)
+- [履歴: Aria 3.2 presentation contract](spec/aria-3.2.md)
+- [PAK4 distribution and license contract](spec/pak4.md) — profiles、role、chunk保護、License Provider
 
 📍 パス: `docs/spec/`
 
@@ -119,17 +133,20 @@ AI agent 向け | AI agent-oriented
 
 | コマンド | Command | 説明 | Description |
 |---------|---------|------|-------------|
-| `text` | text | テキスト表示 | Display text |
-| `wait` | wait | 待機 | Wait/delay |
-| `lsp` | lsp | スプライト読込 | Load sprite |
-| `msp` | msp | スプライト移動 | Move sprite |
-| `if` | if | 条件分岐 | Conditional |
+| `say` / `narrate` | dialogue | テキスト表示 | Display text |
+| `await advance` | advance | 次送り待機 | Wait for advance |
+| `let mut n = show ...` | Node | 所有 Node を生成 | Create owned Node |
+| `move &mut n to ...` | borrow | 明示借用で移動 | Move through explicit borrow |
+| `if` | conditional | 条件分岐 | Conditional |
 
-その他のコマンドは [reference/opcodes/](reference/opcodes/) を参照。
+その他の現行構文は [Aria 言語仕様](spec/aria.md) を参照。旧 opcode 一覧は新規作品の
+リファレンスではありません。
 
 ---
 
-## 🆕 UX Quick Wins (T1/T2/T3) まとめ
+## 履歴: UX Quick Wins (T1/T2/T3)
+
+> ここは旧 C# runtime の記録です。現行 UI は project-owned presentation package が実装します。
 
 v2.0.0-rc.1 で導入された UX 改善の主要機能。対応するドキュメントにリンクしています。
 

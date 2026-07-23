@@ -1,4 +1,7 @@
-# Aria v2 Strict 技術仕様書
+# 履歴資料: Aria v2 Strict 技術仕様書
+
+> **廃止済み**: この文書の `# aria-version`、`strict on/off`、v1 互換構文は現行
+> コンパイラに存在しません。新規作品は [Aria 言語仕様](aria.md) を使用してください。
 
 > **Version**: 2.0.0-rc.1
 > **Status**: 実装進行中（Linter・Parser・VM基盤完了）

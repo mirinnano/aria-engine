@@ -13,6 +13,7 @@ using AriaEngine.Utility;
 using AriaEngine.Assets;
 using AriaEngine.Scripting;
 using AriaEngine.Tools;
+using AriaEngine.Runtime;
 
 
 
@@ -103,15 +104,8 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
         }
 
         var reporter = new ErrorReporter();
-        SpriteRenderer? renderer = null;
-        AudioManager? audio = null;
-        VirtualMachine? vmForShutdown = null;
-        LiveReloadManager? liveReload = null;
-        bool windowReady = false;
-        bool audioReady = false;
-        // Pak v3 redesign, Phase 5.2: declared at outer scope so the
-        // finally block can dispose it even if construction throws.
-        AriaEngine.Assets.AssetRegistry? assetRegistry = null;
+        RaylibRuntimeHost? runtime = null;
+        IAssetProvider? assetProvider = null;
 
         try
         {
@@ -119,23 +113,8 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             RunOptions runOptions = ParseRunOptions(args, reporter);
             StartupTrace("options");
 
-            // Auto-detect: if v3 split paks or data.pak exists next to exe, use Release mode automatically.
-            //
-            // Bug fix (resolves "DBG状態なのにリリースファイルを読み込む" UX issue): the
-            // previous Any() check flipped to Release mode if even a single stray v3 pak
-            // (e.g. a leftover `data.arid` from a release build) was present in the dev
-            // output directory. Now we require the *mandatory* pair (boot.arib AND
-            // scenario.aris) before claiming a v3 release build, and require data.pak
-            // AND scripts.ariac before claiming a v2 release build.
-            //
-            // The detection rule lives in AutoReleaseDetector so it can be unit
-            // tested without touching the real filesystem (see AutoReleaseDetectorTests).
-            //
-            // Override: set ARIA_AUTO_RELEASE=0 in the environment to disable auto-
-            // detection entirely (always start in Dev mode unless --run-mode release
-            // is passed explicitly).
             string exeDir = AppDomain.CurrentDomain.BaseDirectory;
-            var detection = AutoReleaseDetector.Detect(exeDir);
+            AutoReleaseDetector.Result detection = AutoReleaseDetector.Detect(exeDir);
             AutoReleaseDetector.Apply(
                 runOptions,
                 detection,
@@ -147,43 +126,14 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                     ? "auto-release: v3 split paks (boot+scenario) detected"
                     : "auto-release: data.pak + scripts.ariac detected");
             }
+
             if (!runOptions.ProfileExplicit && runOptions.Mode == RunMode.Release)
             {
                 runOptions.Profile = RuntimeProfile.Release;
             }
 
-            // StringBuilderプールの初期化（パフォーマンス最適化）
-            StringHelper.InitializeStringBuilderPool(32, 256);
-
-            var parser = new Parser(reporter);
-
-            var configParams = new ConfigManager(reporter);
-            SafeStartup("CONFIG_LOAD", () => configParams.Load(), reporter, "config.jsonの読み込みに失敗しました。既定値で続行します。");
-
-            IAssetProvider assetProvider = CreateAssetProvider(runOptions, reporter);
-            StartupTrace("asset-provider");
-
-            // Pak v3 redesign, Phase 5.2: create the AssetRegistry that
-            // backs `load_aria_asset` and the refcount/generational GC.
-            // Wraps the same UnifiedAssetProvider the rest of the engine
-            // uses, so the registry sees the same on-disk / in-pak bytes
-            // the renderer / parser see. Settings come from config.json's
-            // AssetGc section; Enabled defaults to false for staged rollout.
-            if (assetProvider is UnifiedAssetProvider unified)
-            {
-                var gcCfg = configParams.Config.AssetGc;
-                assetRegistry = new AssetRegistry(
-                    provider: unified,
-                    totalBudgetBytes: gcCfg.TotalBudgetBytes,
-                    gen1Promotion: TimeSpan.FromSeconds(Math.Max(1, gcCfg.Gen1PromotionSeconds)),
-                    gen2Promotion: TimeSpan.FromSeconds(Math.Max(1, gcCfg.Gen2PromotionSeconds)));
-                assetRegistry.Enabled = gcCfg.Enabled;
-            }
-
+            assetProvider = CreateAssetProvider(runOptions, reporter);
             CompiledScriptBundle? compiledBundle = TryLoadCompiledBundle(assetProvider, runOptions, reporter);
-            // v3 split pak stores .aria scripts directly in scenario.aris; compiled bundle is optional
-            RunMode effectiveMode = runOptions.Mode == RunMode.Release ? RunMode.Release : RunMode.Dev;
-            StartupTrace("compiled-bundle");
             if (runOptions.Mode == RunMode.Release && compiledBundle is null)
             {
                 reporter.Report(new AriaError(
@@ -193,195 +143,37 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
                     hint: "v3 split pakではscripts.ariacは不要です。scenario.arisに.ariaスクリプトが含まれていることを確認してください。"));
             }
 
-            StartupTrace("before-script-loader");
-            var scriptLoader = new ScriptLoader(parser, assetProvider, effectiveMode, compiledBundle);
-
-            StartupTrace("before-runtime-state");
-            var saves = new SaveManager(reporter);
-            var tweens = new TweenManager();
-            var vm = new VirtualMachine(reporter, tweens, saves, configParams, assetProvider, runtimeDataRoot: null, assetRegistry: assetRegistry);
-            StartupTrace("after-runtime-state");
-            if (assetProvider.Exists("assets/i18n/locales.json"))
+            runtime = new RaylibRuntimeHost(new RaylibRuntimeOptions
             {
-                StartupTrace("before-localization");
-                vm.Localization = LocalizationManager.Load(assetProvider, "assets/i18n/locales.json");
-                StartupTrace("localization-loaded");
-                vm.Localization.SetLanguage(configParams.Config.Language);
-                vm.SyncLocalizationRuntimeState();
-                StartupTrace("localization-synced");
-            }
-            vmForShutdown = vm;
-
-            ApplyRuntimeProfilePolicy(vm.State.EngineSettings, runOptions);
-
-            string initScriptPath = runOptions.InitPath;
-            StartupTrace("before-init-load");
-            var initLoaded = TryLoadScript(scriptLoader, parser, initScriptPath, assetProvider, effectiveMode, reporter, fallbackMessage: "");
-            StartupTrace($"after-init-load {initLoaded.Instructions.Count}");
-            if (initLoaded.Instructions.Count > 0)
-            {
-                vm.LoadScript(initLoaded, initScriptPath);
-                StartupTrace("init-loaded");
-
-                while (vm.State.Execution.State == VmState.Running && vm.State.Execution.ProgramCounter < initLoaded.Instructions.Count)
-                {
-                    SafeStartup("VM_INIT_STEP", vm.Step, reporter, "init.aria実行中にエラーが発生しました。可能な範囲で続行します。");
-                }
-                StartupTrace("init-executed");
-            }
-
-            NormalizeWindowSettings(vm.State, reporter);
-            StartupTrace($"before-window {vm.State.EngineSettings.WindowWidth}x{vm.State.EngineSettings.WindowHeight} title={vm.State.EngineSettings.Title}");
-            Raylib.InitWindow(vm.State.EngineSettings.WindowWidth, vm.State.EngineSettings.WindowHeight, "AriaEngine");
-            SafeStartup("WINDOW_ICON", () => TrySetWindowIcon(assetProvider, reporter), reporter, "ウィンドウアイコンの設定に失敗しました。既定アイコンで続行します。");
-            Raylib.SetExitKey((KeyboardKey)0);
-            windowReady = true;
-            StartupTrace("after-window");
-            string currentWindowTitle = vm.State.EngineSettings.Title;
-            Raylib.SetWindowTitle(currentWindowTitle);
-            Raylib.SetTargetFPS(120);
-            StartupTrace("before-audio");
-            SafeStartup("AUDIO_INIT", () => { Raylib.InitAudioDevice(); audioReady = true; }, reporter, "音声デバイスの初期化に失敗しました。無音で続行します。");
-            StartupTrace("after-audio");
-            ShowStartupSplash(assetProvider, reporter);
-            StartupTrace("startup-splash");
-
-            renderer = new SpriteRenderer(assetProvider, reporter);
-            StartupTrace("renderer");
-            var input = new InputHandler();
-            audio = new AudioManager(assetProvider, reporter);
-            vm.Audio = audio;
-            var transition = new TransitionManager();
-            StartupTrace("managers");
-
-            var loaded = TryLoadScript(
-                scriptLoader,
-                parser,
-                vm.State.EngineSettings.MainScript,
-                assetProvider,
-                effectiveMode,
-                reporter,
-                fallbackMessage: $"Error: 指定されたスクリプト {vm.State.EngineSettings.MainScript} が見つかりません。aria_error_ai.txtを確認してください。");
-
-            vm.FontReloadRequested += (fontPath, extraGlyphText) =>
-            {
-                renderer!.LoadFont(
-                    fontPath,
-                    vm.State.EngineSettings.FontAtlasSize,
-                    loaded.SourceLines,
-                    vm.State.EngineSettings.FontFilter,
-                    extraGlyphText);
-            };
-
-            if (!string.IsNullOrEmpty(vm.State.EngineSettings.FontPath))
-            {
-                StartupTrace("before-font");
-                string? localeFontPath = vm.Localization.GetFontForLanguage(vm.Localization.CurrentLanguage);
-                string fontPath = string.IsNullOrWhiteSpace(localeFontPath)
-                    ? vm.State.EngineSettings.FontPath
-                    : localeFontPath;
-                renderer.LoadFont(
-                    fontPath,
-                    vm.State.EngineSettings.FontAtlasSize,
-                    loaded.SourceLines,
-                    vm.State.EngineSettings.FontFilter,
-                    vm.Localization.EnumerateTextForGlyphs());
-                StartupTrace("after-font");
-            }
-            else
-            {
-                reporter.Report(new AriaError("フォントパスが未設定です。既定フォントで続行します。", -1, initScriptPath, AriaErrorLevel.Warning, "BOOT_FONT_MISSING"));
-            }
-
-            StartupTrace("before-ui-font");
-            renderer.LoadUiFont("assets/fonts/NotoSansJP-Regular.ttf");
-            StartupTrace("after-ui-font");
-
-            vm.LoadScript(loaded, vm.State.EngineSettings.MainScript);
-            StartupTrace("main-loaded");
-
-            // 動的 include 用のリゾルバを登録（スクリプト内で include "path" を使えるように）
-            vm.SetIncludeResolver(path =>
-            {
-                var result = TryLoadScript(scriptLoader, parser, path, assetProvider, effectiveMode, reporter, fallbackMessage: "");
-                return result.Instructions.Count > 0 ? result : null;
+                AssetProvider = assetProvider,
+                Reporter = reporter,
+                RunMode = runOptions.Mode,
+                Profile = runOptions.Profile,
+                CompiledBundle = compiledBundle,
+                InitPath = runOptions.InitPath,
+                EnableLiveReload = true,
+                ShowStartupSplash = true,
+                SetWindowIcon = true,
+                InitializeAudio = true,
+                OwnAssetProvider = true,
+                TargetFps = 120
             });
+            runtime.Initialize();
 
-            // 開発モードかつディスクロード時のみライブリロードを有効化
-            // (Phase 5.2: assetProvider is now always UnifiedAssetProvider.
-            // The disk root is exposed via .DiskProvider for live-reload.)
-            if (effectiveMode == RunMode.Dev &&
-                runOptions.Profile == RuntimeProfile.Debug &&
-                assetProvider is UnifiedAssetProvider unifiedProvider &&
-                unifiedProvider.DiskProvider is DiskAssetProvider diskProvider)
+            while (!runtime.ShouldClose)
             {
-                liveReload = new LiveReloadManager(vm, scriptLoader, reporter, renderer, diskProvider.Root);
-            }
-
-            StartupTrace("before-initial-step");
-            SafeFrame("vm.step.initial", vm.Step, reporter);
-            StartupTrace("initial-step");
-
-            while (!Raylib.WindowShouldClose())
-            {
-                liveReload?.Update();
-
-                if (vm.State.UiRuntime.RequestClose || vm.State.Execution.State == VmState.Ended) break;
-                if (!string.Equals(currentWindowTitle, vm.State.EngineSettings.Title, StringComparison.Ordinal))
-                {
-                    Raylib.SetWindowTitle(vm.State.EngineSettings.Title);
-                    currentWindowTitle = vm.State.EngineSettings.Title;
-                }
-
-                float dt = Raylib.GetFrameTime();
-                float dtMs = dt * 1000f;
-
-                SafeFrame("vm.update", () => vm.Update(dtMs), reporter);
-                SafeFrame("input.update", () => input.Update(vm), reporter);
-                SafeFrame("menu.update", vm.Menu.Update, reporter);
-                if (audioReady && audio is not null) SafeFrame("audio.update", () => audio.Update(vm.State), reporter);
-                SafeFrame("transition.update", () => transition.Update(vm, dt), reporter);
-                SafeFrame("particles.update", () => vm.Particles.Update(dt), reporter);
-                SafeFrame("tweens.update", () => tweens.Update(vm.State, dtMs), reporter);
-
-                if (!vm.Menu.IsOpen)
-                {
-                    if (vm.State.Playback.SkipMode || vm.State.Playback.ForceSkipMode)
-                    {
-                        SafeFrame("vm.skip", () => vm.ProcessSkipFrame(dtMs), reporter);
-                    }
-                    else if (vm.State.Execution.State == VmState.Running)
-                    {
-                        SafeFrame("vm.step", vm.Step, reporter);
-                    }
-                }
-
-                Raylib.BeginDrawing();
-                try
-                {
-                    Raylib.ClearBackground(Color.Black);
-
-                    SafeFrame("renderer.draw", () => renderer.Draw(vm.State, transition), reporter);
-                    SafeFrame("renderer.click_cursor", () => renderer.DrawClickCursor(vm.State), reporter);
-                    SafeFrame("menu.draw", () => vm.Menu.Draw(renderer), reporter);
-                    SafeFrame("particles.draw", vm.Particles.Draw, reporter);
-                }
-                catch (Exception ex)
-                {
-                    reporter.ReportException("FRAME_DRAW", ex, "描画フレームでエラーが発生しました。簡易表示で続行します。", AriaErrorLevel.Error);
-                    Raylib.ClearBackground(Color.Black);
-                    Raylib.DrawText("AriaEngine error - see aria_error_ai.txt", 20, 20, 20, Color.Red);
-                }
-                finally
-                {
-                    Raylib.EndDrawing();
-                }
+                runtime.Update(Raylib.GetFrameTime());
+                runtime.Render();
             }
         }
         catch (Exception ex)
         {
-            reporter.ReportException("BOOT_UNHANDLED", ex, "未処理例外を捕捉しました。可能な限りログを書き出して終了します。", AriaErrorLevel.Fatal);
-            if (windowReady)
+            reporter.ReportException(
+                "BOOT_UNHANDLED",
+                ex,
+                "未処理例外を捕捉しました。可能な限りログを書き出して終了します。",
+                AriaErrorLevel.Fatal);
+            if (Raylib.IsWindowReady())
             {
                 try
                 {
@@ -398,18 +190,18 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
         }
         finally
         {
-            SafeShutdown(() => liveReload?.Dispose());
-            SafeShutdown(() => vmForShutdown?.SavePersistentState());
-            reporter.WriteLogFile();
-
-            SafeShutdown(() => renderer?.Unload());
-            SafeShutdown(() => audio?.Unload());
-            // Pak v3 redesign, Phase 5.2: stop the registry's background
-            // sweeper timer before tearing down the window. Sweep logs
-            // stay in the reporter's error log.
-            SafeShutdown(() => assetRegistry?.Dispose());
-            if (audioReady) SafeShutdown(Raylib.CloseAudioDevice);
-            if (windowReady) SafeShutdown(Raylib.CloseWindow);
+            if (runtime is not null)
+            {
+                runtime.Shutdown();
+            }
+            else
+            {
+                reporter.WriteLogFile();
+                if (assetProvider is IDisposable disposable)
+                {
+                    SafeShutdown(disposable.Dispose);
+                }
+            }
         }
     }
 
@@ -499,8 +291,13 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
 
     internal static void ApplyRuntimeProfilePolicy(EngineSettingsState settings, RunOptions options)
     {
-        settings.RuntimeProfile = options.Profile;
-        settings.ProductionMode = options.Profile != RuntimeProfile.Debug;
+        ApplyRuntimeProfilePolicy(settings, options.Profile);
+    }
+
+    internal static void ApplyRuntimeProfilePolicy(EngineSettingsState settings, RuntimeProfile profile)
+    {
+        settings.RuntimeProfile = profile;
+        settings.ProductionMode = profile != RuntimeProfile.Debug;
         settings.BrowserOpenAllowlist.Clear();
         if (settings.ProductionMode)
         {
@@ -663,7 +460,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
         }
     }
 
-    private static ParseResult TryLoadScript(
+    internal static ParseResult TryLoadScript(
         ScriptLoader loader,
         Parser parser,
         string path,
@@ -742,7 +539,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
         }
     }
 
-    private static void NormalizeWindowSettings(GameState state, ErrorReporter reporter)
+    internal static void NormalizeWindowSettings(GameState state, ErrorReporter reporter)
     {
         const int fallbackWidth = 1280;
         const int fallbackHeight = 720;
@@ -757,7 +554,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
         }
     }
 
-    private static void TrySetWindowIcon(IAssetProvider assetProvider, ErrorReporter reporter)
+    internal static void TrySetWindowIcon(IAssetProvider assetProvider, ErrorReporter reporter)
     {
         if (!assetProvider.Exists(WindowIconPath))
         {
@@ -802,7 +599,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
         }
     }
 
-    private static void ShowStartupSplash(IAssetProvider assetProvider, ErrorReporter reporter)
+    internal static void ShowStartupSplash(IAssetProvider assetProvider, ErrorReporter reporter)
     {
         Texture2D logo = default;
         string? versionText = System.Reflection.Assembly.GetExecutingAssembly()
@@ -1058,7 +855,7 @@ if (args.Length > 0 && args[0].Equals("aria-pack", StringComparison.OrdinalIgnor
             : 1f - MathF.Pow(-2f * t + 2f, 3f) / 2f;
     }
 
-    private static void StartupTrace(string marker)
+    internal static void StartupTrace(string marker)
     {
         if (!string.Equals(Environment.GetEnvironmentVariable("ARIA_STARTUP_TRACE"), "1", StringComparison.Ordinal))
         {

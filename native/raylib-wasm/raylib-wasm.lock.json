@@ -1,0 +1,19 @@
+{
+  "raylibVersion": "5.5",
+  "raylibTag": "5.5",
+  "raylibCommit": "c1ab645ca298a2801097931d1079b10ff7eb9df8",
+  "emscriptenVersion": "3.1.34",
+  "fontToolsVersion": "4.59.0",
+  "compileFlags": [
+    "-Os",
+    "-Wall",
+    "-DPLATFORM_WEB",
+    "-DGRAPHICS_API_OPENGL_ES2"
+  ],
+  "linkFlags": [
+    "-s USE_GLFW=3",
+    "-s ALLOW_MEMORY_GROWTH=1",
+    "-s MAX_WEBGL_VERSION=2"
+  ],
+  "expectedArchiveSha256": "65f036d3d8e36fa61223e430a325e95fc5cbc7dda60d686bd744140ec30111da"
+}

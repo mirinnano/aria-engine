@@ -1,14 +1,18 @@
 # Opcode API Index
 
+> **Historical only.** This is the legacy C# command registry; current release
+> builds do not parse or expose it. New work uses the single
+> [`aria;` language](../spec/aria.md).
+
 この索引は `src/AriaEngine/Core/CommandRegistry.cs` を一次ソースにした、v1.0.0時点のコマンド登録状況です。
 
 ## Current Inventory
 
 | 項目 | 件数 |
 | --- | ---: |
-| Script-visible canonical commands | 254 |
-| Script-visible token names including aliases | 271 |
-| Registered executable opcodes | 253 |
+| Script-visible canonical commands | 256 |
+| Script-visible token names including aliases | 273 |
+| Registered executable opcodes | 255 |
 | Internal parser opcodes | 3 |
 
 Internal parser opcodes are `Text`, `JumpIfFalse`, and `Let`。`Text` は会話行パーサー、`JumpIfFalse` は制御構文展開、`Let` は `let x = y` 形式の内部表現に使われます。
@@ -23,6 +27,9 @@ Internal parser opcodes are `Text`, `JumpIfFalse`, and `Let`。`Text` は会話�
 | `docs/reference/opcodes/` | author-facing command details |
 
 ## Category Index
+
+### Asset (2)
+`asset_preload` (AssetPreload), `load_aria_asset` (LoadAsset)
 
 ### Audio (18)
 `bgmfade` (BgmFade), `bgmvol` (BgmVol), `dwave` (Dwave), `dwaveloop` (DwaveLoop), `dwavestop` (DwaveStop), `mp3fadeout` (Mp3FadeOut), `mp3vol` (Mp3Vol), `play_bgm` (PlayBgm; alias: bgm), `play_mp3` (PlayMp3; alias: mp3loop), `play_se` (PlaySe), `sevol` (SeVol), `stop_bgm` (StopBgm), `ui_se_cancel` (UiSeCancel), `ui_se_click` (UiSeClick), `ui_se_hover` (UiSeHover), `voice` (Voice), `voice_stop` (VoiceStop), `voice_wait` (VoiceWait)

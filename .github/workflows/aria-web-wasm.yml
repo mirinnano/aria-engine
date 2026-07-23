@@ -1,0 +1,67 @@
+name: aria-raylib-wasm-preview
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/AriaEngine/**"
+      - "src/AriaEngine.Wasm/**"
+      - "scripts/build-raylib-wasm.ps1"
+      - "scripts/build-raylib-wasm.sh"
+      - "scripts/package-web-wasm.ps1"
+      - "scripts/package-web-wasm.sh"
+      - "scripts/web-wasm-package.py"
+      - "scripts/web-wasm-qa.mjs"
+      - "native/raylib-wasm/**"
+      - ".github/workflows/aria-web-wasm.yml"
+
+jobs:
+  build-and-chromium-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.420
+      - name: Install .NET WASM tools
+        run: dotnet workload install wasm-tools --skip-manifest-update
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.34
+          actions-cache-folder: emsdk-cache
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deterministic font subsetter
+        run: python -m pip install fonttools==4.59.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Test shared VM and desktop library
+        # The repository's release-pipeline tests require generated native
+        # fixtures and are exercised by the existing aria-cicd workflow. Keep
+        # this gate focused on the WASM/runtime contract and its manifest.
+        run: >-
+          dotnet test src/AriaEngine.Tests/AriaEngine.Tests.csproj -c Release -p:NuGetAudit=false
+          --filter "FullyQualifiedName~AssetPreloadTests|FullyQualifiedName~WebAssetManifestTests|FullyQualifiedName~Format_AssetPreload|FullyQualifiedName~Parse_AssetPreload|FullyQualifiedName~OpcodeApiIndex"
+      - name: Build raylib 5.5 for browser-wasm
+        run: RAYLIB_WASM_REQUIRE_LOCKED_HASH=1 ./scripts/build-raylib-wasm.sh
+      - name: Package separate Raylib WASM preview
+        run: ./scripts/package-web-wasm.sh --version qa --skip-raylib-build
+
+      - name: Install Chromium QA dependency
+        run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - name: Run mandatory Chromium gate
+        run: node scripts/web-wasm-qa.mjs artifacts/web-wasm/AriaEngine-qa-raylib-wasm artifacts/web-wasm/qa
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aria-raylib-wasm-preview
+          path: |
+            artifacts/web-wasm/**
+            artifacts/native/raylib-5.5/build-record.json
+            artifacts/native/raylib-5.5/libraylib.web.a.sha256

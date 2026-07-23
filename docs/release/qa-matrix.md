@@ -1,5 +1,9 @@
 # QA Matrix
 
+> Raylib WASMプレビューはChromiumをCI必須ゲートとし、FirefoxとSafariは既定Webターゲットへ昇格する前のリリース確認対象です。確認項目は日本語フォント、マウス・キーボード・タッチ、右クリック、DPI/リサイズ、音声アンロック、旧IndexedDBセーブ、オフライン再起動、アセットグループ再試行です。
+>
+> 日常ゲートはUbuntu上のビルド、単体テスト、headless Chromiumで実行します。Windows実機はWindows配布物のリリース候補スモークにだけ使用し、通常の開発ループでは必須にしません。
+
 ## Environments
 
 | Area | Required Checks |
@@ -9,7 +13,7 @@
 | Storage | normal folder, read-only folder behavior |
 | Display | 100% DPI, high DPI, fullscreen/windowed behavior |
 | Audio | normal audio device, no audio device |
-| Input | mouse, keyboard, gamepad unavailable |
+| Input | mouse, keyboard, standard gamepad mapping, disconnect/reconnect, unavailable-device fallback |
 | Windows Native | `win-x64-fd-singlefile`, `win-x64-sc-singlefile`, trim/AOT experimental launch gate |
 | Web/PWA | Chrome, Edge, Safari, mobile browser, offline static package launch |
 | Language | ja-JP default, en-US fallback, zh-CN, zh-TW, language switch, missing key fallback, font glyph coverage |

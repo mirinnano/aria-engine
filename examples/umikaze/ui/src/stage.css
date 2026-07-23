@@ -1,0 +1,1202 @@
+/*
+ * System-screen stage for Umikaze.
+ *
+ * Everything in this file is deliberately scoped to non-reading routes and
+ * components. The subtitle film, its input targets, and its typography stay
+ * in app.css without an override here.
+ */
+
+.umikaze {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --stage-ink: #090b12;
+  --stage-sea: #0d3942;
+  --stage-signal: #a7dcda;
+  --stage-oxide: #671c38;
+  --stage-paper: #e8e2d9;
+  --stage-white: #f3f2e9;
+}
+
+.record-stage-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /*
+   * A single, opaque-to-transparent colour grade is deliberately cheaper
+   * than the former full-screen vignette plus repeating scanline layer.
+   * WebKit otherwise keeps repainting those two translucent surfaces even
+   * while the title is perfectly still. The photograph supplies the grain;
+   * the grade supplies the aged broadcast palette.
+   */
+  background: linear-gradient(108deg, rgb(7 6 15 / 81%) 0%, rgb(11 10 21 / 48%) 34%, rgb(3 14 21 / 29%) 100%);
+  contain: paint;
+}
+
+.record-stage-signal,
+.record-stage-slip {
+  position: absolute;
+  display: block;
+}
+
+.record-stage-signal {
+  width: min(52vw, 47rem);
+  height: 3px;
+  opacity: 0.58;
+  background: linear-gradient(90deg, transparent, var(--stage-signal), transparent);
+}
+
+.record-stage-signal--one {
+  top: 18%;
+  right: -12%;
+  transform: rotate(-4deg);
+}
+
+.record-stage-signal--two {
+  right: 16%;
+  bottom: 16%;
+  width: min(34vw, 31rem);
+  opacity: 0.32;
+  transform: rotate(2deg);
+}
+
+.record-stage-slip {
+  width: clamp(8rem, 18vw, 15rem);
+  aspect-ratio: 0.73;
+  border: 1px solid rgb(70 39 52 / 42%);
+  background:
+    linear-gradient(135deg, rgb(255 255 250 / 92%), rgb(213 206 200 / 89%)),
+    repeating-linear-gradient(0deg, transparent 0 8px, rgb(80 54 66 / 8%) 8px 9px);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 12%);
+  opacity: 0.19;
+}
+
+.record-stage-slip--one {
+  top: -5%;
+  left: 5%;
+  transform: rotate(-12deg);
+}
+
+.record-stage-slip--two {
+  top: 31%;
+  left: -5%;
+  transform: rotate(10deg);
+}
+
+.record-stage-slip--three {
+  right: -5%;
+  bottom: -14%;
+  opacity: 0.1;
+  transform: rotate(-14deg);
+}
+
+/* The home stage carries a few real, public-domain text fragments as weathered
+   source material. They sit in the photograph itself, below the operational
+   typography, and never compete with a command. */
+.record-stage-fragments {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: rgb(215 232 223 / 54%);
+  font-family: var(--font-record);
+  pointer-events: none;
+}
+
+.record-stage-fragment {
+  position: absolute;
+  margin: 0;
+  font-size: clamp(0.48rem, 0.28vw + 0.38rem, 0.72rem);
+  font-weight: 400;
+  letter-spacing: 0.055em;
+  line-height: 1.85;
+  text-shadow: 0 1px 1px rgb(3 7 14 / 84%);
+}
+
+.record-stage-fragment--tractatus-one {
+  top: 7%;
+  right: 5%;
+  width: min(24rem, 31vw);
+  color: rgb(197 233 225 / 62%);
+}
+
+.record-stage-fragment--tractatus-facts {
+  right: 3%;
+  bottom: 7%;
+  width: min(20rem, 27vw);
+  color: rgb(213 224 214 / 45%);
+}
+
+.record-stage-fragment--tractatus-silence {
+  top: 52%;
+  left: 42%;
+  width: min(24rem, 29vw);
+  color: rgb(207 216 209 / 46%);
+  transform: rotate(-2deg);
+}
+
+.record-stage-fragment--yodaka {
+  top: 30%;
+  left: 47%;
+  width: min(17rem, 22vw);
+  color: rgb(230 215 220 / 58%);
+  letter-spacing: 0.12em;
+  transform: rotate(-4deg);
+}
+
+.record-stage-fragment--galaxy {
+  right: 3%;
+  bottom: 26%;
+  width: min(25rem, 32vw);
+  color: rgb(195 228 222 / 48%);
+  letter-spacing: 0.075em;
+}
+
+.record-stage-backdrop--title {
+  background: linear-gradient(108deg, rgb(43 7 30 / 81%) 0%, rgb(21 10 28 / 51%) 38%, rgb(2 16 24 / 38%) 100%);
+}
+
+.record-stage-backdrop--title .record-stage-signal--one { top: 24%; right: -8%; opacity: 0.7; }
+.record-stage-backdrop--title .record-stage-signal--two { right: 9%; bottom: 13%; opacity: 0.46; }
+
+/* One command list, used on the title, language screen, and transparent
+   RMenu. It is a list of physical labels rather than a group of cards. */
+.focus-menu {
+  position: relative;
+  z-index: 2;
+  width: min(22rem, 100%);
+  color: var(--stage-white);
+}
+
+.focus-menu-list {
+  display: grid;
+  gap: 0;
+}
+
+.focus-menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 43px;
+  padding: 0.35rem 0.9rem 0.35rem 1.15rem;
+  border: 0;
+  border-bottom: 1px solid rgb(243 242 233 / 22%);
+  background: transparent;
+  color: rgb(243 242 233 / 74%);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: clamp(0.82rem, 0.55vw + 0.65rem, 1.04rem);
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-align: left;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 84%);
+  transition: color 120ms linear, border-color 120ms linear;
+}
+
+.focus-menu-item::before {
+  position: absolute;
+  left: 0;
+  width: 0.35rem;
+  height: 1px;
+  content: "";
+  background: rgb(167 220 218 / 65%);
+  transition: width 120ms linear, background-color 120ms linear;
+}
+
+.focus-menu-item:hover,
+.focus-menu-item.is-focused,
+.focus-menu-item:focus-visible {
+  border-color: rgb(232 226 217 / 64%);
+  color: var(--stage-white);
+}
+
+.focus-menu-item:hover::before,
+.focus-menu-item.is-focused::before,
+.focus-menu-item:focus-visible::before {
+  width: 0.82rem;
+  background: var(--stage-signal);
+}
+
+.focus-menu-item:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.focus-menu-item[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.focus-menu-command { min-width: 0; }
+
+.focus-menu-state {
+  margin-left: 1rem;
+  color: var(--stage-signal);
+  font-size: 0.61em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.18em;
+}
+
+.focus-menu-description {
+  min-height: 2.8em;
+  margin: 0.85rem 0 0;
+  color: rgb(241 237 226 / 89%);
+  font-family: var(--font-ui);
+  font-size: clamp(0.74rem, 0.35vw + 0.65rem, 0.92rem);
+  line-height: 1.7;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
+}
+
+/*
+ * Home and first light use one off-centre tide axis.  The identity stays in
+ * the left weather; the first decision begins at the same visual height in
+ * the open water.  It is not a left rail plus a right panel: it is one
+ * opening gesture, with the record named before it is entered.
+ */
+.record-title-screen {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(13rem, 19rem);
+  grid-template-rows: minmax(0, 1fr);
+  column-gap: clamp(2.75rem, 9vw, 11rem);
+  width: 100%;
+  height: 100%;
+  padding: max(2.4rem, env(safe-area-inset-top)) clamp(2rem, 9vw, 9rem) max(2.4rem, env(safe-area-inset-bottom));
+  overflow: hidden;
+  animation: stage-arrive 200ms var(--ease-out) both;
+}
+
+.record-title-screen::after { content: none; }
+
+.title-identity {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-self: stretch;
+  min-width: 0;
+  padding-left: clamp(0.1rem, 1.5vw, 1rem);
+}
+
+.title-record-code {
+  position: static;
+  align-self: start;
+  margin: 0;
+  color: rgb(225 235 226 / 67%);
+  font-family: var(--font-record);
+  font-size: clamp(0.54rem, 0.32vw + 0.45rem, 0.72rem);
+  letter-spacing: 0.24em;
+}
+
+.title-masthead {
+  position: relative;
+  align-self: center;
+  width: min(33rem, 100%);
+  margin-top: clamp(0.8rem, 4vh, 3rem);
+  transform: translateY(clamp(0.35rem, 2.5vh, 1.5rem));
+  text-shadow: 0 2px 3px rgb(0 0 0 / 84%);
+}
+
+.title-masthead h1 {
+  margin: 0;
+  color: var(--stage-white);
+  font-family: var(--font-title);
+  font-size: clamp(3.25rem, 7.3vw, 7.5rem);
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  line-height: 0.96;
+}
+
+.title-masthead .title-subtitle {
+  margin: clamp(0.8rem, 1.9vh, 1.25rem) 0 0;
+  color: rgb(202 231 225 / 82%);
+  font-family: var(--font-record);
+  font-size: clamp(0.59rem, 0.34vw + 0.48rem, 0.8rem);
+  letter-spacing: 0.24em;
+}
+
+.title-selection {
+  position: relative;
+  z-index: 2;
+  align-self: center;
+  justify-self: start;
+  width: min(19rem, 100%);
+  margin-top: clamp(3.5rem, 12vh, 8rem);
+  padding-left: clamp(0.9rem, 1.25vw, 1.2rem);
+}
+
+.title-selection-kicker {
+  margin: 0 0 clamp(1.25rem, 2.4vh, 1.8rem);
+  color: rgb(202 231 225 / 66%);
+  font-family: var(--font-record);
+  font-size: clamp(0.54rem, 0.29vw + 0.46rem, 0.7rem);
+  letter-spacing: 0.24em;
+  line-height: 1.3;
+}
+
+.title-command-list {
+  width: 100%;
+  margin: 0;
+}
+
+.title-command-list .focus-menu-list { gap: clamp(1.1rem, 2.7vh, 1.9rem); }
+
+.title-command-list .focus-menu-item {
+  display: inline-grid;
+  grid-template-columns: minmax(0, max-content) auto;
+  grid-template-areas:
+    "command state"
+    "note note";
+  column-gap: 0.75rem;
+  row-gap: 0.36rem;
+  align-items: baseline;
+  justify-content: flex-start;
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  background: transparent;
+  color: rgb(243 242 233 / 66%);
+  font-size: clamp(0.9rem, 0.68vw + 0.67rem, 1.18rem);
+  letter-spacing: 0.21em;
+  line-height: 1.2;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 92%), 0 0 0.8rem rgb(167 220 218 / 7%);
+  transition: color 120ms linear, text-shadow 120ms linear;
+}
+
+.title-command-list .focus-menu-item::before {
+  top: 50%;
+  left: -1rem;
+  width: 1px;
+  height: 0.85em;
+  opacity: 0;
+  background: var(--stage-signal);
+  transform: translateY(-50%) scaleY(0.45);
+  transition: opacity 120ms linear, transform 120ms var(--ease-out);
+}
+
+.title-command-list .focus-menu-item:hover,
+.title-command-list .focus-menu-item.is-focused,
+.title-command-list .focus-menu-item:focus-visible {
+  border: 0;
+  color: var(--stage-white);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 94%), 0 0 0.9rem rgb(167 220 218 / 16%);
+}
+
+.title-command-list .focus-menu-item:hover::before,
+.title-command-list .focus-menu-item.is-focused::before,
+.title-command-list .focus-menu-item:focus-visible::before {
+  width: 1px;
+  opacity: 0.9;
+  background: var(--stage-signal);
+  transform: translateY(-50%) scaleY(1);
+}
+
+.title-command-list .focus-menu-command { grid-area: command; }
+
+.title-command-list .focus-menu-state {
+  grid-area: state;
+  margin-left: 0;
+  color: var(--stage-signal);
+  font-size: 0.53em;
+  letter-spacing: 0.18em;
+  transform: translateY(-0.08em);
+}
+
+.title-command-list .focus-menu-inline-description {
+  display: none;
+  grid-area: note;
+  width: min(18rem, 100%);
+  margin: 0;
+  color: rgb(230 237 229 / 85%);
+  font-size: clamp(0.7rem, 0.32vw + 0.65rem, 0.88rem);
+  letter-spacing: 0.055em;
+  line-height: 1.75;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 94%);
+}
+
+.title-command-list .focus-menu-item.is-focused .focus-menu-inline-description { display: block; }
+
+.record-title-screen--home {
+  grid-template-columns: minmax(0, 1fr) minmax(12.75rem, 18rem);
+  column-gap: clamp(3rem, 10vw, 12rem);
+  padding: max(2.7rem, env(safe-area-inset-top)) clamp(2rem, 8.5vw, 8.5rem) max(2.5rem, env(safe-area-inset-bottom));
+}
+
+.record-title-screen--home .title-masthead {
+  width: min(36rem, 100%);
+  transform: translateY(clamp(0.8rem, 4.5vh, 3rem));
+}
+
+.record-title-screen--home .title-masthead h1 {
+  font-size: clamp(4.4rem, 9.6vw, 10.2rem);
+  letter-spacing: 0.16em;
+  line-height: 0.84;
+}
+
+.record-title-screen--home .title-selection { margin-top: clamp(4.5rem, 15vh, 10rem); }
+.record-setup-screen .title-masthead h1 { font-size: clamp(3rem, 6.7vw, 6.8rem); }
+.record-setup-screen .title-selection { width: min(20rem, 100%); }
+
+/* The pause screen is intentionally transparent: the stopped scene stays
+   visible, with no scrim, drawer, surface, glass, or attached panel. */
+.rmenu-overlay {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  background: transparent !important;
+  animation: none;
+}
+
+.rmenu-modal {
+  position: absolute;
+  top: max(72px, calc(env(safe-area-inset-top) + 42px));
+  left: max(72px, calc(env(safe-area-inset-left) + 42px));
+  width: min(24rem, calc(100vw - 9rem));
+  height: auto;
+  margin: 0;
+  outline: 0;
+}
+
+.pause-ledger.stage-rmenu {
+  width: 100%;
+  max-height: calc(100vh - 7.25rem);
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  outline: 0;
+  background: transparent !important;
+  box-shadow: none;
+}
+
+/* RMenu is a sequence of unframed signals.  The gap, not a ruled list,
+   establishes the rhythm; only the selected signal receives its annotation. */
+.rmenu-command-list { width: 100%; }
+.rmenu-command-list .focus-menu-list {
+  gap: clamp(1.1rem, 3vh, 2.1rem);
+}
+
+.rmenu-command-list .focus-menu-item {
+  display: inline-grid;
+  grid-template-columns: minmax(0, max-content) auto;
+  grid-template-areas:
+    "command state"
+    "note note";
+  column-gap: 0.75rem;
+  row-gap: 0.38rem;
+  align-items: baseline;
+  justify-content: flex-start;
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  background: transparent;
+  color: rgb(243 242 233 / 63%);
+  font-size: clamp(0.88rem, 0.66vw + 0.68rem, 1.12rem);
+  letter-spacing: 0.2em;
+  line-height: 1.2;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 90%), 0 0 0.7rem rgb(167 220 218 / 7%);
+  transition: color 120ms linear, text-shadow 120ms linear;
+}
+
+.rmenu-command-list .focus-menu-item::before {
+  top: 50%;
+  left: -0.9rem;
+  width: 1px;
+  height: 0.85em;
+  opacity: 0;
+  background: var(--stage-signal);
+  transform: translateY(-50%) scaleY(0.45);
+  transition: opacity 120ms linear, transform 120ms var(--ease-out);
+}
+
+.rmenu-command-list .focus-menu-item:hover,
+.rmenu-command-list .focus-menu-item.is-focused,
+.rmenu-command-list .focus-menu-item:focus-visible {
+  border: 0;
+  color: var(--stage-white);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 94%), 0 0 0.8rem rgb(167 220 218 / 16%);
+}
+
+.rmenu-command-list .focus-menu-item:hover::before,
+.rmenu-command-list .focus-menu-item.is-focused::before,
+.rmenu-command-list .focus-menu-item:focus-visible::before {
+  width: 1px;
+  opacity: 0.9;
+  background: var(--stage-signal);
+  transform: translateY(-50%) scaleY(1);
+}
+
+.rmenu-command-list .focus-menu-state {
+  grid-area: state;
+  margin-left: 0;
+  color: var(--stage-signal);
+  font-size: 0.53em;
+  letter-spacing: 0.18em;
+  transform: translateY(-0.08em);
+}
+
+.rmenu-command-list .focus-menu-command { grid-area: command; }
+
+.rmenu-command-list .focus-menu-inline-description {
+  display: none;
+  grid-area: note;
+  width: min(21rem, 100%);
+  margin: 0;
+  color: rgb(229 236 229 / 84%);
+  font-size: clamp(0.72rem, 0.35vw + 0.66rem, 0.9rem);
+  letter-spacing: 0.055em;
+  line-height: 1.75;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 94%);
+}
+
+.rmenu-command-list .focus-menu-item.is-focused .focus-menu-inline-description { display: block; }
+
+/* Archive sheets share the same photograph-backed signal material. Their
+   content has no rounded container and uses rows, rules, and paper labels. */
+.sheet-overlay--archive,
+.sheet-overlay--chapter,
+.sheet-overlay--confirm {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  padding: 0;
+  background: transparent;
+  animation: none;
+}
+
+.sheet-overlay--archive,
+.sheet-overlay--chapter {
+  align-items: stretch;
+  justify-items: stretch;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.sheet-overlay--confirm {
+  align-items: center;
+  justify-items: center;
+  padding: 1.2rem;
+}
+
+.sheet-modal--archive,
+.sheet-modal--chapter {
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.sheet-modal--confirm {
+  width: min(34rem, 100%);
+  height: auto;
+}
+
+.sheet.stage-sheet {
+  position: relative;
+  display: block;
+  width: min(94rem, 100%);
+  height: 100%;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: rgb(6 10 18 / 38%);
+  box-shadow: none;
+  animation: none;
+}
+
+.sheet--archive.stage-sheet,
+.sheet--chapter.stage-sheet { background: rgb(6 10 18 / 38%); }
+
+.sheet--confirm.stage-sheet {
+  height: auto;
+  min-height: 20rem;
+  border: 1px solid rgb(233 227 216 / 33%);
+  background: rgb(11 9 18 / 88%);
+}
+
+.stage-sheet-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: clamp(1.5rem, 4.5vw, 5rem) clamp(1.4rem, 7vw, 8rem) clamp(1.35rem, 3.5vw, 3.6rem);
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(167 220 218 / 46%) transparent;
+  animation: stage-arrive 180ms var(--ease-out) both;
+}
+
+.stage-sheet-content::-webkit-scrollbar,
+.backlog-list::-webkit-scrollbar,
+.chapter-index-menu::-webkit-scrollbar { width: 4px; height: 4px; }
+.stage-sheet-content::-webkit-scrollbar-thumb,
+.backlog-list::-webkit-scrollbar-thumb,
+.chapter-index-menu::-webkit-scrollbar-thumb { background: rgb(167 220 218 / 52%); }
+.stage-sheet-content::-webkit-scrollbar-track,
+.backlog-list::-webkit-scrollbar-track,
+.chapter-index-menu::-webkit-scrollbar-track { background: transparent; }
+
+.stage-sheet .sheet-header {
+  flex: 0 0 auto;
+  min-height: 54px;
+  padding: 0;
+  border: 0;
+}
+
+.stage-sheet .sheet-kicker {
+  margin: 0 0 0.42rem;
+  color: rgb(167 220 218 / 76%);
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+}
+
+.stage-sheet .sheet-header h2 {
+  margin: 0;
+  color: var(--stage-white);
+  font-family: var(--font-ui);
+  font-size: clamp(1.65rem, 2.6vw, 3.1rem);
+  font-weight: 300;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-shadow: 0 2px 2px rgb(0 0 0 / 64%);
+}
+
+.stage-close {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem 0;
+  border: 0;
+  background: transparent;
+  color: rgb(243 242 233 / 68%);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  letter-spacing: 0.17em;
+  text-align: right;
+  transition: color 120ms linear;
+}
+
+.stage-close:hover,
+.stage-close:focus-visible { color: var(--stage-white); }
+.stage-close:focus-visible { outline: 1px solid var(--focus); outline-offset: 3px; }
+
+.stage-sheet .sheet-tide-line {
+  flex: 0 0 auto;
+  width: clamp(2.6rem, 5vw, 5rem);
+  height: 1px;
+  margin: 1.15rem 0 clamp(1.5rem, 4vh, 3.3rem);
+  background: linear-gradient(90deg, var(--stage-signal), transparent);
+}
+
+.stage-sheet .sheet-intro {
+  max-width: 40rem;
+  margin: 0;
+  color: rgb(239 236 226 / 82%);
+  font-family: var(--font-ui);
+  font-size: clamp(0.8rem, 0.35vw + 0.71rem, 0.98rem);
+  line-height: 1.85;
+}
+
+/* Save and load are a ledger of ten real positions, not a tile dashboard. */
+.sheet--save .save-slots,
+.sheet--load .save-slots {
+  display: grid;
+  grid-template-columns: 1fr;
+  width: min(62rem, 100%);
+  margin-top: clamp(1.3rem, 4vh, 3rem);
+  border: 0;
+}
+
+.sheet--save .record-slot,
+.sheet--load .record-slot {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 9rem) minmax(10rem, 1fr) minmax(12rem, 1.35fr);
+  align-items: center;
+  min-height: clamp(50px, 7vh, 66px);
+  padding: 0.65rem 1rem 0.65rem 0;
+  border: 0;
+  border-top: 1px solid rgb(243 242 233 / 18%);
+  background: transparent;
+  color: rgb(243 242 233 / 81%);
+  text-align: left;
+  transition: color 120ms linear, border-color 120ms linear;
+}
+
+.sheet--save .record-slot::before,
+.sheet--load .record-slot::before {
+  top: 50%;
+  left: 0;
+  width: 0.55rem;
+  height: 1px;
+  content: "";
+  background: rgb(167 220 218 / 54%);
+  transform: translateY(-50%);
+  transition: width 120ms linear, background-color 120ms linear;
+}
+
+.sheet--save .record-slot:hover,
+.sheet--save .record-slot:focus-visible,
+.sheet--load .record-slot:hover,
+.sheet--load .record-slot:focus-visible {
+  border-color: rgb(243 242 233 / 58%);
+  color: var(--stage-white);
+  outline: 0;
+}
+
+.sheet--save .record-slot:hover::before,
+.sheet--save .record-slot:focus-visible::before,
+.sheet--load .record-slot:hover::before,
+.sheet--load .record-slot:focus-visible::before {
+  width: 1.25rem;
+  background: var(--stage-signal);
+}
+
+.sheet--save .record-slot:focus-visible,
+.sheet--load .record-slot:focus-visible { outline: 1px solid var(--focus); outline-offset: -2px; }
+.sheet--save .record-slot[aria-disabled="true"],
+.sheet--load .record-slot[aria-disabled="true"] { cursor: not-allowed; opacity: 0.42; }
+.sheet--save .record-slot-index,
+.sheet--load .record-slot-index { padding-left: 1.55rem; color: rgb(167 220 218 / 76%); font-family: var(--font-ui); font-size: 0.62rem; letter-spacing: 0.15em; }
+.sheet--save .record-slot-action,
+.sheet--load .record-slot-action { color: inherit; font-family: var(--font-ui); font-size: 0.89rem; line-height: 1.35; }
+.sheet--save .record-slot-label,
+.sheet--load .record-slot-label { color: rgb(235 231 220 / 63%); font-family: var(--font-ui); font-size: 0.69rem; line-height: 1.5; }
+
+/* Log retains scrolling because it is a log, but it reads as marked paper
+   lines rather than a browser list. */
+.sheet--backlog .backlog-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: min(64rem, 100%);
+  margin: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(167 220 218 / 46%) transparent;
+}
+
+.sheet--backlog .stage-sheet-content { overflow: hidden; }
+
+.sheet--backlog .backlog-list:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.sheet--backlog .backlog-entry {
+  display: grid;
+  grid-template-columns: 3.8rem minmax(0, 1fr);
+  gap: 0.7rem;
+  min-height: 104px;
+  height: 104px;
+  padding: 1rem 0.7rem 1rem 0;
+  border: 0;
+  border-top: 1px solid rgb(243 242 233 / 16%);
+  background: transparent;
+  color: rgb(243 242 233 / 83%);
+  text-align: left;
+}
+
+.sheet--backlog .backlog-entry.is-selected,
+.sheet--backlog .backlog-entry:hover,
+.sheet--backlog .backlog-entry:focus-visible {
+  color: var(--stage-white);
+  box-shadow: none;
+  outline: 0;
+}
+
+.sheet--backlog .backlog-entry.is-selected::before,
+.sheet--backlog .backlog-entry:hover::before,
+.sheet--backlog .backlog-entry:focus-visible::before {
+  position: absolute;
+  width: 1rem;
+  height: 1px;
+  content: "";
+  background: var(--stage-signal);
+}
+
+.sheet--backlog .backlog-entry:focus-visible { outline: 1px solid var(--focus); outline-offset: -2px; }
+.sheet--backlog .backlog-index { padding-top: 0.25rem; color: rgb(167 220 218 / 73%); font-family: var(--font-ui); font-size: 0.62rem; letter-spacing: 0.14em; }
+.sheet--backlog .backlog-speaker { color: rgb(231 217 188 / 92%); font-family: var(--font-ui); font-size: 0.71rem; letter-spacing: 0.11em; }
+.sheet--backlog .backlog-text { color: inherit; font-family: var(--font-reading); font-size: clamp(0.86rem, 0.28vw + 0.78rem, 1.02rem); line-height: 1.72; }
+.stage-sheet .empty-state { margin: 1rem 0; color: rgb(167 220 218 / 76%); font-family: var(--font-ui); }
+
+/* Settings is an index and a single tuning rail. The only controls are
+   explicit buttons, with the same values reachable from arrow keys. */
+.settings-stage {
+  display: grid;
+  grid-template-columns: minmax(8.8rem, 13rem) minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: clamp(2rem, 7vw, 8rem);
+  width: min(68rem, 100%);
+}
+
+.settings-index {
+  display: grid;
+  align-content: start;
+  border-top: 1px solid rgb(243 242 233 / 25%);
+}
+
+.settings-index-item {
+  position: relative;
+  min-height: 52px;
+  padding: 0.65rem 0.8rem 0.65rem 1rem;
+  border: 0;
+  border-bottom: 1px solid rgb(243 242 233 / 16%);
+  background: transparent;
+  color: rgb(243 242 233 / 64%);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  text-align: left;
+  transition: color 120ms linear, border-color 120ms linear;
+}
+
+.settings-index-item::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 0.35rem;
+  height: 1px;
+  content: "";
+  background: rgb(167 220 218 / 65%);
+  transform: translateY(-50%);
+  transition: width 120ms linear;
+}
+
+.settings-index-item:hover,
+.settings-index-item.is-selected,
+.settings-index-item:focus-visible { color: var(--stage-white); }
+.settings-index-item.is-selected::before,
+.settings-index-item:hover::before,
+.settings-index-item:focus-visible::before { width: 0.8rem; background: var(--stage-signal); }
+.settings-index-item:focus-visible { outline: 1px solid var(--focus); outline-offset: -2px; }
+
+.settings-deck { min-width: 0; }
+.settings-deck-kicker { margin: 0; color: rgb(167 220 218 / 74%); font-family: var(--font-ui); font-size: 0.64rem; letter-spacing: 0.2em; }
+.settings-deck h3 { margin: 0.7rem 0 clamp(1.15rem, 3vh, 2rem); color: var(--stage-white); font-family: var(--font-ui); font-size: clamp(1.1rem, 0.7vw + 0.95rem, 1.55rem); font-weight: 400; line-height: 1.3; }
+.settings-rails { display: grid; width: min(39rem, 100%); border-top: 1px solid rgb(243 242 233 / 25%); }
+
+.setting-rail,
+.binary-setting {
+  display: grid;
+  grid-template-columns: minmax(8.5rem, 1fr) minmax(13rem, 1.2fr);
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 64px;
+  border-bottom: 1px solid rgb(243 242 233 / 16%);
+}
+
+.setting-rail-label { color: rgb(243 242 233 / 84%); font-family: var(--font-ui); font-size: clamp(0.78rem, 0.38vw + 0.68rem, 0.95rem); line-height: 1.45; }
+.setting-rail-controls,
+.binary-setting-controls { display: grid; grid-template-columns: 44px minmax(5.5rem, 1fr) 44px; align-items: center; min-width: 0; }
+
+.setting-rail-button {
+  display: grid;
+  width: 44px;
+  min-height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgb(167 220 218 / 84%);
+  cursor: pointer;
+  font-size: 0.68rem;
+  transition: color 120ms linear, background-color 120ms linear;
+}
+
+.setting-rail-button:hover,
+.setting-rail-button:focus-visible { background: rgb(167 220 218 / 12%); color: var(--stage-white); }
+.setting-rail-button:focus-visible { outline: 1px solid var(--focus); outline-offset: -2px; }
+.setting-rail-value { display: grid; min-height: 44px; place-items: center; border-top: 1px solid rgb(243 242 233 / 24%); border-bottom: 1px solid rgb(243 242 233 / 24%); color: var(--stage-white); font-family: var(--font-ui); font-size: 0.78rem; font-variant-numeric: tabular-nums; letter-spacing: 0.08em; }
+.binary-setting-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.binary-setting-button { min-height: 44px; padding: 0; border: 1px solid rgb(243 242 233 / 21%); background: transparent; color: rgb(243 242 233 / 57%); cursor: pointer; font-family: var(--font-ui); font-size: 0.68rem; letter-spacing: 0.14em; transition: color 120ms linear, background-color 120ms linear, border-color 120ms linear; }
+.binary-setting-button + .binary-setting-button { border-left: 0; }
+.binary-setting-button[aria-pressed="true"] { border-color: rgb(167 220 218 / 86%); background: rgb(167 220 218 / 14%); color: var(--stage-white); }
+.binary-setting-button:focus-visible { position: relative; z-index: 1; outline: 1px solid var(--focus); outline-offset: -2px; }
+
+/* Chapters have one live preview and one quiet index. Moving focus changes
+   only this local preview; activation remains the sole route into the story. */
+.sheet--chapter .stage-sheet-content {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.chapter-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(16rem, 0.72fr);
+  min-height: 0;
+  border-top: 1px solid rgb(243 242 233 / 22%);
+}
+
+.chapter-preview {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid rgb(243 242 233 / 22%);
+  background: #0a1b23;
+}
+
+.chapter-preview-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.84;
+}
+
+.chapter-preview::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(9 8 17 / 8%) 22%, rgb(9 8 17 / 76%) 100%);
+}
+
+.chapter-preview-record {
+  position: absolute;
+  z-index: 1;
+  right: clamp(1rem, 3vw, 3rem);
+  bottom: clamp(1rem, 4vh, 3.4rem);
+  left: clamp(1rem, 3vw, 3rem);
+  color: var(--stage-white);
+  text-shadow: 0 2px 3px rgb(0 0 0 / 86%);
+}
+
+.chapter-preview-code { margin: 0; color: rgb(181 230 226 / 86%); font-family: var(--font-ui); font-size: 0.66rem; letter-spacing: 0.19em; }
+.chapter-preview-line { display: block; width: 3.1rem; height: 1px; margin: 1rem 0; background: var(--stage-signal); }
+.chapter-preview-record h3 { max-width: 30rem; margin: 0; font-family: var(--font-ui); font-size: clamp(1.35rem, 2.3vw, 2.85rem); font-weight: 300; line-height: 1.23; }
+.chapter-preview-description { max-width: 32rem; margin: 0.9rem 0 0; color: rgb(243 240 230 / 87%); font-family: var(--font-ui); font-size: clamp(0.78rem, 0.37vw + 0.7rem, 0.98rem); line-height: 1.8; }
+.chapter-preview-progress { margin: 1.1rem 0 0; color: rgb(167 220 218 / 88%); font-family: var(--font-ui); font-size: 0.61rem; letter-spacing: 0.13em; }
+
+.chapter-index-menu {
+  display: grid;
+  align-content: start;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(167 220 218 / 46%) transparent;
+}
+
+.chapter-index-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(5.8rem, 7.4rem) minmax(0, 1fr) 1.8rem;
+  align-items: center;
+  min-height: 48px;
+  padding: 0.45rem 0.7rem 0.45rem 0.9rem;
+  border: 0;
+  border-bottom: 1px solid rgb(243 242 233 / 15%);
+  background: transparent;
+  color: rgb(243 242 233 / 68%);
+  cursor: pointer;
+  text-align: left;
+  transition: color 120ms linear, border-color 120ms linear;
+}
+
+.chapter-index-row:hover,
+.chapter-index-row.is-preview,
+.chapter-index-row:focus-visible { border-color: rgb(243 242 233 / 55%); color: var(--stage-white); outline: 0; }
+.chapter-index-row:focus-visible { outline: 1px solid var(--focus); outline-offset: -2px; }
+.chapter-index-row.is-locked { cursor: not-allowed; opacity: 0.35; }
+.chapter-index-code { color: rgb(167 220 218 / 74%); font-family: var(--font-ui); font-size: 0.55rem; letter-spacing: 0.11em; }
+.chapter-index-name { min-width: 0; overflow: hidden; font-family: var(--font-ui); font-size: clamp(0.72rem, 0.35vw + 0.64rem, 0.89rem); line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.chapter-index-rule { justify-self: end; width: 0.42rem; height: 1px; background: rgb(167 220 218 / 47%); transition: width 120ms linear, background-color 120ms linear; }
+.chapter-index-row:hover .chapter-index-rule,
+.chapter-index-row.is-preview .chapter-index-rule,
+.chapter-index-row:focus-visible .chapter-index-rule { width: 1.2rem; background: var(--stage-signal); }
+
+/* CGs retain a visual index because the images are the content, but use a
+   film-strip edge and rectangular frames instead of app-card treatment. */
+.sheet--gallery .gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  width: min(76rem, 100%);
+  margin: 0;
+  border: 0;
+  background: rgb(243 242 233 / 22%);
+}
+
+.sheet--gallery .gallery-card {
+  position: relative;
+  display: grid;
+  min-height: clamp(8rem, 19vh, 13rem);
+  padding: 0.7rem;
+  overflow: hidden;
+  border: 0;
+  background: #0a1116;
+  color: var(--stage-white);
+  text-align: left;
+}
+
+.sheet--gallery .gallery-card::after { position: absolute; inset: 0; content: ""; pointer-events: none; background: linear-gradient(180deg, transparent 37%, rgb(8 8 15 / 76%)); }
+.sheet--gallery .gallery-card:hover,
+.sheet--gallery .gallery-card:focus-visible { outline: 1px solid var(--focus); outline-offset: -3px; }
+.sheet--gallery .gallery-image { opacity: 0.76; transition: opacity 120ms linear; }
+.sheet--gallery .gallery-card:hover .gallery-image,
+.sheet--gallery .gallery-card:focus-visible .gallery-image { opacity: 0.98; }
+.sheet--gallery .gallery-index,
+.sheet--gallery .gallery-label { position: relative; z-index: 1; }
+.sheet--gallery .gallery-index { color: rgb(212 237 232 / 86%); font-family: var(--font-ui); font-size: 0.58rem; letter-spacing: 0.14em; }
+.sheet--gallery .gallery-label { max-width: 13rem; font-family: var(--font-ui); font-size: 0.82rem; line-height: 1.5; }
+.sheet--gallery .gallery-card[aria-disabled="true"] { opacity: 0.38; }
+
+/* A confirmation is a small record fragment, never a native alert card. */
+.sheet--confirm .stage-sheet-content { min-height: 20rem; padding: clamp(1.3rem, 4vw, 2.8rem); }
+.sheet--confirm .sheet-tide-line { margin-bottom: 1.35rem; }
+.sheet--confirm .confirmation-message { max-width: 28rem; margin: 0.2rem 0 1.75rem; color: var(--stage-white); font-family: var(--font-ui); font-size: clamp(0.9rem, 0.4vw + 0.79rem, 1.1rem); line-height: 1.9; text-align: left; }
+.sheet--confirm .confirmation-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-top: auto; background: rgb(243 242 233 / 27%); }
+.sheet--confirm .confirmation-accept,
+.sheet--confirm .confirmation-cancel { min-height: 50px; padding: 0.7rem; border: 0; background: rgb(10 12 18 / 74%); color: rgb(243 242 233 / 72%); cursor: pointer; font-family: var(--font-ui); font-size: 0.72rem; letter-spacing: 0.13em; text-align: center; transition: color 120ms linear, background-color 120ms linear; }
+.sheet--confirm .confirmation-accept { color: var(--stage-white); }
+.sheet--confirm .confirmation-accept:hover,
+.sheet--confirm .confirmation-cancel:hover,
+.sheet--confirm .confirmation-accept:focus-visible,
+.sheet--confirm .confirmation-cancel:focus-visible { background: rgb(167 220 218 / 17%); color: var(--stage-white); outline: 1px solid var(--focus); outline-offset: -2px; }
+
+/* Gallery viewing remains a genuine full-screen image. Its controls get the
+   same label treatment but the photograph itself stays unobscured. */
+.gallery-viewer-header,
+.gallery-viewer-controls { font-family: var(--font-ui); }
+.gallery-viewer-header { letter-spacing: 0.14em; }
+.gallery-viewer .icon-button { color: var(--stage-white); }
+.gallery-viewer-control { font-family: var(--font-ui); letter-spacing: 0.1em; }
+
+:where(.high-contrast, html.umikaze-high-contrast) .record-stage-scanlines,
+:where(.high-contrast, html.umikaze-high-contrast) .record-stage-slip { opacity: 0; }
+:where(.high-contrast, html.umikaze-high-contrast) .record-stage-vignette { background: rgb(0 0 0 / 82%); }
+:where(.high-contrast, html.umikaze-high-contrast) .focus-menu-item,
+:where(.high-contrast, html.umikaze-high-contrast) .settings-index-item,
+:where(.high-contrast, html.umikaze-high-contrast) .chapter-index-row,
+:where(.high-contrast, html.umikaze-high-contrast) .record-slot,
+:where(.high-contrast, html.umikaze-high-contrast) .backlog-entry { border-color: rgb(255 255 255 / 76%); color: #fff; }
+
+@keyframes stage-arrive {
+  from { opacity: 0; transform: translateY(0.8rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Reduced motion leaves a short opacity cue so a route still feels like a
+   deliberate scene change, while removing all spatial movement. */
+:where(.reduce-motion, html.umikaze-reduced-motion) .record-title-screen,
+:where(.reduce-motion, html.umikaze-reduced-motion) .stage-sheet-content {
+  animation: stage-fade 120ms linear both;
+}
+
+:where(.reduce-motion, html.umikaze-reduced-motion) :is(
+  .focus-menu-item,
+  .settings-index-item,
+  .setting-rail-button,
+  .binary-setting-button,
+  .chapter-index-row,
+  .record-slot,
+  .gallery-card,
+  .stage-close
+) { transition-duration: 120ms !important; }
+
+@keyframes stage-fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .record-title-screen,
+  .stage-sheet-content { animation: stage-fade 120ms linear both; }
+  .record-title-screen *,
+  .stage-sheet-content * { scroll-behavior: auto; }
+}
+
+@media (max-width: 760px) {
+  .record-title-screen {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-content: stretch;
+    gap: clamp(1.2rem, 3vh, 1.8rem);
+    padding: max(1.6rem, env(safe-area-inset-top)) max(1.35rem, env(safe-area-inset-right)) max(1.35rem, env(safe-area-inset-bottom)) max(1.35rem, env(safe-area-inset-left));
+  }
+
+  .title-identity { grid-row: 1; padding-left: 0; }
+  .title-masthead { width: min(25rem, 92%); margin-top: 0; transform: translateY(1.4vh); }
+  .title-masthead h1 { font-size: clamp(3.1rem, 14vw, 5.8rem); }
+  .title-selection {
+    grid-row: 2;
+    align-self: end;
+    justify-self: end;
+    width: min(19rem, 100%);
+    margin-top: 0;
+    padding-left: 0.9rem;
+  }
+  .title-command-list .focus-menu-list { gap: clamp(0.88rem, 2.2vh, 1.2rem); }
+
+  .record-title-screen--home {
+    gap: clamp(1.45rem, 3.8vh, 2rem);
+  }
+
+  .record-title-screen--home .title-masthead { width: min(24rem, 88%); }
+  .record-title-screen--home .title-masthead h1 { font-size: clamp(4.1rem, 18vw, 6.5rem); }
+  .record-title-screen--home .title-selection { width: min(18rem, 100%); }
+
+  .record-stage-fragment { font-size: clamp(0.43rem, 1.8vw, 0.61rem); line-height: 1.7; }
+  .record-stage-fragment--tractatus-one { top: 5%; right: 4%; width: min(13rem, 52vw); }
+  .record-stage-fragment--tractatus-facts { right: -4%; bottom: 6%; width: min(13rem, 54vw); }
+  .record-stage-fragment--tractatus-silence { top: 62%; left: -5%; width: min(15rem, 58vw); }
+  .record-stage-fragment--yodaka { top: 19%; left: 1%; width: min(13rem, 56vw); }
+  .record-stage-fragment--galaxy { right: -6%; bottom: 30%; width: min(16rem, 63vw); }
+
+  .rmenu-modal {
+    top: max(48px, calc(env(safe-area-inset-top) + 24px));
+    left: max(28px, calc(env(safe-area-inset-left) + 20px));
+    width: min(18rem, calc(100vw - 3.5rem));
+  }
+  .rmenu-command-list .focus-menu-item { min-height: 39px; }
+
+  .stage-sheet-content { padding: max(1.1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left)); }
+  .stage-sheet .sheet-header h2 { font-size: 1.55rem; }
+  .stage-sheet .sheet-tide-line { margin: 0.9rem 0 1.15rem; }
+
+  .sheet--save .record-slot,
+  .sheet--load .record-slot { grid-template-columns: 5.5rem minmax(0, 1fr); min-height: 58px; gap: 0.2rem; }
+  .sheet--save .record-slot-label,
+  .sheet--load .record-slot-label { grid-column: 2; }
+
+  .settings-stage { grid-template-columns: 1fr; gap: 1.2rem; }
+  .settings-index { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .settings-index-item { min-height: 44px; padding-left: 0.65rem; font-size: 0.66rem; }
+  .setting-rail,
+  .binary-setting { grid-template-columns: 1fr; gap: 0.45rem; padding: 0.8rem 0; }
+  .setting-rail-controls,
+  .binary-setting-controls { width: min(20rem, 100%); }
+
+  .sheet--chapter .stage-sheet-content { overflow: auto; }
+  .chapter-stage { grid-template-columns: 1fr; min-height: auto; }
+  .chapter-preview { min-height: 18rem; border-right: 0; border-bottom: 1px solid rgb(243 242 233 / 22%); }
+  .chapter-index-menu { max-height: none; overflow: visible; }
+  .chapter-index-row { min-height: 50px; }
+
+  .sheet--gallery .gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sheet--gallery .gallery-card { min-height: 9rem; }
+}
+
+@media (max-height: 640px) and (min-width: 761px) {
+  .record-title-screen { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+  .title-masthead { transform: translateY(0.35rem); }
+  .title-selection,
+  .record-title-screen--home .title-selection { margin-top: 2.75rem; }
+  .rmenu-command-list .focus-menu-item { min-height: 35px; }
+  .rmenu-command-list .focus-menu-description { margin-top: 0.45rem; }
+}

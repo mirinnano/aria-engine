@@ -38,7 +38,8 @@ public sealed class AssetCommandHandler : BaseCommandHandler
 
     public override IReadOnlySet<OpCode> HandledCodes { get; } = new HashSet<OpCode>
     {
-        OpCode.LoadAsset
+        OpCode.LoadAsset,
+        OpCode.AssetPreload
     };
 
     public AssetCommandHandler(
@@ -58,9 +59,19 @@ public sealed class AssetCommandHandler : BaseCommandHandler
                 ExecuteLoadAsset(inst);
                 return true;
 
+            case OpCode.AssetPreload:
+                ExecuteAssetPreload(inst);
+                return true;
+
             default:
                 return false;
         }
+    }
+
+    private void ExecuteAssetPreload(Instruction inst)
+    {
+        if (!ValidateArgs(inst, 1)) return;
+        Vm.BeginAssetPreload(GetString(inst.Arguments[0]), inst);
     }
 
     private void ExecuteLoadAsset(Instruction inst)

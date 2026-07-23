@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+    <WasmBuildNative Condition="'$(WasmBuildNative)' == ''">false</WasmBuildNative>
+    <RaylibWasmArchive Condition="'$(RaylibWasmArchive)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\native\raylib-5.5\libraylib.a</RaylibWasmArchive>
+    <EmccExtraLDFlags>-s USE_GLFW=3 -s ALLOW_MEMORY_GROWTH=1 -s MAX_WEBGL_VERSION=2</EmccExtraLDFlags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AriaEngine\AriaEngine.csproj" AdditionalProperties="AriaEngineAsLibrary=true" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(WasmBuildNative)' == 'true'">
+    <NativeFileReference Include="$(RaylibWasmArchive)" />
+  </ItemGroup>
+
+  <Target Name="ValidateRaylibWasmArchive" BeforeTargets="WasmBuildNative" Condition="'$(WasmBuildNative)' == 'true'">
+    <Error Condition="!Exists('$(RaylibWasmArchive)')" Text="raylib WASM archive not found: $(RaylibWasmArchive). Run scripts/build-raylib-wasm.ps1 first." />
+  </Target>
+
+  <ItemGroup>
+    <Content Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\AriaEngine\init.aria" Link="wwwroot\init.aria" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\AriaEngine\assets\**\*" Link="wwwroot\assets\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

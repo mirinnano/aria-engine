@@ -51,12 +51,21 @@ public enum VmState
     Running,
     WaitingForClick,
     WaitingForButton,
+    WaitingForAssetGroup,
     WaitingForDelay,
     WaitingForAnimation,
     WaitingForTimer,
     FadingIn,
     FadingOut,
     Ended
+}
+
+public sealed class AssetPreloadRuntimeState
+{
+    public string GroupName { get; set; } = "";
+    public string Error { get; set; } = "";
+    public int Attempt { get; set; }
+    public bool IsFailed => !string.IsNullOrWhiteSpace(Error);
 }
 
 public struct LoopState
@@ -281,7 +290,7 @@ public class BacklogEntryListConverter : JsonConverter<List<BacklogEntry>>
             }
             else if (reader.TokenType == JsonTokenType.StartObject)
             {
-                var entry = JsonSerializer.Deserialize<BacklogEntry>(ref reader, options);
+                var entry = JsonSerializer.Deserialize(ref reader, AriaSaveJsonContext.Default.BacklogEntry);
                 if (entry != null) result.Add(entry);
             }
             else
@@ -309,7 +318,7 @@ public class BacklogEntryListConverter : JsonConverter<List<BacklogEntry>>
             if (entry.StateSnapshot != null)
             {
                 writer.WritePropertyName(nameof(BacklogEntry.StateSnapshot));
-                JsonSerializer.Serialize(writer, entry.StateSnapshot, options);
+                JsonSerializer.Serialize(writer, entry.StateSnapshot, AriaSaveJsonContext.Default.BacklogStateSnapshot);
             }
             writer.WriteEndObject();
         }
@@ -497,6 +506,7 @@ public class GameState
     public SceneRuntimeState SceneRuntime { get; set; } = new();
     public SaveRuntimeState SaveRuntime { get; set; } = new();
     public FlagRuntimeState FlagRuntime { get; set; } = new();
+    public AssetPreloadRuntimeState AssetPreload { get; set; } = new();
 
     // T2 UX Quick Wins: ボタン押下感のテーマ設定。UiThemeManager.Apply*Theme() が書き換える。
     public ButtonFeel ButtonFeel { get; set; } = new();
