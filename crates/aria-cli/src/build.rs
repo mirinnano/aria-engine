@@ -658,41 +658,73 @@ fn write_web_presentation(
         );
     }
 
-    let presentation_output = destination.join(".aria-presentation");
-    fs::create_dir_all(&presentation_output)?;
-    let absolute_output = presentation_output.canonicalize().with_context(|| {
-        format!(
-            "cannot resolve temporary presentation output {}",
-            presentation_output.display()
-        )
-    })?;
-    let status = Command::new("npm")
-        .arg("run")
-        .arg("build")
-        .current_dir(frontend)
-        .env("ARIA_PRESENTATION_OUT_DIR", &absolute_output)
-        .status()
-        .with_context(|| {
+    if let Some(prebuilt) = std::env::var_os("ARIA_PRESENTATION_PREBUILT_DIR") {
+        // The desktop release wrapper builds Vite once into a fingerprinted
+        // cache and passes it here. This keeps `aria build` useful as a
+        // standalone command while avoiding a second npm invocation in the
+        // Tauri beforeBuild hook.
+        let prebuilt = PathBuf::from(prebuilt);
+        let metadata = fs::symlink_metadata(&prebuilt).with_context(|| {
+            format!(
+                "ARIA_PRESENTATION_PREBUILT_DIR does not exist: {}",
+                prebuilt.display()
+            )
+        })?;
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            bail!(
+                "ARIA_PRESENTATION_PREBUILT_DIR must be a real directory: {}",
+                prebuilt.display()
+            );
+        }
+        if !prebuilt.join("index.html").is_file() {
+            bail!(
+                "ARIA_PRESENTATION_PREBUILT_DIR is missing index.html: {}",
+                prebuilt.display()
+            );
+        }
+        copy_directory_contents(&prebuilt, destination)?;
+    } else {
+        let presentation_output = destination.join(".aria-presentation");
+        fs::create_dir_all(&presentation_output)?;
+        let absolute_output = presentation_output.canonicalize().with_context(|| {
+            format!(
+                "cannot resolve temporary presentation output {}",
+                presentation_output.display()
+            )
+        })?;
+        let mut npm = Command::new("npm");
+        npm.arg("run")
+            .arg("build")
+            .current_dir(frontend)
+            .env("ARIA_PRESENTATION_OUT_DIR", &absolute_output);
+        if let Some(value) = std::env::var_os("ARIA_PAK_VERIFICATION_KEY_ID") {
+            npm.env("VITE_ARIA_PAK_VERIFICATION_KEY_ID", value);
+        }
+        if let Some(value) = std::env::var_os("ARIA_PAK_VERIFICATION_KEY_HEX") {
+            npm.env("VITE_ARIA_PAK_VERIFICATION_KEY_HEX", value);
+        }
+        let status = npm.status().with_context(|| {
             format!(
                 "cannot start npm to build presentation.frontend {}",
                 frontend.display()
             )
         })?;
-    if !status.success() {
-        bail!(
-            "presentation frontend build failed ({}); run 'npm install' then 'npm run build' in {}",
-            status,
-            frontend.display()
-        );
+        if !status.success() {
+            bail!(
+                "presentation frontend build failed ({}); run 'npm install' then 'npm run build' in {}",
+                status,
+                frontend.display()
+            );
+        }
+        if !absolute_output.join("index.html").is_file() {
+            bail!(
+                "presentation frontend did not produce index.html in {}",
+                absolute_output.display()
+            );
+        }
+        copy_directory_contents(&absolute_output, destination)?;
+        fs::remove_dir_all(&presentation_output)?;
     }
-    if !absolute_output.join("index.html").is_file() {
-        bail!(
-            "presentation frontend did not produce index.html in {}",
-            absolute_output.display()
-        );
-    }
-    copy_directory_contents(&absolute_output, destination)?;
-    fs::remove_dir_all(&presentation_output)?;
 
     const ADAPTERS: &[(&str, &str)] = &[
         (

@@ -25,11 +25,20 @@ type WasmPak = {
 };
 
 type WasmPakConstructor = new (bytes: Uint8Array) => WasmPak;
+type SignedWasmPakConstructor = WasmPakConstructor & {
+  new_with_keys(
+    bytes: Uint8Array,
+    verificationKeyId: string,
+    verificationKeyHex: string,
+    encryptionKeyId: string,
+    encryptionKeyHex: string,
+  ): WasmPak;
+};
 
 type WasmModule = {
   default: () => Promise<void>;
   WebRuntime: WasmRuntimeConstructor;
-  WebPak: WasmPakConstructor;
+  WebPak: SignedWasmPakConstructor;
 };
 
 type SceneRenderer = {
@@ -366,10 +375,6 @@ export async function bootPresentation(
   if (bundle.schema_version !== 5 || bundle.vm_abi_version !== 4) {
     throw new Error("This presentation does not support the bundled Aria runtime.");
   }
-  if (bundle.pak_profile !== "dev") {
-    throw new Error("This presentation needs a host pak-key provider for signed/protected packages.");
-  }
-
   const bytecode = new Uint8Array(await bytecodeResponse.arrayBuffer());
   // The title and settings screens are DOM-owned and do not need any asset
   // package. Packs are mounted independently, so a first subtitle only pays
@@ -406,7 +411,23 @@ export async function bootPresentation(
         if (bytes.byteLength !== pack.size) {
           throw new Error(`${pack.file}: size does not match bundle.aria.json`);
         }
-        const archive = new wasm.WebPak(bytes);
+        let archive: WasmPak;
+        if (bundle.pak_profile === "dev") {
+          archive = new wasm.WebPak(bytes);
+        } else {
+          const keyProvider = globalThis.ariaPakKeyProvider;
+          if (typeof keyProvider !== "function") {
+            throw new Error("This presentation needs a host pak-key provider for signed/protected packages.");
+          }
+          const keys = await keyProvider(bundle);
+          archive = wasm.WebPak.new_with_keys(
+            bytes,
+            keys.verification_key_id,
+            keys.verification_key_hex,
+            keys.encryption_key_id || "",
+            keys.encryption_key_hex || "",
+          );
+        }
         if (archive.game_id() !== bundle.game_id
           || archive.content_root_blake3() !== pack.content_root_blake3) {
           throw new Error(`${pack.file}: metadata does not match bundle.aria.json`);

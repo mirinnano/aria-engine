@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "test": "playwright test",
     "prepare:desktop": "node scripts/prepare-desktop.mjs",
+    "release:desktop": "node scripts/build-release.mjs desktop",
+    "release:web": "node scripts/build-release.mjs web",
     "tauri": "tauri",
     "tauri:build": "tauri build"
   },

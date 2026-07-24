@@ -20,6 +20,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 pub use build::{BuildProfile, BuildTarget};
+pub use package::PackageFormat;
 
 #[derive(Debug, Parser)]
 #[command(name = "aria", version, about = "Aria project toolchain")]
@@ -102,9 +103,12 @@ enum Command {
     Package {
         /// Path to a built bundle directory (the output of `aria build`).
         bundle: PathBuf,
-        /// Override the output directory (default: `dist/<game-id>-<version>-<target>.zip` inside the bundle's parent).
+        /// Override the output directory (default: `dist` inside the bundle's parent).
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Output policy: auto (portable + native installers), zip, installer, or web.
+        #[arg(long, value_enum, default_value_t = PackageFormat::Auto)]
+        format: PackageFormat,
     },
 }
 
@@ -171,6 +175,10 @@ where
             chapter_select,
             locale,
         } => import_novel::command(&source, &out, &chapter_select, &locale),
-        Command::Package { bundle, out } => package::command(&bundle, out.as_deref()),
+        Command::Package {
+            bundle,
+            out,
+            format,
+        } => package::command(&bundle, out.as_deref(), format),
     }
 }

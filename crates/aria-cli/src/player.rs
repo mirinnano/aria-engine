@@ -108,10 +108,24 @@ pub fn run_project(path: &Path) -> Result<u8> {
 }
 
 fn packaged_player_root() -> PathBuf {
-    std::env::current_exe()
+    let executable_dir = std::env::current_exe()
         .ok()
         .and_then(|path| path.parent().map(Path::to_owned))
-        .unwrap_or_else(|| PathBuf::from("."))
+        .unwrap_or_else(|| PathBuf::from("."));
+    // Native macOS apps keep the executable in Contents/MacOS and the Aria
+    // bundle in Contents/Resources. Other targets continue to use the
+    // executable's directory exactly as before.
+    if executable_dir
+        .file_name()
+        .is_some_and(|name| name == "MacOS")
+        && let Some(contents) = executable_dir.parent()
+    {
+        let resources = contents.join("Resources");
+        if resources.is_dir() {
+            return resources;
+        }
+    }
+    executable_dir
 }
 
 #[derive(Debug)]

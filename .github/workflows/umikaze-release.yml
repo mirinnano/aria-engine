@@ -1,0 +1,88 @@
+name: Umikaze release artifacts
+
+on:
+  push:
+    tags: ["umikaze-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  web:
+    name: Web static release
+    runs-on: ubuntu-latest
+    env:
+      ARIA_PAK_PROFILE: signed
+      ARIA_PAK_SIGNING_KEY: ${{ secrets.ARIA_PAK_SIGNING_KEY }}
+      ARIA_PAK_VERIFICATION_KEY_ID: ${{ secrets.ARIA_PAK_VERIFICATION_KEY_ID }}
+      ARIA_PAK_VERIFICATION_KEY_HEX: ${{ secrets.ARIA_PAK_VERIFICATION_KEY_HEX }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.89.0
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: examples/umikaze/ui/package-lock.json
+      - name: Install wasm-bindgen and frontend dependencies
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.126 --locked
+          npm ci --prefix examples/umikaze/ui
+      - name: Build static Web release
+        run: npm --prefix examples/umikaze/ui run release:web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: umikaze-web
+          path: dist/releases/web/**
+
+  desktop:
+    name: Desktop ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            bundles: deb
+          - os: macos-latest
+            bundles: dmg
+          - os: windows-latest
+            bundles: nsis
+    env:
+      ARIA_PAK_PROFILE: signed
+      ARIA_PAK_SIGNING_KEY: ${{ secrets.ARIA_PAK_SIGNING_KEY }}
+      ARIA_PAK_VERIFICATION_KEY_ID: ${{ secrets.ARIA_PAK_VERIFICATION_KEY_ID }}
+      ARIA_PAK_VERIFICATION_KEY_HEX: ${{ secrets.ARIA_PAK_VERIFICATION_KEY_HEX }}
+      ARIA_TAURI_BUNDLES: ${{ matrix.bundles }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: examples/umikaze/ui/package-lock.json
+      - name: Install Linux WebKit/native dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev libdbus-1-dev libudev-dev pkg-config libwayland-dev
+      - name: Install frontend dependencies
+        run: npm ci --prefix examples/umikaze/ui
+      - name: Build native installer
+        run: npm --prefix examples/umikaze/ui run release:desktop
+      - name: Write installer checksums
+        shell: bash
+        run: node scripts/write-sha256-manifest.mjs examples/umikaze/ui/src-tauri/target/release/bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: umikaze-${{ matrix.os }}
+          path: |
+            examples/umikaze/ui/src-tauri/target/release/bundle/**
