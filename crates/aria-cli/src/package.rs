@@ -441,6 +441,9 @@ fn tar_mode(path: &Path) -> u32 {
 }
 
 fn set_executable(path: &Path) -> Result<()> {
+    #[cfg(not(unix))]
+    let _ = path;
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

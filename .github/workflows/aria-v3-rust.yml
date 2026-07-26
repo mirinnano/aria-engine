@@ -66,6 +66,12 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Install matching wasm-bindgen CLI for web-build coverage
+        # The CLI's web-build coverage intentionally exercises the automatic
+        # wasm runtime build, which requires the matching host-side bindgen
+        # binary. Keep this explicit rather than allowing a developer's PATH
+        # to decide whether the release test is meaningful.
+        run: cargo install wasm-bindgen-cli --version 0.2.126 --locked
       - name: Test workspace and architecture boundary
         run: cargo test --workspace --locked
       - name: Check legacy-test classification is current
@@ -154,7 +160,10 @@ jobs:
         with:
           key: wasm
       - name: Check the full workspace for wasm portability
-        run: cargo check --workspace --target wasm32-unknown-unknown --locked
+        # `aria-cli` enables its native desktop player by default. That is a
+        # host-only feature (and pulls ALSA on Linux), so turn it off while
+        # checking the portable Web/WASM surface.
+        run: cargo check --workspace --target wasm32-unknown-unknown --no-default-features --locked
       - name: Install matching wasm-bindgen CLI
         run: cargo install wasm-bindgen-cli --version 0.2.126 --locked
       - name: Build runnable PWA
