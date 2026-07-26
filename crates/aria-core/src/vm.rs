@@ -2522,7 +2522,7 @@ impl Vm {
                 ExecutionState::WaitingForAdvance { .. }
             ),
         });
-        let interlude = (self.state.ui.route == "interlude").then(|| InterludeView {
+        let interlude = (self.state.ui.route == "interlude").then_some(InterludeView {
             first_visit: self.state.ui.interlude_first_visit,
         });
         let choices = self

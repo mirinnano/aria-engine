@@ -428,15 +428,15 @@ fn tar_mode(path: &Path) -> u32 {
         let mode = fs::metadata(path)
             .map(|metadata| metadata.permissions().mode())
             .unwrap_or(0o644);
-        return if mode & 0o111 != 0 { 0o755 } else { 0o644 };
+        if mode & 0o111 != 0 { 0o755 } else { 0o644 }
     }
     #[cfg(not(unix))]
     {
-        return if path.file_name().is_some_and(|name| name == "aria-player") {
+        if path.file_name().is_some_and(|name| name == "aria-player") {
             0o755
         } else {
             0o644
-        };
+        }
     }
 }
 

@@ -204,11 +204,13 @@ where
         } => import_novel::command(
             &source,
             &out,
-            &chapter_select,
-            &locale,
-            &include,
-            presentation,
-            layout,
+            import_novel::NovelImportOptions {
+                chapter_select,
+                locale,
+                include,
+                presentation,
+                layout,
+            },
             verify,
         ),
         Command::Package {

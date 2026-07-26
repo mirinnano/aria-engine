@@ -158,20 +158,9 @@ enum NovelDirection {
 pub fn command(
     source: &Path,
     out: &Path,
-    chapter_select: &str,
-    locale: &str,
-    include: &[String],
-    presentation: NovelPresentation,
-    layout: NovelImportLayout,
+    options: NovelImportOptions,
     verify_only: bool,
 ) -> Result<u8> {
-    let options = NovelImportOptions {
-        chapter_select: chapter_select.to_owned(),
-        locale: locale.to_owned(),
-        include: include.to_owned(),
-        presentation,
-        layout,
-    };
     let report = if verify_only {
         verify_novel_output(source, out, options)?
     } else {
@@ -854,7 +843,7 @@ fn render_umikaze_chapter_layout(
     for chapter in chapters {
         index.push_str(&format!("use \"{}\";\n", chapter_file_name(chapter)));
     }
-    index.push_str("\n");
+    index.push('\n');
     index.push_str(&format!("scene {chapter_select} {{\n"));
     index.push_str("  screen chapter_select;\n");
     index.push_str("  background asset(\"#102b38\") with wipe(260ms);\n");

@@ -244,6 +244,12 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
-      - uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      # `rustsec/audit-check@v2` installs the newest cargo-audit without its
+      # lockfile. Pin the Rust-1.89-compatible CVSS 4-aware release and its
+      # reviewed dependency graph. The workspace uses thin LTO for shipped
+      # binaries; audit is a disposable CI utility, so disable it here to
+      # avoid tool-install linker failures on runner LLVM versions.
+      - name: Audit security advisories
+        run: |
+          CARGO_PROFILE_RELEASE_LTO=off cargo install cargo-audit --version 0.22.2 --locked
+          cargo audit
