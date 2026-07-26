@@ -18,11 +18,19 @@ import {
 
 import { languageNames, localeFor, strings } from "./copy";
 import { bootPresentation, type PresentationRuntime, type SaveSlotSummary } from "./runtime";
-import coastRoad from "./assets/scenes/coast-road-dawn-v1.png";
-import hospitalCorridor from "./assets/scenes/hospital-corridor-overcast-v1.png";
-import rainWindow from "./assets/scenes/rain-window-dusk-v1.png";
+import { chapterPreviewByLabel } from "#chapter-preview";
+import {
+  chapterFallbackSources,
+  gallerySources,
+  sceneAssetByTone,
+  sceneSources,
+  stagePhotoByKind,
+} from "#scene-assets";
+import type { ChapterPreviewRecord } from "./chapter-preview.types";
 import "./app.css";
 import "./stage.css";
+
+const isDemoEdition = import.meta.env.VITE_UMIKAZE_EDITION === "demo";
 
 type Dispatch = (intent: UiIntent) => void;
 
@@ -41,20 +49,87 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 
 const sceneToneByColor: Record<string, string> = {
   "16,43,56": "tide",
-  "40,75,89": "rooftop",
-  "31,59,77": "platform",
-  "61,70,85": "photograph",
-  "36,78,90": "shore",
+  "40,75,89": "school",
+  "31,59,77": "motion",
+  "61,70,85": "ward",
+  "36,78,90": "blue",
   "57,72,87": "rain",
-  "23,37,59": "night",
-  "49,85,101": "wind",
-  "109,107,87": "autumn",
+  "23,37,59": "blue",
+  "49,85,101": "shore",
+  "55,90,97": "blue",
+  "109,107,87": "clear",
+  "5,7,11": "blackout",
+  "222,215,201": "whiteout",
+  "34,60,76": "station",
+  "62,76,92": "hotel",
+  "38,62,71": "harbor",
+  "23,45,66": "night",
+  "82,107,124": "platform",
+  "83,109,120": "mist",
+  "118,110,97": "rail-sunset",
+  "15,47,57": "city",
+  "48,74,87": "rain-city",
+  "30,41,55": "bridge",
+  "47,69,85": "passage",
+  "22,61,74": "shore",
+  "64,84,105": "night",
 };
+
+// Day cards have their own environmental reading.  A chapter opens on the
+// weather of *that* day rather than inheriting a generic menu photograph.
+// The story stays declarative: its first choice is the source of this tiny
+// presentation hint, so saving on a card and restoring it remains exact.
+const dayCardToneByHeading: Record<string, string> = {
+  PROLOGUE: "ward",
+  "DAY 1": "station",
+  "DAY 2": "rain",
+  "DAY 3": "hotel",
+  "DAY 4": "blue",
+  "DAY 5": "rain",
+  "DAY 6": "clear",
+  "DAY 7": "shore",
+  "DAY 8": "harbor",
+  "DAY 9": "night",
+  "DAY 10": "blue",
+  "DAY 14": "passage",
+  EPILOGUE: "clear",
+};
+
+const dayCardThemeByHeading: Record<string, string> = {
+  PROLOGUE: "ward",
+  "DAY 1": "departure",
+  "DAY 2": "rain",
+  "DAY 3": "rail",
+  "DAY 4": "shore",
+  "DAY 5": "rain",
+  "DAY 6": "clear",
+  "DAY 7": "island",
+  "DAY 8": "harbor",
+  "DAY 9": "north",
+  "DAY 10": "terminus",
+  "DAY 14": "shore",
+  EPILOGUE: "spring",
+};
+
+function dayCardHeading(view: UiViewModel | null | undefined): string | null {
+  if (!view || routeName(view.route) !== "day_card") return null;
+  return view.choices[0]?.label.split("\n", 1)[0]?.trim() || null;
+}
+
+function dayCardThemeFor(view: UiViewModel | null | undefined): string {
+  const heading = dayCardHeading(view);
+  return heading ? dayCardThemeByHeading[heading] || "record" : "record";
+}
 
 function toneForScene(output: AriaStepOutput | null): string {
   if (!output) return "loading";
   const route = routeName(output.view.route);
   if (route === "setup" || route === "title") return "title";
+  if (route === "demo_end") return "shore";
+  if (route === "day_card") {
+    const heading = dayCardHeading(output.view);
+    return heading ? dayCardToneByHeading[heading] || "tide" : "tide";
+  }
   const scene = output.scene as unknown as { commands?: unknown[] };
   const background = scene.commands?.find((command) => (
     Boolean(command)
@@ -69,32 +144,119 @@ function toneForScene(output: AriaStepOutput | null): string {
   return route === "chapter_select" ? "tide" : "night";
 }
 
-const sceneAssetByTone: Record<string, { source: string; name: "coast" | "corridor" | "rain" }> = {
-  loading: { source: coastRoad, name: "coast" },
-  title: { source: coastRoad, name: "coast" },
-  tide: { source: coastRoad, name: "coast" },
-  rooftop: { source: coastRoad, name: "coast" },
-  platform: { source: hospitalCorridor, name: "corridor" },
-  photograph: { source: hospitalCorridor, name: "corridor" },
-  shore: { source: coastRoad, name: "coast" },
-  rain: { source: rainWindow, name: "rain" },
-  night: { source: rainWindow, name: "rain" },
-  wind: { source: coastRoad, name: "coast" },
-  autumn: { source: coastRoad, name: "coast" },
-};
-
 /**
  * The scene is a place before it is an interface.  The photos are original
  * project art; this component only decides which one belongs to the current
  * story state, without inventing another graphic language over it.
  */
-function ScenePhotograph({ output }: { output: AriaStepOutput | null }) {
+function ScenePhotograph({ output, transform }: { output: AriaStepOutput | null; transform?: string }) {
   const route = output ? routeName(output.view.route) : "loading";
   const tone = toneForScene(output);
   const asset = sceneAssetByTone[tone] || sceneAssetByTone.coast;
+  if (!asset.source) {
+    return (
+      <div
+        key={`${route}-${tone}`}
+        className={`scene-photograph scene-photograph--${asset.name} scene-photograph--tone-${tone}`}
+        style={{ backgroundColor: asset.solid || "#0b1419", ...(transform ? { transform } : {}) }}
+        aria-hidden="true"
+      />
+    );
+  }
   return (
-    <div key={`${route}-${tone}`} className={`scene-photograph scene-photograph--${asset.name} scene-photograph--tone-${tone}`} aria-hidden="true">
-      <img src={asset.source} alt="" />
+    <div
+      key={`${route}-${tone}`}
+      className={`scene-photograph scene-photograph--${asset.name} scene-photograph--tone-${tone}`}
+      style={transform ? { transform } : undefined}
+      aria-hidden="true"
+    >
+      <img src={asset.source} alt="" decoding="async" />
+    </div>
+  );
+}
+
+type SceneDirectionOverlay = {
+  key: string;
+  color: string;
+};
+
+type SceneDirection = {
+  transform?: string;
+  overlays: SceneDirectionOverlay[];
+};
+
+const emptySceneDirection: SceneDirection = { overlays: [] };
+
+function finiteNumber(value: unknown, fallback = 0): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function clampedNumber(value: unknown, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, finiteNumber(value)));
+}
+
+/**
+ * The semantic scene contract keeps effects intentionally opaque to UI
+ * components. UmiKaze owns the visible stage, so it reads only the tiny,
+ * stable effect subset here. The calculation mirrors the native renderer;
+ * importantly, it has no timer of its own and therefore leaves still frames
+ * completely still.
+ */
+function directionForScene(output: AriaStepOutput | null, reducedMotion: boolean): SceneDirection {
+  const rawScene = output?.scene as unknown as { effects?: unknown } | undefined;
+  if (!Array.isArray(rawScene?.effects)) return emptySceneDirection;
+
+  let shakeX = 0;
+  let shakeY = 0;
+  const overlays: SceneDirectionOverlay[] = [];
+
+  rawScene.effects.forEach((rawEffect, index) => {
+    if (!rawEffect || typeof rawEffect !== "object") return;
+    const effect = rawEffect as {
+      kind?: unknown;
+      color?: { red?: unknown; green?: unknown; blue?: unknown };
+      opacity?: unknown;
+      amplitude?: unknown;
+      progress?: unknown;
+    };
+    const progress = clampedNumber(effect.progress, 0, 1);
+
+    if (effect.kind === "shake") {
+      if (reducedMotion) return;
+      const amplitude = Math.max(0, finiteNumber(effect.amplitude));
+      const fade = 1 - progress;
+      const phase = progress * Math.PI * 2 * 3;
+      shakeX += amplitude * Math.sin(phase) * fade;
+      shakeY += amplitude * Math.cos(phase * 1.37) * fade;
+      return;
+    }
+
+    if ((effect.kind !== "tint" && effect.kind !== "flash") || !effect.color) return;
+    const opacity = clampedNumber(effect.opacity, 0, 255) / 255 * (1 - progress);
+    if (opacity <= 0) return;
+    const red = Math.round(clampedNumber(effect.color.red, 0, 255));
+    const green = Math.round(clampedNumber(effect.color.green, 0, 255));
+    const blue = Math.round(clampedNumber(effect.color.blue, 0, 255));
+    overlays.push({
+      key: `${String(effect.kind)}-${index}`,
+      color: `rgb(${red} ${green} ${blue} / ${opacity})`,
+    });
+  });
+
+  if (reducedMotion || (Math.abs(shakeX) < 0.01 && Math.abs(shakeY) < 0.01)) return { overlays };
+  // A small scale absorbs the edge of the shake, so a physical jolt never
+  // exposes a browser-coloured seam around the still photograph.
+  return { transform: `translate3d(${shakeX.toFixed(2)}px, ${shakeY.toFixed(2)}px, 0) scale(1.018)`, overlays };
+}
+
+function SceneDirectionLayer({ overlays }: { overlays: SceneDirectionOverlay[] }) {
+  if (overlays.length === 0) return null;
+  return (
+    <div className="scene-direction-layer" aria-hidden="true">
+      {overlays.map((overlay) => (
+        <div key={overlay.key} className="scene-direction-effect" style={{ backgroundColor: overlay.color }} />
+      ))}
     </div>
   );
 }
@@ -161,17 +323,12 @@ type FocusMenuItem = {
  */
 function StageBackdrop({ kind = "record" }: { kind?: string }) {
   const isTitle = kind === "title";
-  const showsPaperSlips = kind !== "title" && kind !== "setup";
+  const photo = stagePhotoByKind[kind] || stagePhotoByKind.record;
   return (
     <div className={`record-stage-backdrop record-stage-backdrop--${kind}`} aria-hidden="true">
+      <img className={`record-stage-photograph record-stage-photograph--${photo.name}`} src={photo.source} alt="" decoding="async" />
       {isTitle && (
         <div className="record-stage-fragments">
-          <span className="record-stage-fragment record-stage-fragment--tractatus-one" lang="de">
-            1&nbsp; Die Welt ist alles, was der Fall ist.
-          </span>
-          <span className="record-stage-fragment record-stage-fragment--tractatus-facts" lang="de">
-            1.2&nbsp; Die Welt zerfällt in Tatsachen.
-          </span>
           <span className="record-stage-fragment record-stage-fragment--tractatus-silence" lang="de">
             7&nbsp; Wovon man nicht sprechen kann, darüber muß man schweigen.
           </span>
@@ -184,12 +341,6 @@ function StageBackdrop({ kind = "record" }: { kind?: string }) {
         </div>
       )}
       <span className="record-stage-signal record-stage-signal--one" />
-      <span className="record-stage-signal record-stage-signal--two" />
-      {showsPaperSlips && <>
-        <span className="record-stage-slip record-stage-slip--one" />
-        <span className="record-stage-slip record-stage-slip--two" />
-        <span className="record-stage-slip record-stage-slip--three" />
-      </>}
     </div>
   );
 }
@@ -413,7 +564,7 @@ function SettingsSheet({ view, copy, dispatch }: {
   copy: ReturnType<typeof strings>;
   dispatch: Dispatch;
 }) {
-  type SettingsSection = "text" | "sound" | "display";
+  type SettingsSection = "text" | "sound" | "display" | "system";
   const [section, setSection] = useState<SettingsSection>("text");
   const set = (name: string, value: number) => dispatch({ kind: "set_setting", name, value });
   const toggle = (name: string) => dispatch({ kind: "toggle_setting", name });
@@ -424,6 +575,7 @@ function SettingsSheet({ view, copy, dispatch }: {
     { id: "text", label: "TEXT", description: copy.readingControls },
     { id: "sound", label: "SOUND", description: copy.sound },
     { id: "display", label: "DISPLAY", description: copy.display },
+    { id: "system", label: "SYSTEM", description: copy.records },
   ];
   const selectedSection = sections.find((item) => item.id === section) ?? sections[0];
   return (
@@ -438,8 +590,9 @@ function SettingsSheet({ view, copy, dispatch }: {
           ))}
         </nav>
         <section className="settings-deck" aria-label={selectedSection.description}>
-          <p className="settings-deck-kicker">{selectedSection.label}</p>
-          <h3>{selectedSection.description}</h3>
+          <header className="settings-deck-header">
+            <h3>{selectedSection.description}</h3>
+          </header>
           {section === "text" && (
             <div className="settings-rails">
               <SettingRail label={copy.textSpeed} value={view.settings.text_speed_ms} min={0} max={120} step={4}
@@ -448,8 +601,8 @@ function SettingsSheet({ view, copy, dispatch }: {
                 valueLabel={copy.valueMs(view.settings.auto_delay_ms)} onChange={(value) => set("auto_delay_ms", value)} />
               <SettingRail label={copy.textSize} value={view.settings.text_scale} min={0.85} max={1.35} step={0.05}
                 valueLabel={copy.valuePercent(view.settings.text_scale)} onChange={(value) => set("text_scale", value)} />
-              <BinarySetting label={copy.skipUnread} selected={view.settings.skip_unread}
-                onSelectedChange={(next) => setBoolean("skip_unread", view.settings.skip_unread, next)} />
+              <SettingRail label={copy.subtitleOpacity} value={view.settings.text_opacity} min={0.72} max={1} step={0.04}
+                valueLabel={copy.valuePercent(view.settings.text_opacity)} onChange={(value) => set("text_opacity", value)} />
             </div>
           )}
           {section === "sound" && (
@@ -470,6 +623,14 @@ function SettingsSheet({ view, copy, dispatch }: {
                 onSelectedChange={(next) => setBoolean("high_contrast", view.settings.high_contrast, next)} />
               <BinarySetting label={copy.reducedMotion} selected={view.settings.reduced_motion}
                 onSelectedChange={(next) => setBoolean("reduced_motion", view.settings.reduced_motion, next)} />
+              <BinarySetting label={copy.stageEffects} selected={view.settings.stage_effects}
+                onSelectedChange={(next) => setBoolean("stage_effects", view.settings.stage_effects, next)} />
+            </div>
+          )}
+          {section === "system" && (
+            <div className="settings-rails">
+              <BinarySetting label={copy.skipUnread} selected={view.settings.skip_unread}
+                onSelectedChange={(next) => setBoolean("skip_unread", view.settings.skip_unread, next)} />
             </div>
           )}
         </section>
@@ -546,6 +707,15 @@ function SaveLoadSheet({ kind, view, copy, onAction, dispatch, saveSlots }: {
 }) {
   const label = kind === "save" ? "SAVE" : "LOAD";
   const records = new Map(saveSlots.map((record) => [record.slot, record]));
+  const recordDescription = (record: SaveSlotSummary | undefined) => {
+    if (!record) return null;
+    const timestamp = record.timestampMs
+      ? new Intl.DateTimeFormat(localeFor(view.game.locale), { dateStyle: "medium", timeStyle: "short" }).format(new Date(record.timestampMs))
+      : null;
+    return [record.speaker, record.excerpt, timestamp]
+      .filter((value): value is string => Boolean(value))
+      .join(" · ") || copy.previousRecord;
+  };
   return (
     <OverlaySheet title={label} kicker={kind === "save" ? copy.save : copy.load} dismissLabel={copy.close} variant="archive" surface={kind} onDismiss={() => dispatch({ kind: "dismiss" })}>
       <p className="sheet-intro">{kind === "save" ? copy.saveLead : copy.loadLead}</p>
@@ -554,12 +724,7 @@ function SaveLoadSheet({ kind, view, copy, onAction, dispatch, saveSlots }: {
           const id = `${kind}.slot.${slot}`;
           const slotLabel = kind === "save" ? copy.saveSlot(slot) : copy.loadSlot(slot);
           const record = records.get(slot);
-          const timestamp = record?.timestampMs
-            ? new Intl.DateTimeFormat(localeFor(view.game.locale), { dateStyle: "medium", timeStyle: "short" }).format(new Date(record.timestampMs))
-            : null;
-          const description = record
-            ? [record.speaker, record.excerpt, timestamp].filter((value): value is string => Boolean(value)).join(" · ") || copy.previousRecord
-            : kind === "load" ? copy.emptyRecord : slotLabel;
+          const description = recordDescription(record) || (kind === "load" ? copy.emptyRecord : slotLabel);
           const descriptionId = `record-slot-${kind}-${slot}`;
           return (
             <Button key={id} data-aria-focusable data-aria-action={id} className="record-slot"
@@ -674,16 +839,35 @@ function ChapterSheet({ view, copy, onAction, dispatch }: {
     id: string;
     label: string;
     description: string;
+    date: string;
+    preview?: ChapterPreviewRecord;
     unlocked: boolean;
-    progress: number;
     selected: boolean;
   };
-  const cards: ChapterCard[] = view.choices.length ? view.choices.map((choice, index) => ({
-    id: choice.id, label: choice.label, description: "", unlocked: true, progress: Math.min(100, index ? 0 : 12), selected: choice.selected,
-  })) : view.chapters.map((chapter) => ({
-    id: `chapter:${chapter.id}`, label: chapter.title || chapter.id, description: chapter.description, unlocked: chapter.unlocked,
-    progress: chapter.progress, selected: false,
-  }));
+  const cards: ChapterCard[] = view.choices.length ? view.choices.map((choice) => {
+    const preview = chapterPreviewByLabel[choice.label.trim()];
+    return {
+      id: choice.id,
+      label: choice.label,
+      description: preview?.synopsis ?? "",
+      date: preview?.date ?? "",
+      preview,
+      unlocked: true,
+      selected: choice.selected,
+    };
+  }) : view.chapters.map((chapter) => {
+    const label = chapter.title || chapter.id;
+    const preview = chapterPreviewByLabel[label.trim()];
+    return {
+      id: `chapter:${chapter.id}`,
+      label,
+      description: preview?.synopsis || chapter.description,
+      date: preview?.date ?? "",
+      preview,
+      unlocked: chapter.unlocked,
+      selected: false,
+    };
+  });
   const initialPreviewId = cards.find((card) => card.selected)?.id
     ?? cards.find((card) => card.unlocked)?.id
     ?? cards[0]?.id
@@ -694,7 +878,8 @@ function ChapterSheet({ view, copy, onAction, dispatch }: {
   }, [cards, initialPreviewId, previewChapterId]);
   const featured = cards.find((card) => card.id === previewChapterId) ?? cards.find((card) => card.id === initialPreviewId);
   const featuredIndex = Math.max(0, cards.findIndex((card) => card.id === featured?.id));
-  const previewScenes = [coastRoad, hospitalCorridor, rainWindow];
+  const previewSource = (featured?.preview && sceneSources[featured.preview.scene])
+    ?? chapterFallbackSources[featuredIndex % chapterFallbackSources.length];
   const moveIndexFocus = (container: HTMLElement, direction: -1 | 1) => {
     const controls = [...container.querySelectorAll<HTMLButtonElement>("[data-chapter-index-item]")]
       .filter((control) => !control.disabled);
@@ -710,13 +895,12 @@ function ChapterSheet({ view, copy, onAction, dispatch }: {
       <div className="chapter-stage">
         {featured && (
           <section className="chapter-preview" aria-label={featured.unlocked ? featured.label : copy.locked}>
-            <img className="chapter-preview-image" src={previewScenes[featuredIndex % previewScenes.length]} alt="" />
+            <img className="chapter-preview-image" src={previewSource} alt="" />
             <div className="chapter-preview-record">
-              <p className="chapter-preview-code">CHAPTER {String(featuredIndex + 1).padStart(2, "0")}</p>
-              <span className="chapter-preview-line" aria-hidden="true" />
+              {featured.unlocked && featured.date && <p className="chapter-preview-date">{featured.date}</p>}
               <h3>{featured.unlocked ? featured.label : "SEALED"}</h3>
-              <p className="chapter-preview-description">{featured.unlocked ? featured.description || copy.progress : copy.locked}</p>
-              {featured.unlocked && <p className="chapter-preview-progress">{copy.progress} {Math.round(featured.progress)}%</p>}
+              {featured.unlocked && featured.description && <p className="chapter-preview-description">{featured.description}</p>}
+              {!featured.unlocked && <p className="chapter-preview-description">{copy.locked}</p>}
             </div>
           </section>
         )}
@@ -730,13 +914,12 @@ function ChapterSheet({ view, copy, onAction, dispatch }: {
             moveIndexFocus(event.currentTarget, 1);
           }
         }}>
-          {cards.map((card, index) => (
+          {cards.map((card) => (
             <Button key={card.id} data-aria-focusable data-aria-action={card.id} data-chapter-index-item
               className={`chapter-index-row${card.unlocked ? "" : " is-locked"}${card.id === featured?.id ? " is-preview" : ""}`}
-              aria-label={card.unlocked ? `${card.label}${card.progress > 0 ? ` — ${copy.progress}` : ""}` : copy.locked}
+              aria-label={card.unlocked ? card.label : copy.locked}
               isDisabled={!card.unlocked} onFocus={() => setPreviewChapterId(card.id)} onPointerEnter={() => setPreviewChapterId(card.id)}
               onPress={() => onAction(card.id)}>
-              <span className="chapter-index-code">CHAPTER {String(index + 1).padStart(2, "0")}</span>
               <span className="chapter-index-name">{card.unlocked ? card.label : "SEALED"}</span>
               <span className="chapter-index-rule" aria-hidden="true" />
             </Button>
@@ -753,7 +936,6 @@ function GallerySheet({ view, copy, onAction, dispatch }: {
   onAction: (id: string) => void;
   dispatch: Dispatch;
 }) {
-  const galleryScenes = [coastRoad, hospitalCorridor, rainWindow];
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const selectedIndex = Math.max(0, view.gallery.findIndex((item) => item.id === view.gallery_viewer));
   const selected = view.gallery[selectedIndex];
@@ -775,7 +957,7 @@ function GallerySheet({ view, copy, onAction, dispatch }: {
                 onAction(deltaX < 0 ? "gallery.next" : "gallery.previous");
               }
             }}>
-            <img className="gallery-viewer-image" src={galleryScenes[selectedIndex % galleryScenes.length]} alt={copy.memory(selectedIndex + 1)} />
+            <img className="gallery-viewer-image" src={gallerySources[selectedIndex % gallerySources.length]} alt={copy.memory(selectedIndex + 1)} />
             <div className="gallery-viewer-shade" aria-hidden="true" />
             <header className="gallery-viewer-header">
               <span>{copy.memory(selectedIndex + 1)}</span>
@@ -801,7 +983,7 @@ function GallerySheet({ view, copy, onAction, dispatch }: {
             aria-label={item.unlocked ? copy.memory(index + 1) : copy.locked}
             isDisabled={!item.unlocked || !actionEnabled(view, `gallery:${item.id}`)}
             onPress={() => onAction(`gallery:${item.id}`)}>
-            <span className="gallery-image" aria-hidden="true" style={{ backgroundImage: `linear-gradient(180deg, rgb(5 16 22 / 8%), rgb(5 16 22 / 64%)), url(${galleryScenes[index % galleryScenes.length]})` }} />
+            <span className="gallery-image" aria-hidden="true" style={{ backgroundImage: `linear-gradient(180deg, rgb(5 16 22 / 8%), rgb(5 16 22 / 64%)), url(${gallerySources[index % gallerySources.length]})` }} />
             <span className="gallery-index">{String(index + 1).padStart(2, "0")}</span>
             <span className="gallery-label">{item.unlocked ? copy.memory(index + 1) : copy.locked}</span>
           </Button>
@@ -838,6 +1020,7 @@ function Dialogue({ view, copy, onAction, chromeVisible, onRevealChrome }: {
         </nav>
       )}
       <section className="reading-band" aria-label={copy.reading}
+        aria-keyshortcuts="Enter Space"
         data-page-id={dialogue?.page_id ?? ""}
         data-page-number={dialogue?.page_number ?? 0}
         data-page-count={dialogue?.page_count ?? 0}
@@ -854,6 +1037,131 @@ function Dialogue({ view, copy, onAction, chromeVisible, onRevealChrome }: {
         {modeMark && <span className="reading-mode-mark" aria-label={modeMark}>{modeMark}</span>}
       </section>
     </>
+  );
+}
+
+type DayCardContent = {
+  choice: ChoiceView;
+  day: string;
+  date: string;
+  synopsis: string;
+};
+
+function dayCardFor(view: UiViewModel): DayCardContent | null {
+  const choice = view.choices[0];
+  if (!choice) return null;
+  const [day = "", date = "", ...synopsis] = choice.label.split("\n");
+  if (!day.trim() || !date.trim() || synopsis.length === 0) return null;
+  return {
+    choice,
+    day: day.trim(),
+    date: date.trim(),
+    synopsis: synopsis.join("\n").trim(),
+  };
+}
+
+/**
+ * A chapter does not begin with another subtitle.  It pauses on the day's
+ * place and weather, gives away only enough to invite the reader onward, and
+ * then uses its single semantic choice to enter the prose.  There is no
+ * timer: the silence belongs to the player.
+ */
+function DayCard({ view, copy, onAction }: {
+  view: UiViewModel;
+  copy: ReturnType<typeof strings>;
+  onAction: (id: string) => void;
+}) {
+  const card = dayCardFor(view);
+  if (!card) return null;
+  const theme = dayCardThemeFor(view);
+  return (
+    <section className={`day-card day-card--${theme}`} aria-labelledby="day-card-title">
+      <div className="day-card-copy">
+        <p className="day-card-date">{card.date}</p>
+        <h1 id="day-card-title">{card.day}</h1>
+        <p className="day-card-synopsis">{card.synopsis}</p>
+      </div>
+      <Button
+        autoFocus
+        className="day-card-advance"
+        data-aria-focusable
+        data-aria-action={card.choice.id}
+        aria-label={copy.next}
+        onPress={() => onAction(card.choice.id)}
+      >
+        <span aria-hidden="true">BEGIN</span>
+        <span className="sr-only">{copy.next}</span>
+      </Button>
+    </section>
+  );
+}
+
+/**
+ * A short, story-owned silence between scenes.  It intentionally does not
+ * reuse the subtitle band: Core has already completed and logged its line,
+ * while this surface gives that line a full, dark frame and lets any ordinary
+ * advance input release the authored hold.
+ */
+function Interlude({ view, copy, onAction }: {
+  view: UiViewModel;
+  copy: ReturnType<typeof strings>;
+  onAction: (id: string) => void;
+}) {
+  const text = view.dialogue?.full_page_text || "";
+  const firstVisit = view.interlude?.first_visit ?? false;
+  return (
+    <section
+      className={`interlude-screen${firstVisit ? " interlude-screen--first" : " interlude-screen--return"}`}
+      aria-label={copy.reading}
+    >
+      <Button
+        autoFocus
+        className="interlude-advance"
+        data-aria-focusable
+        data-aria-action="interlude.advance"
+        aria-label={copy.next}
+        onPress={() => onAction("interlude.advance")}
+      >
+        <p className="interlude-line" aria-live="polite" aria-atomic="true">{text}</p>
+        <span className="sr-only">{copy.next}</span>
+      </Button>
+    </section>
+  );
+}
+
+/**
+ * The demo closes as a place in the record, not a sales modal. Its only
+ * exits remain inside the installed story: replay the available arc or go
+ * back to the title. Store and social links belong to a configured release,
+ * never to invented placeholder URLs.
+ */
+function DemoEnd({ view, copy, onAction }: {
+  view: UiViewModel;
+  copy: ReturnType<typeof strings>;
+  onAction: (id: string) => void;
+}) {
+  const items: FocusMenuItem[] = view.choices.map((choice, index) => ({
+    id: choice.id,
+    label: index === 0 ? "READ AGAIN" : "TITLE",
+    description: index === 0 ? copy.demoReplay : copy.demoReturn,
+    accessibleLabel: choice.label,
+  }));
+  return (
+    <section className="demo-end-screen" aria-labelledby="demo-end-title">
+      <div className="demo-end-copy">
+        <p className="demo-end-kicker">DEMO COMPLETE</p>
+        <h1 id="demo-end-title">{copy.demoComplete}</h1>
+        <p className="demo-end-lead">{copy.demoLead}</p>
+      </div>
+      <FocusMenu
+        label={copy.demoComplete}
+        items={items}
+        onAction={onAction}
+        className="demo-end-command-list"
+        initialFocusId={items[0]?.id}
+        descriptionPlacement="under-focused-item"
+      />
+    </section>
   );
 }
 
@@ -876,10 +1184,10 @@ function Title({ view, copy, onAction }: {
     <section className="record-title-screen record-title-screen--home" aria-label={copy.title}>
       <StageBackdrop kind="title" />
       <header className="title-identity">
-        <p className="title-record-code">{copy.eyebrow}</p>
         <div className="title-masthead">
           <h1>{copy.title}</h1>
           <p className="title-subtitle">{copy.subtitle}</p>
+          {isDemoEdition && <p className="title-edition">DEMO</p>}
         </div>
       </header>
       <div className="title-selection title-selection--home">
@@ -932,6 +1240,19 @@ function RuntimeProblem({ copy, detail }: { copy: ReturnType<typeof strings>; de
   );
 }
 
+/**
+ * The first frame is normally silent.  Only a real slow boot earns a small
+ * record-opening card after 250 ms; there is no fake percentage, spinner, or
+ * continuous animation competing with the title screen.
+ */
+function OpeningRecord({ copy }: { copy: ReturnType<typeof strings> }) {
+  return (
+    <section className="opening-record" aria-live="polite" aria-label={copy.openingRecord}>
+      <span>{copy.openingRecord}</span>
+    </section>
+  );
+}
+
 function Setup({ view, copy, onAction }: {
   view: UiViewModel;
   copy: ReturnType<typeof strings>;
@@ -950,7 +1271,6 @@ function Setup({ view, copy, onAction }: {
     <section className="record-title-screen record-setup-screen" aria-label={copy.firstLight}>
       <StageBackdrop kind="setup" />
       <header className="title-identity">
-        <p className="title-record-code">{copy.eyebrow}</p>
         <div className="title-masthead">
           <h1>{copy.title}</h1>
           <p className="title-subtitle">{copy.subtitle}</p>
@@ -983,6 +1303,9 @@ function Screen({ view, dispatch, chromeVisible, onRevealChrome, saveSlots }: {
   const onAction = (id: string) => dispatch({ kind: "activate", id });
   if (route === "setup") return <Setup view={view} copy={copy} onAction={onAction} />;
   if (route === "title") return <Title view={view} copy={copy} onAction={onAction} />;
+  if (route === "interlude") return <Interlude view={view} copy={copy} onAction={onAction} />;
+  if (route === "demo_end") return <DemoEnd view={view} copy={copy} onAction={onAction} />;
+  if (route === "day_card") return <DayCard view={view} copy={copy} onAction={onAction} />;
   if (route === "pause") return <RMenu view={view} copy={copy} onAction={onAction} dispatch={dispatch} />;
   if (route === "save" || route === "load") return <SaveLoadSheet kind={route} view={view} copy={copy} onAction={onAction} dispatch={dispatch} saveSlots={saveSlots} />;
   if (route === "settings") return <SettingsSheet view={view} copy={copy} dispatch={dispatch} />;
@@ -1008,7 +1331,8 @@ export default function App() {
   const previousWasOverlay = useRef(false);
   const chromeTimer = useRef<number | null>(null);
   const [output, setOutput] = useState<AriaStepOutput | null>(null);
-  const [status, setStatus] = useState("Opening the record…");
+  const [status, setStatus] = useState("");
+  const [bootSlow, setBootSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chromeVisible, setChromeVisible] = useState(false);
   const [saveSlots, setSaveSlots] = useState<SaveSlotSummary[]>([]);
@@ -1017,19 +1341,36 @@ export default function App() {
     const target = canvas.current;
     if (!target) return;
     let alive = true;
+    const slowBootTimer = window.setTimeout(() => {
+      if (alive) setBootSlow(true);
+    }, 250);
     void bootPresentation(target, {
-      onOutput(next) { if (alive) setOutput(next); },
+      onOutput(next) {
+        if (!alive) return;
+        window.clearTimeout(slowBootTimer);
+        setBootSlow(false);
+        setOutput(next);
+      },
       onStatus(message) { if (alive) setStatus(message); },
-      onError(cause) { if (alive) setError(cause.message); },
+      onError(cause) {
+        if (!alive) return;
+        window.clearTimeout(slowBootTimer);
+        setBootSlow(false);
+        setError(cause.message);
+      },
       onSaveSlots(next) { if (alive) setSaveSlots(next); },
     }).then((controller) => {
       if (alive) runtime.current = controller;
       else controller.dispose();
     }).catch((cause: unknown) => {
-      if (alive) setError(cause instanceof Error ? cause.message : String(cause));
+      if (!alive) return;
+      window.clearTimeout(slowBootTimer);
+      setBootSlow(false);
+      setError(cause instanceof Error ? cause.message : String(cause));
     });
     return () => {
       alive = false;
+      window.clearTimeout(slowBootTimer);
       runtime.current?.dispose();
       runtime.current = null;
     };
@@ -1038,7 +1379,14 @@ export default function App() {
   const view = output?.view;
   const fallbackCopy = strings(view?.game.locale ?? navigator.language);
   const route = view ? routeName(view.route) : "loading";
+  const isInterlude = route === "interlude";
   const tone = toneForScene(output);
+  const dayCardTheme = dayCardThemeFor(view);
+  const isReadingStage = route === "dialogue"
+    || (route === "chapter_select" && Boolean(view?.dialogue) && (view?.choices.length ?? 0) === 0);
+  const sceneDirection = isReadingStage
+    ? directionForScene(output, Boolean(view?.settings.reduced_motion))
+    : emptySceneDirection;
 
   useEffect(() => () => {
     if (chromeTimer.current !== null) window.clearTimeout(chromeTimer.current);
@@ -1126,7 +1474,13 @@ export default function App() {
   }, [route, view]);
 
   const dispatch: Dispatch = (intent) => {
-    if (intent.kind === "activate" && view && !isOverlayRoute(route, view) && intent.id !== "dialogue.advance") {
+    if (
+      intent.kind === "activate"
+      && view
+      && !isOverlayRoute(route, view)
+      && intent.id !== "dialogue.advance"
+      && intent.id !== "interlude.advance"
+    ) {
       const active = document.activeElement;
       if (active instanceof HTMLElement && active.matches("[data-aria-focusable]")) {
         focusBeforeOverlay.current = active;
@@ -1143,11 +1497,13 @@ export default function App() {
   const openRMenu = (event: React.MouseEvent<HTMLElement>) => {
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest("input, textarea, select, [contenteditable=true]")) return;
+    // This is an installed game surface, not a browser document. Suppress the
+    // WebView's context menu on every stage route; where a semantic layer is
+    // available, keep the familiar right-click meaning instead.
+    event.preventDefault();
     if (!isOverlayRoute(route, view) && view && actionEnabled(view, "chrome.menu")) {
-      event.preventDefault();
       dispatch({ kind: "activate", id: "chrome.menu" });
     } else if (isOverlayRoute(route, view)) {
-      event.preventDefault();
       // A secondary click closes only the foremost semantic layer.  In
       // particular, it returns from a CG viewer to its grid instead of
       // discarding every sheet underneath it.
@@ -1170,54 +1526,85 @@ export default function App() {
     // a mouse or pen and fully reachable from the keyboard.
     if (event.clientY <= 84) revealChrome();
   };
-  const useReadingEdge = (event: React.MouseEvent<HTMLElement>) => {
-    // The film has two mouse-only edges: the upper black border recalls the
-    // record, while the lower border turns the next subtitle. Buttons retain
-    // their own press semantics; these zones only cover the intentionally
-    // empty space around them.
-    if (!view || event.detail === 0 || event.button !== 0 || isInteractiveTarget(event.target)) return;
-    const isReadingSurface = route === "dialogue"
-      || (route === "chapter_select" && Boolean(view.dialogue) && view.choices.length === 0);
-    if (!isReadingSurface) return;
-
-    const topEdge = Math.min(112, Math.max(52, window.innerHeight * 0.095));
-    const bottomEdge = Math.min(116, Math.max(92, window.innerHeight * 0.11));
-    if (event.clientY <= topEdge && actionEnabled(view, "chrome.backlog")) {
-      event.preventDefault();
-      event.stopPropagation();
-      dispatch({ kind: "activate", id: "chrome.backlog" });
-      return;
-    }
+  const wheelGesture = useRef({ accumulated: 0, consumed: false, lastAt: 0 });
+  const readingAdvanceAction = () => {
+    if (!view) return null;
+    if (route === "day_card") return view.choices[0]?.id ?? null;
+    if (route === "interlude") return "interlude.advance";
     if (
-      view.choices.length === 0
-      && event.clientY >= window.innerHeight - bottomEdge
+      (route === "dialogue" || (route === "chapter_select" && Boolean(view.dialogue)))
+      && view.choices.length === 0
     ) {
+      return "dialogue.advance";
+    }
+    return null;
+  };
+  const useReadingEdge = (event: React.MouseEvent<HTMLElement>) => {
+    // A visual novel cannot leave arbitrary parts of the frame inert. Any
+    // ordinary primary click on a reading surface has the same meaning as the
+    // explicit Next button. The compact chrome and every semantic control
+    // remain independently interactive, so a player can still open LOG or
+    // RMenu without accidentally advancing.
+    if (!view || event.detail === 0 || event.button !== 0 || isInteractiveTarget(event.target)) return;
+    const advanceAction = readingAdvanceAction();
+    if (advanceAction) {
       event.preventDefault();
       event.stopPropagation();
-      dispatch({ kind: "activate", id: "dialogue.advance" });
+      dispatch({ kind: "activate", id: advanceAction });
     }
+  };
+  const useReadingWheel = (event: React.WheelEvent<HTMLElement>) => {
+    if (event.deltaY <= 0 || isInteractiveTarget(event.target)) return;
+    const advanceAction = readingAdvanceAction();
+    if (!advanceAction) return;
+
+    // A wheel notch or one deliberate trackpad gesture advances exactly one
+    // unit. A sustained fling must not race through several subtitle pages.
+    event.preventDefault();
+    event.stopPropagation();
+    const now = performance.now();
+    if (now - wheelGesture.current.lastAt > 180) {
+      wheelGesture.current.accumulated = 0;
+      wheelGesture.current.consumed = false;
+    }
+    wheelGesture.current.lastAt = now;
+    if (wheelGesture.current.consumed) return;
+    wheelGesture.current.accumulated += Math.abs(event.deltaY);
+    const threshold = event.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? 40 : 1;
+    if (wheelGesture.current.accumulated < threshold) return;
+    wheelGesture.current.accumulated = 0;
+    wheelGesture.current.consumed = true;
+    dispatch({ kind: "activate", id: advanceAction });
   };
   return (
     <main
-      className={`umikaze route-${route} scene-tone-${tone}${view?.choices.length ? " has-choices" : ""}${view?.settings.high_contrast ? " high-contrast" : ""}${view?.settings.reduced_motion ? " reduce-motion" : ""}`}
-      style={{ "--text-scale": view?.settings.text_scale ?? 1 } as React.CSSProperties}
+      className={`umikaze route-${route} scene-tone-${tone}${route === "day_card" ? ` day-card-theme-${dayCardTheme}` : ""}${view?.choices.length ? " has-choices" : ""}${view?.settings.high_contrast ? " high-contrast" : ""}${view?.settings.reduced_motion ? " reduce-motion" : ""}${view?.settings.stage_effects === false ? " stage-effects-off" : ""}`}
+      style={{
+        "--text-scale": view?.settings.text_scale ?? 1,
+        "--subtitle-opacity": view?.settings.text_opacity ?? 1,
+      } as React.CSSProperties}
       onContextMenuCapture={openRMenu}
       onPointerDownCapture={capturePointer}
       onPointerMoveCapture={observePointer}
       onClickCapture={useReadingEdge}
+      onWheelCapture={useReadingWheel}
       onFocusCapture={(event) => {
         rememberFocusable(event.target);
         if (event.target instanceof Element && event.target.closest(".quiet-chrome")) revealChrome();
       }}
     >
       <canvas ref={canvas} className="scene-canvas" data-aria-stage="dom" aria-hidden="true" />
-      <ScenePhotograph output={output} />
-      <div className="atmosphere" aria-hidden="true" />
+      {view && !isInterlude && <>
+        <ScenePhotograph output={output} transform={sceneDirection.transform} />
+        <div className="atmosphere" style={sceneDirection.transform ? { transform: sceneDirection.transform } : undefined} aria-hidden="true" />
+        <SceneDirectionLayer overlays={sceneDirection.overlays} />
+      </>}
       <div className="presentation-layer">
         {view && <Screen view={view} dispatch={dispatch} chromeVisible={chromeVisible} onRevealChrome={revealChrome} saveSlots={saveSlots} />}
+        {!view && !error && bootSlow && <OpeningRecord copy={fallbackCopy} />}
         {error && <RuntimeProblem copy={fallbackCopy} detail={error} />}
       </div>
-      {!error && status && <p className="runtime-status" role="status" aria-live="polite">{status}</p>}
+      {!error && view && status && <p className="runtime-status" role="status" aria-live="polite">{status}</p>}
     </main>
   );
 }

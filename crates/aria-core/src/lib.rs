@@ -29,7 +29,7 @@ pub use diagnostic::{Diagnostic, DiagnosticCode, Severity, SourceSpan};
 pub use input::{InputAction, InputSnapshot, PointerSnapshot};
 pub use presentation::{
     ActionView, BacklogEntryView, ChapterView, ChoiceView, ConfirmationView, DialogueView,
-    GalleryItemView, GameView, UI_VIEW_MODEL_SCHEMA, UiIntent, UiRoute, UiViewModel,
+    GalleryItemView, GameView, InterludeView, UI_VIEW_MODEL_SCHEMA, UiIntent, UiRoute, UiViewModel,
 };
 pub use presentation_state::{PendingConfirmation, UiInsets, UiRuntimeState, UiViewport};
 pub use project::{PresentationManifest, ProjectManifest, ProjectValidationError};

@@ -9,10 +9,15 @@
     "preview": "vite preview",
     "test": "playwright test",
     "prepare:desktop": "node scripts/prepare-desktop.mjs",
+    "prepare:demo": "node scripts/prepare-desktop.mjs --edition demo",
     "release:desktop": "node scripts/build-release.mjs desktop",
     "release:web": "node scripts/build-release.mjs web",
+    "release:demo:desktop": "node scripts/build-release.mjs demo-desktop",
+    "release:demo:web": "node scripts/build-release.mjs demo-web",
     "tauri": "tauri",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "tauri:demo": "tauri dev --config src-tauri/tauri.demo.conf.json",
+    "tauri:demo:build": "tauri build --config src-tauri/tauri.demo.conf.json"
   },
   "dependencies": {
     "@aria/ui-sdk": "file:../../../ui/packages/aria-ui-sdk",

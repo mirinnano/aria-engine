@@ -1,51 +1,50 @@
-# QA Matrix
+# 海風 QA Matrix
 
-> Raylib WASMプレビューはChromiumをCI必須ゲートとし、FirefoxとSafariは既定Webターゲットへ昇格する前のリリース確認対象です。確認項目は日本語フォント、マウス・キーボード・タッチ、右クリック、DPI/リサイズ、音声アンロック、旧IndexedDBセーブ、オフライン再起動、アセットグループ再試行です。
->
-> 日常ゲートはUbuntu上のビルド、単体テスト、headless Chromiumで実行します。Windows実機はWindows配布物のリリース候補スモークにだけ使用し、通常の開発ループでは必須にしません。
+この表は、現行の Aria v3 Core、React/Web presentation、Tauri desktop shell
+にだけ適用する。旧NScripter/Raylib/C#経路や、存在しない外部リンク画面を
+公開ゲートに含めない。
 
-## Environments
+## 自動ゲート
 
-| Area | Required Checks |
+| 区分 | 実行 | 合格条件 |
+| --- | --- | --- |
+| 整形 | `cargo fmt --all -- --check` | Rust差分が標準整形済み |
+| Core | `cargo test -p aria-core` | 字幕分割、保存、履歴、設定、CG、断章を含む全テスト成功 |
+| Scenario/CLI | `cargo test -p aria-cli --no-default-features --test umikaze_sample` | 通常版の章導線と体験版のDAY 0–4境界が成功 |
+| 正本照合 | `aria import-novel … --verify` | `Desktop/Novel/src` とDay 0–10の本文・話者・順序が一致 |
+| 通常Web | `npm run prepare:desktop` → `npm test` | タイトル、章扉、読書、RMenu、設定、保存、履歴、ギャラリーの25件以上が成功 |
+| 体験版Web | `npm run prepare:demo` → `UMIKAZE_DEMO=true npm test -- --grep 'opening arc'` | DAY 4終端、DAY 5以降の不在、体験版保存名が確認できる |
+| 静止性能 | 通常/体験版のPlaywright性能テスト | タイトルが継続的な`requestAnimationFrame`を要求しない |
+| Native save | `cargo test --manifest-path examples/umikaze/ui/src-tauri/Cargo.toml` | 自動保存が手動スロットと別ディレクトリである |
+
+Playwrightには公開済みの`dist/web`を配信するローカルHTTPサーバーが必要である。
+CIでは`python3 -m http.server 4173 --bind 127.0.0.1 --directory examples/umikaze/dist/web`
+をバックグラウンドで開始する。
+
+## 手動リリース候補確認
+
+| Area | 確認内容 |
 | --- | --- |
-| OS | Windows 10, Windows 11 |
-| Path | ASCII path, Japanese path, OneDrive path |
-| Storage | normal folder, read-only folder behavior |
-| Display | 100% DPI, high DPI, fullscreen/windowed behavior |
-| Audio | normal audio device, no audio device |
-| Input | mouse, keyboard, standard gamepad mapping, disconnect/reconnect, unavailable-device fallback |
-| Windows Native | `win-x64-fd-singlefile`, `win-x64-sc-singlefile`, trim/AOT experimental launch gate |
-| Web/PWA | Chrome, Edge, Safari, mobile browser, offline static package launch |
-| Language | ja-JP default, en-US fallback, zh-CN, zh-TW, language switch, missing key fallback, font glyph coverage |
-| Runtime Profile | Debug, Demo, Release, `--profile`, production mode, dev hotkey policy, debug command policy |
-| Steam | portable Depot layout, `steam_appid.txt` local run, Steam Cloud save path, overlay-safe launch |
+| Windows | NSISの新規インストール・アンインストール・日本語パス・DPI 100/150%・WebView2未導入時の導入経路 |
+| Linux | `.deb`または選択したAppImageの新規インストール・削除・Wayland/X11・WebKitGTKあり/なしの診断 |
+| macOS | DMG起動・署名・notarization・Retina・アクセシビリティ権限なしでの読み上げ/キーボード操作 |
+| Web | Chrome/Edge/Safari/iOS/Androidでの初回ロード、オフライン再起動、IndexedDB無効時の安全な保存失敗 |
+| Input | クリック、Enter、Space、下スクロール、H、Escape、右クリック、ゲームパッドA/B/Y/D-pad、接続解除/再接続 |
+| Reading | 120字超の日本語・英語・中国語、句読点境界、二行帯外なし、ページ完了後にだけ次入力で送る |
+| Save | 手動1–10、自動保存、破損世代からの復旧、履歴OK/NG、既読/章/CG/設定の保持 |
+| Editions | 完成版`umikaze-v4`と体験版`umikaze-demo-v1`を同一端末に共存させ、互いの保存を見ないこと |
+| Performance | 低電力端末で静止タイトル/メニューがアイドル、文字送りP95、画像切替時の入力欠落なし |
 
-## Runtime Scenarios
+## 画面キャプチャの基準点
 
-| Scenario | Required Checks |
-| --- | --- |
-| Startup | config load, init load, main script load |
-| Save | manual save, load, corrupt save behavior |
-| Persistence | read keys, flags, counters, skip unread |
-| UI | title, chapter select, ADV, NVL, menus |
-| Demo Flow | PROLOGUE through DAY 4, `scenario_05.aria` branch to `demo_end`, no normal DAY 5+ unlock |
-| Promo Links | `browser_open` user-click only, Steam, X, official site, unsafe URL rejection, allowlist enforcement |
-| Browser Parity | 16:9 scaling, font loading, text rasterization tolerance, UI hit testing, right-click menu |
-| Web Storage | IndexedDB save/settings, OPFS large local assets when enabled, export/import backup |
-| Story Locale | locale-specific scenario file first, Japanese fallback file second, stable `readid` continuity |
-| Stress | rapid skip, save/load repeated, menu repeated |
-| Long run | one hour idle, long backlog |
+- 通常版タイトル
+- 章選択のDAY 1とDAY 7
+- 日付カード
+- 二行字幕（通常・長文・断章）
+- 透明RMenu
+- CONFIG（TEXT / SOUND / DISPLAY）
+- SAVE / LOAD / LOG / EXTRA
+- 体験版の`DEMO COMPLETE`
 
-## Visual Regression Screens
-
-- title screen
-- chapter select
-- ADV textbox
-- NVL screen
-- save menu
-- load menu
-- backlog menu
-- right-click menu
-- settings screen
-- gallery screen
-- demo_end share/store/SNS screen
+画面比較では文字のアンチエイリアス差を許容するが、操作対象の欠落、字幕帯外、
+焦点の不可視、無意味なカード/ブラウザ標準UIの露出は不合格とする。

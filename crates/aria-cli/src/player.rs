@@ -101,6 +101,7 @@ pub fn run_project(path: &Path) -> Result<u8> {
         logical_size: project.logical_size,
         save_root: default_save_root(),
         save_namespace: project.save_namespace,
+        legacy_save_namespaces: project.legacy_save_namespaces,
         font_assets: project.font_assets,
         assets: NativeAssetStore::new(assets),
     })?;

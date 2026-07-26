@@ -147,6 +147,11 @@ pub struct UiRuntimeState {
     /// reopen to the same image without serializing any presentation state.
     #[serde(default)]
     pub gallery_viewer: Option<String>,
+    /// Whether the current interlude is taking its first, longer hold. This
+    /// is presentation semantics rather than DOM animation state, so a save
+    /// made during the blank-to-text beat can reopen with the same rhythm.
+    #[serde(default)]
+    pub interlude_first_visit: bool,
     /// Replayed but never serialized: a fresh host owns its viewport after a
     /// load and submits the current value with the next input snapshot.
     #[serde(skip)]
@@ -161,6 +166,7 @@ impl Default for UiRuntimeState {
             scroll_offsets: BTreeMap::new(),
             confirmation: None,
             gallery_viewer: None,
+            interlude_first_visit: false,
             viewport: UiViewport::default(),
         }
     }

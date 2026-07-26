@@ -6,11 +6,12 @@
  * consume the deterministic WASM VM without recreating a renderer DSL.
  */
 
-export const UI_VIEW_MODEL_SCHEMA = 4 as const;
+export const UI_VIEW_MODEL_SCHEMA = 6 as const;
 
 export type StandardRoute =
   | "setup"
   | "title"
+  | "demo_end"
   | "dialogue"
   | "pause"
   | "save"
@@ -41,8 +42,10 @@ export interface SettingsView {
   voice_volume: number;
   fullscreen: boolean;
   text_scale: number;
+  text_opacity: number;
   high_contrast: boolean;
   reduced_motion: boolean;
+  stage_effects: boolean;
   skip_unread: boolean;
 }
 
@@ -97,6 +100,10 @@ export interface GalleryItemView {
   selected: boolean;
 }
 
+export interface InterludeView {
+  first_visit: boolean;
+}
+
 export interface ConfirmationView {
   action: "reset" | "quit" | string;
   resume_id: string | null;
@@ -117,6 +124,7 @@ export interface UiViewModel {
   chapters: ChapterView[];
   gallery: GalleryItemView[];
   gallery_viewer: string | null;
+  interlude: InterludeView | null;
   confirmation: ConfirmationView | null;
   scroll_offsets: Record<string, number>;
   auto_mode: "off" | "on";
@@ -164,7 +172,13 @@ export function assertViewModel(value: unknown): asserts value is UiViewModel {
       `Unsupported Aria UI view model schema ${String(model.schema_version)}; expected ${UI_VIEW_MODEL_SCHEMA}`,
     );
   }
-  if (!model.route || !model.game || !model.settings || !Array.isArray(model.actions)) {
+  if (
+    !model.route
+    || !model.game
+    || !model.settings
+    || !Array.isArray(model.actions)
+    || !("interlude" in model)
+  ) {
     throw new Error("Aria presentation runtime returned an incomplete UI view model");
   }
 }

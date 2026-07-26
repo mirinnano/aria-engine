@@ -77,6 +77,37 @@ impl LoadedProject {
         Ok(Self { root, manifest })
     }
 
+    /// Creates a validated build-only view of this project.  A content
+    /// variant may select a smaller import closure and a separate save
+    /// namespace without mutating the author's `aria.toml` on disk.
+    ///
+    /// This is intentionally an explicit copy rather than an environment
+    /// lookup: the selected entry and save namespace become ordinary bundle
+    /// metadata, which keeps demo and full-release builds reproducible.
+    pub fn with_runtime_overrides(
+        &self,
+        entry: Option<&str>,
+        save_namespace: Option<&str>,
+    ) -> Result<Self> {
+        let mut manifest = self.manifest.clone();
+        if let Some(entry) = entry {
+            manifest.runtime.entry = entry.to_owned();
+        }
+        if let Some(save_namespace) = save_namespace {
+            manifest.runtime.save_namespace = save_namespace.to_owned();
+            // A content-limited edition must never silently remove the
+            // full game's records just because it shares source assets.
+            manifest.runtime.legacy_save_namespaces.clear();
+        }
+        manifest
+            .validate()
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        Ok(Self {
+            root: self.root.clone(),
+            manifest,
+        })
+    }
+
     pub fn sources(&self) -> Result<Vec<SourceUnit>> {
         let mut sources = Vec::new();
         for entry in WalkDir::new(&self.root)

@@ -40,6 +40,7 @@ pub(crate) struct RuntimeProject {
     pub(crate) program: CompiledProgram,
     pub(crate) logical_size: LogicalSize,
     pub(crate) save_namespace: String,
+    pub(crate) legacy_save_namespaces: Vec<String>,
     #[cfg_attr(
         any(not(feature = "desktop-player"), target_arch = "wasm32"),
         allow(dead_code)
@@ -69,7 +70,11 @@ pub fn command(path: &Path, headless: bool, replay: Option<&Path>, max_frames: u
     }
 
     let mut vm = Vm::new(project.program, project.logical_size)?;
-    let save_store = AtomicSaveStore::new(project.root.join("saves-v3"), project.save_namespace)?;
+    let save_root = project.root.join("saves-v3");
+    for namespace in &project.legacy_save_namespaces {
+        AtomicSaveStore::purge_namespace(&save_root, namespace)?;
+    }
+    let save_store = AtomicSaveStore::new(save_root, project.save_namespace)?;
     let interactive = !headless && io::stdin().is_terminal() && io::stdout().is_terminal();
     let mut sequence = 1;
     let mut output = vm.step(&InputSnapshot::idle(sequence, 16))?;
@@ -241,6 +246,7 @@ pub(crate) fn load_runtime_project(path: &Path) -> Result<RuntimeProject> {
                 height: bundle.logical_height,
             },
             save_namespace: bundle.save_namespace.clone(),
+            legacy_save_namespaces: bundle.legacy_save_namespaces.clone(),
             font_assets: bundle.font_assets.clone(),
             title: bundle.game_title.clone(),
             asset_source: RuntimeAssetSource::Package {
@@ -267,6 +273,7 @@ pub(crate) fn load_runtime_project(path: &Path) -> Result<RuntimeProject> {
             height: project.manifest.runtime.logical_height,
         },
         save_namespace: project.manifest.runtime.save_namespace,
+        legacy_save_namespaces: project.manifest.runtime.legacy_save_namespaces,
         font_assets: project.manifest.runtime.fonts,
         title: project.manifest.game.title,
         asset_source: RuntimeAssetSource::ProjectRoot { assets },
@@ -342,6 +349,16 @@ fn validate_bundle(bundle: &BundleManifest) -> Result<()> {
         || bundle.logical_height == 0
     {
         bail!("bundle.aria.json has invalid game/runtime metadata");
+    }
+    let mut legacy = BTreeSet::new();
+    for namespace in &bundle.legacy_save_namespaces {
+        if namespace.trim().is_empty()
+            || namespace.contains(['/', '\\'])
+            || namespace == &bundle.save_namespace
+            || !legacy.insert(namespace)
+        {
+            bail!("bundle.aria.json has invalid legacy save namespace metadata");
+        }
     }
     if bundle.content_root_blake3 != bundle_content_root(bundle) {
         bail!("bundle.aria.json content root does not match its metadata");

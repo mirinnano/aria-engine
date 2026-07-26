@@ -1,74 +1,77 @@
-# Production Checklist
+# 海風 Production Checklist
 
-Use this before publishing a production build.
+公開前には、旧`src/AriaEngine`やPowerShell配布スクリプトではなく、以下の現行経路を通す。
 
-## Required Gates
+## 必須のローカル/CIゲート
 
-- `scripts/doctor.ps1` passes.
-- `scripts/smoke.ps1` passes.
-- `dotnet build src/AriaEngine/AriaEngine.csproj -c Release --no-restore` passes.
-- `aria-compile` succeeds for `init.aria` and `assets/scripts/main.aria`.
-- `aria-flowcheck --root src/AriaEngine --main assets/scripts/main.aria --chapters 6 --execute` passes.
-- `scripts/package.ps1 -Version <version>` creates a release directory and zip.
-- Demo packages use `scripts/package.ps1 -Version <version> -Profile Demo`.
-- Full packages use `scripts/package.ps1 -Version <version> -Profile Release`.
-- Runtime-specific builds use `-Runtime win-x64` when the restore environment is available.
-- `manifest.json` and `checksums.txt` are present in the package.
-- `manifest.json` records `profile`, `productionRunArgs`, `security.browserOpenPolicy`, `localization.scenarioStatus`, and `localization.steamSubtitleLanguages`.
-- `security.browserOpenPolicy.allowlist` contains only approved outbound hosts such as `store.steampowered.com`, `twitter.com`, `x.com`, and `ponkotsu-soft.vercel.app`.
-- `README.md` is present in the package.
-- The packaged build launches with production arguments.
-- Packaged v3 split Pak files (`boot.arib`, `scenario.aris`, `data.arid`, `voice.ariv`) resolve from the app directory, not only the caller working directory.
-- Production `data.pak` does not include raw `.aria` scripts.
-- `scripts/diagnostics.ps1` creates a diagnostics zip.
-- `aria-save migrate` and `aria-save validate` pass on test saves.
-- `scripts/visual-regression.ps1 -CaptureLaunch` captures a non-blank packaged launch screenshot.
-- `scripts/visual-compare.ps1` passes against tracked baselines in `tests/visual-regression/baseline`.
-- `scripts/replay.ps1 -Spec tests/replay/release-smoke.json` passes for the tracked release replay spec.
-- `makensis.exe` is available before running the installer gate.
-- `scripts/installer.ps1` creates the NSIS installer zip.
-- Signed installer candidates pass `scripts/verify-signing.ps1 -RequireSigned`.
-- Release signing is configured with `WINDOWS_CODESIGN_PFX_BASE64` and `WINDOWS_CODESIGN_PFX_PASSWORD`, or with `ARIA_SIGN_CERT_THUMBPRINT`; otherwise `scripts/sign.ps1` must fail with `Code signing is not configured`.
-- `ARIA_SIGN_ALLOW_SELF_SIGNED` is permitted only for local smoke checks and must not be treated as a trusted public release gate.
-- Installer shortcuts set their working directory to `$INSTDIR`.
-- `release-notes.md` is present in the package.
-- `manifest.json` records compatibility, packaging, and signing state.
-- Release CI uses the same `scripts/release.ps1` and `scripts/installer.ps1` path as local release builds.
-- Windows release matrix records FD and SC artifacts separately.
-- NativeAOT artifacts remain experimental until warning, runtime launch, installer, and signing gates are clean or explicitly waived.
-- `scripts/package-web.ps1` creates the static Web/PWA release package.
-- `scripts/web-device-qa.ps1` passes for Chrome, Edge, Safari, and mobile browser profiles.
-- `web-browser-qa-chrome.json`, `web-browser-qa-edge.json`, `web-browser-qa-safari.json`, and `web-browser-qa-mobile.json` are present and `ready: true`.
-- `scripts/web-native-visual-compare.ps1` passes against the current Windows native capture.
-- `web-native-visual-compare.json` records passing title, text, and menu comparisons.
-- Localization resources are packaged and missing-key fallback is verified for `ja-JP`, `en-US`, `zh-CN`, and `zh-TW`.
-- `aria-i18n-check --root src/AriaEngine --scripts assets/scripts --code Core --code UI` passes and validates locale scenario bundle file existence.
-- Steam subtitle language claims include only scenario locales marked `source` or `complete`.
-- Steam builds record manifest metadata and keep `saves/` compatible with Steam Cloud.
-- Windows native and Web/PWA are official runtime targets for this release line.
-- `scripts/prepare-release-evidence.ps1` creates a signing audit before the final readiness audit.
-- `scripts/release-readiness-audit.ps1` passes against Windows package, NativeAOT package, and signing audit artifacts.
-- `scripts/release-readiness-report.ps1` generates the prompt-to-artifact checklist report from `release-readiness-audit.json`.
+```sh
+cargo fmt --all -- --check
+cargo test -p aria-core
+cargo test -p aria-cli --no-default-features --test umikaze_sample
+cargo test --manifest-path examples/umikaze/ui/src-tauri/Cargo.toml
 
-## Manual QA
+# 本文正本照合（Day 0–10を明示指定）
+cargo run --release --no-default-features -p aria-cli -- import-novel /path/to/Novel/src \
+  --out examples/umikaze/scripts/scenario/ja-JP \
+  --chapter-select chapter_select_ja --locale ja-JP \
+  --include 00_init.md,01_start.md,02_day2.md,03_day3.md,04_day4.md,05_day5.md,06_day6.md,07_day7.md,08_day8.md,09_day9.md,10_day10.md \
+  --presentation umikaze --layout chapters --verify
+```
 
-- Start a new game.
-- Load an existing save.
-- Confirm `persistent.ariasav` restores read/progress state.
-- Open save, load, backlog, and right-click menus.
-- Confirm settings and gallery still work as script-owned screens.
-- Confirm language-specific scenario files are selected by locale when translated files are shipped.
-- Confirm Demo profile reaches `demo_end` after DAY 4 and cannot unlock DAY 5+ through normal chapter flow.
-- Confirm `demo_end` opens only the Steam page, X intent/profile, and official site from user-clicked buttons.
-- Confirm Steam local run works with `steam_appid.txt` only in the Steam build profile.
-- Confirm F3/F5/F9 development hotkeys do not operate in production mode.
+通常版を作り、`dist/web`をローカル配信した状態でPlaywrightを実行する。
 
-## Release Blockers
+```sh
+npm --prefix examples/umikaze/ui run prepare:desktop
+python3 -m http.server 4173 --bind 127.0.0.1 --directory examples/umikaze/dist/web &
+npm --prefix examples/umikaze/ui test
+```
 
-- Missing assets.
-- Script compile errors.
-- Corrupt save files without a migration or reset path.
-- Any crash on startup.
-- Broken save/load/backlog/rmenu.
-- Missing release notes or missing signing status metadata.
-- Public release artifact marked unsigned when CI signing secrets were expected.
+体験版は同じ出力先を意図的に入れ替えて、専用テストを通す。その後、開発者に渡す前は
+通常版を再生成しておく。
+
+```sh
+npm --prefix examples/umikaze/ui run prepare:demo
+UMIKAZE_DEMO=true npm --prefix examples/umikaze/ui test -- --grep 'opening arc'
+npm --prefix examples/umikaze/ui run prepare:desktop
+```
+
+## 署名済み配布物
+
+CIで次の環境変数を提供できることを確認する。値そのものをログ/リポジトリへ出してはならない。
+
+- `ARIA_PAK_PROFILE=signed`
+- `ARIA_PAK_SIGNING_KEY`
+- `ARIA_PAK_VERIFICATION_KEY_ID`
+- `ARIA_PAK_VERIFICATION_KEY_HEX`
+
+```sh
+npm --prefix examples/umikaze/ui run release:web
+npm --prefix examples/umikaze/ui run release:demo:web
+
+# 各OSで実行。既定はWindows=NSIS / Linux=deb / macOS=DMG。
+npm --prefix examples/umikaze/ui run release:desktop
+npm --prefix examples/umikaze/ui run release:demo:desktop
+```
+
+Windowsコード署名、macOS notarization、Linuxパッケージの署名、Steam Depot uploadは
+配布プラットフォーム固有の追加ゲートである。PAK署名だけでそれらを代替しない。
+
+## 公開直前の確認
+
+- [ ] 通常版artifactは`umikaze-v4`、体験版artifactは`umikaze-demo-v1`である。
+- [ ] 体験版の`game.ariac`/PAK/source mapにDAY 5–10が含まれない。
+- [ ] 体験版はDAY 4後に`demo_end`へ到達し、再読/タイトル帰還だけを提示する。
+- [ ] 署名済みPAKとchecksumの検証が成功する。
+- [ ] NSIS/DEB/DMGは各対象OSで新規インストール・起動・削除できる。
+- [ ] 手動保存、自動保存、破損世代回復、履歴復帰、設定、CG解放を実機で確認した。
+- [ ] 右クリック/Escape/H/Enter/Space/スクロール/ゲームパッドの操作を確認した。
+- [ ] 静止タイトルで継続描画がなく、長文が字幕帯を越えない。
+- [ ] ストアの年齢・コンテンツ注意、返金/サポート窓口、ライセンス表記を承認済みである。
+
+## 公開ブロッカー
+
+- Canonical本文照合失敗、コンパイル失敗、保存破損、起動不能。
+- DAY 5以降が体験版artifactへ混入。
+- 完成版と体験版が保存またはアプリIDを共有。
+- 署名が必要な公開候補が未署名、またはchecksumがない。
+- 字幕帯外、見えない焦点、ブラウザ標準メニュー、連続アイドル描画など没入を壊すUI回帰。

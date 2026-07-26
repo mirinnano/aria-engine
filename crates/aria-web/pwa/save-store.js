@@ -20,8 +20,8 @@ export class IndexedDbSaveStore {
     });
   }
 
-  async put(namespace, slot, payload) {
-    const slotKey = `${namespace}:${slot}`;
+  async put(namespace, key, payload) {
+    const slotKey = `${namespace}:${String(key)}`;
     const transaction = this.database.transaction("generations", "readwrite");
     const store = transaction.objectStore("generations");
     const records = await requestResult(store.index("slot").getAll(slotKey));
@@ -41,8 +41,8 @@ export class IndexedDbSaveStore {
     return generation;
   }
 
-  async latest(namespace, slot) {
-    const slotKey = `${namespace}:${slot}`;
+  async latest(namespace, key) {
+    const slotKey = `${namespace}:${String(key)}`;
     const transaction = this.database.transaction("generations", "readonly");
     const records = await requestResult(
       transaction.objectStore("generations").index("slot").getAll(slotKey),
@@ -51,8 +51,8 @@ export class IndexedDbSaveStore {
     return records.sort((left, right) => right.generation - left.generation)[0] || null;
   }
 
-  async generations(namespace, slot) {
-    const slotKey = `${namespace}:${slot}`;
+  async generations(namespace, key) {
+    const slotKey = `${namespace}:${String(key)}`;
     const transaction = this.database.transaction("generations", "readonly");
     const records = await requestResult(
       transaction.objectStore("generations").index("slot").getAll(slotKey),
@@ -60,6 +60,31 @@ export class IndexedDbSaveStore {
     await transactionComplete(transaction);
     return records.sort((left, right) => right.generation - left.generation);
   }
+
+  /**
+   * Deletes records only for an explicitly retired namespace. Browser stores
+   * are one database per namespace, so this cannot affect another game.
+   * A second open tab can temporarily block deletion; callers receive false
+   * and retry on a later launch instead of hanging the title screen.
+   */
+  async purgeNamespace(namespace) {
+    const prefix = this.databaseName.startsWith("aria-v3-") ? "aria-v3-" : "";
+    const retiredDatabaseName = `${prefix}${namespace}`;
+    if (retiredDatabaseName === this.databaseName && this.database) {
+      this.database.close();
+      this.database = null;
+    }
+    return deleteDatabase(retiredDatabaseName);
+  }
+}
+
+function deleteDatabase(databaseName) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(databaseName);
+    request.onsuccess = () => resolve(true);
+    request.onblocked = () => resolve(false);
+    request.onerror = () => reject(request.error);
+  });
 }
 
 function requestResult(request) {

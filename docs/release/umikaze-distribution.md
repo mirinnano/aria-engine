@@ -77,3 +77,56 @@ expects the production PAK signing key in the `ARIA_PAK_SIGNING_KEY` secret;
 the matching public verification key is supplied through
 `ARIA_PAK_VERIFICATION_KEY_ID` and `ARIA_PAK_VERIFICATION_KEY_HEX`. No private
 key is stored in the repository.
+
+## Demo edition
+
+The demo is a separately compiled DAY 0–4 edition, not a full bundle that
+checks a runtime stop flag. Its logical entry is `scripts/main-demo.aria`; the
+compiler imports only the opening-arc chapter modules and reaches a local
+`demo_end` route after DAY 4. The route offers replay and title return only.
+The presentation resolves a separate demo-only scene catalogue and chapter
+preview catalogue too, so later text and photographs are not merely hidden in
+the player bundle. No store URL is embedded until a real store page is
+configured.
+
+The demo owns its save namespace (`umikaze-demo-v1`) and desktop identity
+(`jp.example.umikaze.demo`). It neither reads nor clears the complete game's
+`umikaze-v4` records. The desktop build uses
+`src-tauri/tauri.demo.conf.json`, so an installed demo and full game can stay
+side by side during playtesting or commercial release.
+
+```sh
+# Fast unsigned local build
+npm --prefix examples/umikaze/ui run prepare:demo
+
+# Signed static archive: dist/releases/demo-web
+ARIA_PAK_PROFILE=signed \
+ARIA_PAK_SIGNING_KEY='publisher:<64-byte-hex-key>' \
+ARIA_PAK_VERIFICATION_KEY_ID=publisher \
+ARIA_PAK_VERIFICATION_KEY_HEX='<32-byte-public-key-hex>' \
+npm --prefix examples/umikaze/ui run release:demo:web
+
+# Signed native installer. Default: NSIS on Windows, .deb on Linux, DMG on macOS.
+npm --prefix examples/umikaze/ui run release:demo:desktop
+```
+
+Before publishing, CI runs the demo-only integration test with
+`UMIKAZE_DEMO=true` against `prepare:demo`. That build also rejects known
+post-DAY-4 preview text and scene filenames from the generated presentation
+artifact. The normal presentation suite runs against the full bundle and
+remains the regression gate for the complete game.
+
+### GitHub Pages demo host
+
+[`aria-web-pages.yml`](../../.github/workflows/aria-web-pages.yml) deploys the
+signed demo's `site/` directory through GitHub Pages. It does not publish the
+full game, source Markdown, or a faux store page. The frontend uses relative
+paths, so the standard project URL
+`https://mirinnano.github.io/aria-engine/` is supported without a Vite base
+override.
+
+Enable **Settings → Pages → Source: GitHub Actions** once, and provide the
+three PAK signing secrets used by the release workflow. GitHub Pages is an
+appropriate free static host while the repository's visibility/plan permits
+it; use a dedicated static host when custom cache headers, domain control, or
+commercial analytics become necessary.

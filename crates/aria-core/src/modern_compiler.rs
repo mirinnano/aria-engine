@@ -2296,6 +2296,7 @@ fn is_presentation_route(route: &str) -> bool {
         route,
         "setup"
             | "title"
+            | "demo_end"
             | "dialogue"
             | "pause"
             | "save"
@@ -2304,6 +2305,15 @@ fn is_presentation_route(route: &str) -> bool {
             | "backlog"
             | "chapter_select"
             | "gallery"
+            // An interlude is a story-owned held surface. It deliberately
+            // remains layout-free in Core, but is a standard semantic route
+            // so strict scripts can save, log, and replay its silence.
+            | "interlude"
+            // A chapter day card is a semantic presentation checkpoint. It
+            // remains project-rendered, but is deliberately whitelisted so a
+            // saved game can return to the same card rather than falling back
+            // to dialogue on restore.
+            | "day_card"
     )
 }
 

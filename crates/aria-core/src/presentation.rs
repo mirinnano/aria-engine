@@ -13,10 +13,11 @@ use crate::vm::{AutoMode, SettingsState, SkipMode};
 
 /// Version of the JSON view contract consumed by game presentation packages.
 ///
-/// Schema 4 pages subtitles in Core, exposes replayable backlog page IDs, and
-/// persists semantic gallery/confirmation selection without coupling a host
-/// to DOM layout.
-pub const UI_VIEW_MODEL_SCHEMA: u16 = 4;
+/// Schema 6 pages subtitles in Core, exposes replayable backlog page IDs,
+/// persists semantic gallery/confirmation/interlude state, and carries the
+/// reader's subtitle-opacity/stage-effects preferences without coupling a
+/// host to DOM layout.
+pub const UI_VIEW_MODEL_SCHEMA: u16 = 6;
 
 /// Standard surfaces understood by the engine. A frontend may render a
 /// project-specific surface for [`Self::Custom`] without changing the VM
@@ -26,6 +27,10 @@ pub const UI_VIEW_MODEL_SCHEMA: u16 = 4;
 pub enum UiRoute {
     Setup,
     Title,
+    /// A self-contained endpoint for a content-limited public build. It is
+    /// a base route rather than an overlay, so restoring a save preserves
+    /// the fact that the trial has ended.
+    DemoEnd,
     Dialogue,
     Pause,
     Save,
@@ -44,6 +49,7 @@ impl UiRoute {
         match value {
             "setup" => Self::Setup,
             "title" => Self::Title,
+            "demo_end" => Self::DemoEnd,
             "dialogue" => Self::Dialogue,
             "pause" => Self::Pause,
             "save" => Self::Save,
@@ -62,6 +68,7 @@ impl UiRoute {
         match self {
             Self::Setup => "setup",
             Self::Title => "title",
+            Self::DemoEnd => "demo_end",
             Self::Dialogue => "dialogue",
             Self::Pause => "pause",
             Self::Save => "save",
@@ -179,6 +186,14 @@ pub struct GalleryItemView {
     pub selected: bool,
 }
 
+/// Timing identity for a story-owned interlude. The host still owns the fade
+/// curve; Core only tells it whether this is the first held encounter so a
+/// restored save keeps the same authored silence.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InterludeView {
+    pub first_visit: bool,
+}
+
 /// A destructive presentation action that must be explicitly acknowledged.
 /// The frontend owns the words and visual treatment; the VM owns which
 /// action is pending so a confirmation cannot be forged or lost on save.
@@ -208,6 +223,7 @@ pub struct UiViewModel {
     pub chapters: Vec<ChapterView>,
     pub gallery: Vec<GalleryItemView>,
     pub gallery_viewer: Option<String>,
+    pub interlude: Option<InterludeView>,
     pub confirmation: Option<ConfirmationView>,
     pub scroll_offsets: BTreeMap<String, f32>,
     pub auto_mode: AutoMode,

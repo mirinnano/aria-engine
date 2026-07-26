@@ -25,11 +25,11 @@ fn save_generation(
     app: AppHandle,
     state: State<'_, SaveState>,
     namespace: String,
-    slot: u32,
+    slot: String,
     payload: String,
 ) -> Result<u64, String> {
     let _guard = state.0.lock().map_err(|_| "save store lock was poisoned")?;
-    let directory = save_slot_directory(&app, &namespace, slot)?;
+    let directory = save_slot_directory(&app, &namespace, &slot)?;
     fs::create_dir_all(&directory).map_err(io_error)?;
     let mut generation_paths = generation_paths(&directory)?;
     let next = generation_paths
@@ -51,10 +51,10 @@ fn load_generations(
     app: AppHandle,
     state: State<'_, SaveState>,
     namespace: String,
-    slot: u32,
+    slot: String,
 ) -> Result<Vec<SaveGeneration>, String> {
     let _guard = state.0.lock().map_err(|_| "save store lock was poisoned")?;
-    let directory = save_slot_directory(&app, &namespace, slot)?;
+    let directory = save_slot_directory(&app, &namespace, &slot)?;
     if !directory.exists() {
         return Ok(Vec::new());
     }
@@ -66,10 +66,10 @@ fn load_latest_generation(
     app: AppHandle,
     state: State<'_, SaveState>,
     namespace: String,
-    slot: u32,
+    slot: String,
 ) -> Result<Option<SaveGeneration>, String> {
     let _guard = state.0.lock().map_err(|_| "save store lock was poisoned")?;
-    let directory = save_slot_directory(&app, &namespace, slot)?;
+    let directory = save_slot_directory(&app, &namespace, &slot)?;
     if !directory.exists() {
         return Ok(None);
     }
@@ -77,10 +77,48 @@ fn load_latest_generation(
         return Ok(None);
     };
     let payload = fs::read_to_string(path).map_err(io_error)?;
-    Ok(Some(SaveGeneration { generation, payload }))
+    Ok(Some(SaveGeneration {
+        generation,
+        payload,
+    }))
 }
 
-fn save_slot_directory(app: &AppHandle, namespace: &str, slot: u32) -> Result<PathBuf, String> {
+#[tauri::command]
+fn purge_save_namespace(
+    app: AppHandle,
+    state: State<'_, SaveState>,
+    namespace: String,
+) -> Result<bool, String> {
+    let _guard = state.0.lock().map_err(|_| "save store lock was poisoned")?;
+    let directory = save_namespace_directory(&app, &namespace)?;
+    if !directory.exists() {
+        return Ok(true);
+    }
+    if !directory.is_dir() {
+        return Err("save namespace path is not a directory".to_owned());
+    }
+    fs::remove_dir_all(directory).map_err(io_error)?;
+    Ok(true)
+}
+
+fn save_slot_directory(app: &AppHandle, namespace: &str, slot: &str) -> Result<PathBuf, String> {
+    Ok(save_namespace_directory(app, namespace)?.join(save_slot_component(slot)?))
+}
+
+fn save_slot_component(slot: &str) -> Result<String, String> {
+    if slot == "autosave" {
+        return Ok("autosave".to_owned());
+    }
+    let manual = slot
+        .parse::<u32>()
+        .map_err(|_| "invalid save slot".to_owned())?;
+    if !(1..=10).contains(&manual) {
+        return Err("invalid save slot".to_owned());
+    }
+    Ok(format!("slot-{manual}"))
+}
+
+fn save_namespace_directory(app: &AppHandle, namespace: &str) -> Result<PathBuf, String> {
     if namespace.is_empty()
         || !namespace
             .bytes()
@@ -92,10 +130,7 @@ fn save_slot_directory(app: &AppHandle, namespace: &str, slot: u32) -> Result<Pa
         .path()
         .app_data_dir()
         .map_err(|error| error.to_string())?;
-    Ok(root
-        .join("saves")
-        .join(namespace)
-        .join(format!("slot-{slot}")))
+    Ok(root.join("saves").join(namespace))
 }
 
 fn read_generations(directory: &Path) -> Result<Vec<SaveGeneration>, String> {
@@ -156,13 +191,27 @@ fn io_error(error: std::io::Error) -> String {
     error.to_string()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::save_slot_component;
+
+    #[test]
+    fn automatic_checkpoint_has_a_dedicated_directory() {
+        assert_eq!(save_slot_component("autosave").unwrap(), "autosave");
+        assert_eq!(save_slot_component("1").unwrap(), "slot-1");
+        assert!(save_slot_component("0").is_err());
+        assert!(save_slot_component("11").is_err());
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(SaveState::default())
         .invoke_handler(tauri::generate_handler![
             save_generation,
             load_generations,
-            load_latest_generation
+            load_latest_generation,
+            purge_save_namespace
         ])
         .run(tauri::generate_context!())
         .expect("error while running Umikaze desktop application");

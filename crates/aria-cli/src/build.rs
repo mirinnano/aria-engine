@@ -95,6 +95,10 @@ pub struct BundleManifest {
     pub logical_width: u32,
     pub logical_height: u32,
     pub save_namespace: String,
+    /// Namespaces intentionally retired by this release. Players erase only
+    /// these exact names before they open `save_namespace`.
+    #[serde(default)]
+    pub legacy_save_namespaces: Vec<String>,
     /// Ordered logical paths to the only fonts a Player may use. The order is
     /// part of the portable bundle root because it defines fallback order.
     pub font_assets: Vec<String>,
@@ -165,8 +169,40 @@ pub fn command_with_profile(
     build_player: Option<bool>,
     player: Option<&Path>,
 ) -> Result<u8> {
+    command_with_profile_and_runtime_overrides(
+        path,
+        target,
+        out,
+        release,
+        profile,
+        signing_key,
+        encryption_key,
+        build_player,
+        player,
+        None,
+        None,
+    )
+}
+
+/// Builds a content-limited edition without rewriting the source manifest.
+/// The overrides are logical project values, not host paths, and are
+/// validated before compilation.
+#[allow(clippy::too_many_arguments)]
+pub fn command_with_profile_and_runtime_overrides(
+    path: &Path,
+    target: BuildTarget,
+    out: Option<&Path>,
+    release: bool,
+    profile: BuildProfile,
+    signing_key: Option<&str>,
+    encryption_key: Option<&str>,
+    build_player: Option<bool>,
+    player: Option<&Path>,
+    entry: Option<&str>,
+    save_namespace: Option<&str>,
+) -> Result<u8> {
     let keys = resolve_pak_keys(profile, signing_key, encryption_key)?;
-    let output = build_project_with_profile_and_keys(
+    let output = build_project_with_profile_and_keys_and_runtime_overrides(
         path,
         target,
         out,
@@ -175,6 +211,8 @@ pub fn command_with_profile(
         keys,
         build_player,
         player,
+        entry,
+        save_namespace,
     )?;
     println!("built {}", output.display());
 
@@ -230,7 +268,34 @@ pub fn build_project_with_profile_and_keys(
     build_player: Option<bool>,
     player: Option<&Path>,
 ) -> Result<PathBuf> {
-    let project = LoadedProject::load(path)?;
+    build_project_with_profile_and_keys_and_runtime_overrides(
+        path,
+        target,
+        out,
+        release,
+        profile,
+        pak_keys,
+        build_player,
+        player,
+        None,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_project_with_profile_and_keys_and_runtime_overrides(
+    path: &Path,
+    target: BuildTarget,
+    out: Option<&Path>,
+    release: bool,
+    profile: BuildProfile,
+    pak_keys: PakBuildKeys,
+    build_player: Option<bool>,
+    player: Option<&Path>,
+    entry: Option<&str>,
+    save_namespace: Option<&str>,
+) -> Result<PathBuf> {
+    let project = LoadedProject::load(path)?.with_runtime_overrides(entry, save_namespace)?;
     let compiled = project.compile()?;
     for diagnostic in &compiled.diagnostics {
         eprintln!("{diagnostic}");
@@ -318,6 +383,7 @@ pub fn build_project_with_profile_and_keys(
         logical_width: project.manifest.runtime.logical_width,
         logical_height: project.manifest.runtime.logical_height,
         save_namespace: project.manifest.runtime.save_namespace.clone(),
+        legacy_save_namespaces: project.manifest.runtime.legacy_save_namespaces.clone(),
         font_assets: project.manifest.runtime.fonts.clone(),
         ariac_blake3,
         ariac_size: u64::try_from(ariac.len()).context("compiled program is too large")?,
@@ -457,6 +523,19 @@ pub fn bundle_content_root(bundle: &BundleManifest) -> String {
     ] {
         hasher.update(&u32::try_from(value.len()).unwrap_or(u32::MAX).to_le_bytes());
         hasher.update(value.as_bytes());
+    }
+    hasher.update(
+        &u32::try_from(bundle.legacy_save_namespaces.len())
+            .expect("legacy save namespace count fits u32")
+            .to_le_bytes(),
+    );
+    for namespace in &bundle.legacy_save_namespaces {
+        hasher.update(
+            &u32::try_from(namespace.len())
+                .expect("legacy save namespace length fits u32")
+                .to_le_bytes(),
+        );
+        hasher.update(namespace.as_bytes());
     }
     hasher.update(
         &u32::try_from(bundle.font_assets.len())

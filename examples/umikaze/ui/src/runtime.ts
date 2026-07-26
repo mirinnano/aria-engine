@@ -61,11 +61,13 @@ type AudioAdapter = {
 };
 
 type SaveGeneration = { generation: number; payload: string; writtenAt?: number };
+type SaveKey = number | "autosave";
 type SaveStore = {
   open(): Promise<void>;
-  put(namespace: string, slot: number, payload: string): Promise<number>;
-  latest(namespace: string, slot: number): Promise<SaveGeneration | null>;
-  generations(namespace: string, slot: number): Promise<SaveGeneration[]>;
+  put(namespace: string, slot: SaveKey, payload: string): Promise<number>;
+  latest(namespace: string, slot: SaveKey): Promise<SaveGeneration | null>;
+  generations(namespace: string, slot: SaveKey): Promise<SaveGeneration[]>;
+  purgeNamespace(namespace: string): Promise<boolean>;
 };
 
 type BundlePak = {
@@ -89,6 +91,60 @@ export type SaveSlotSummary = {
   excerpt: string | null;
 };
 
+// The automatic checkpoint has its own storage identity rather than posing as
+// slot zero. Manual records remain one through ten, and the checkpoint never
+// appears in an archive the player is expected to manage.
+const AUTO_SAVE_SLOT = "autosave" as const;
+
+function languagePreferenceKey(namespace: string): string {
+  return `aria-v3:${namespace}:preferred-locale`;
+}
+
+function legacyMigrationKey(namespace: string): string {
+  return `aria-v4:${namespace}:legacy-save-namespaces-cleared`;
+}
+
+function removeLegacyLanguagePreference(namespace: string): void {
+  try {
+    window.localStorage.removeItem(languagePreferenceKey(namespace));
+  } catch {
+    // Save migration must never block a record in private WebViews.
+  }
+}
+
+async function purgeLegacySaveNamespaces(
+  saves: SaveStore,
+  namespace: string,
+  legacyNamespaces: readonly string[],
+): Promise<void> {
+  const retired = [...new Set(legacyNamespaces.filter((value) => value && value !== namespace))];
+  if (retired.length === 0) return;
+  try {
+    if (window.localStorage.getItem(legacyMigrationKey(namespace)) === "complete") return;
+  } catch {
+    // Continue without a marker. The deletion is idempotent and can be
+    // retried when localStorage is unavailable.
+  }
+  let complete = true;
+  for (const legacyNamespace of retired) {
+    try {
+      const cleared = await saves.purgeNamespace(legacyNamespace);
+      removeLegacyLanguagePreference(legacyNamespace);
+      complete &&= cleared;
+    } catch (cause) {
+      complete = false;
+      console.warn(`Unable to clear retired save namespace '${legacyNamespace}'`, cause);
+    }
+  }
+  if (complete) {
+    try {
+      window.localStorage.setItem(legacyMigrationKey(namespace), "complete");
+    } catch {
+      // The next launch may perform the harmless idempotent check again.
+    }
+  }
+}
+
 function isTauri(): boolean {
   return "__TAURI_INTERNALS__" in window;
 }
@@ -106,16 +162,19 @@ async function createSaveStore(
   return {
     async open() {},
     async put(saveNamespace, slot, payload) {
-      return invoke<number>("save_generation", { namespace: saveNamespace, slot, payload });
+      return invoke<number>("save_generation", { namespace: saveNamespace, slot: String(slot), payload });
     },
     async latest(saveNamespace, slot) {
       return invoke<SaveGeneration | null>("load_latest_generation", {
         namespace: saveNamespace,
-        slot,
+        slot: String(slot),
       });
     },
     async generations(saveNamespace, slot) {
-      return invoke<SaveGeneration[]>("load_generations", { namespace: saveNamespace, slot });
+      return invoke<SaveGeneration[]>("load_generations", { namespace: saveNamespace, slot: String(slot) });
+    },
+    async purgeNamespace(saveNamespace) {
+      return invoke<boolean>("purge_save_namespace", { namespace: saveNamespace });
     },
   };
 }
@@ -128,6 +187,7 @@ type Bundle = {
   logical_width: number;
   logical_height: number;
   save_namespace: string;
+  legacy_save_namespaces?: string[];
   font_assets: string[];
   pak_blake3: string;
   pak_size: number;
@@ -225,6 +285,7 @@ function viewFingerprint(view: UiViewModel): string {
     view.auto_mode,
     view.skip_mode,
     view.gallery_viewer ?? "",
+    view.interlude?.first_visit ? "interlude:first" : view.interlude ? "interlude:return" : "",
     view.confirmation?.action ?? "",
     view.confirmation?.resume_id ?? "",
     view.backlog_total,
@@ -237,12 +298,47 @@ function viewFingerprint(view: UiViewModel): string {
     view.settings.voice_volume,
     Number(view.settings.fullscreen),
     view.settings.text_scale,
+    view.settings.text_opacity,
     Number(view.settings.high_contrast),
     Number(view.settings.reduced_motion),
+    Number(view.settings.stage_effects),
     Number(view.settings.skip_unread),
     view.choices.map((choice) => `${choice.id}:${Number(choice.selected)}`).join(","),
     view.actions.map((action) => `${action.id}:${Number(action.enabled)}:${Number(action.active)}`).join(","),
   ].join("|");
+}
+
+/**
+ * A save boundary is deliberately coarser than a React update. In particular
+ * it omits the typewriter prefix, the backlog window, and scene frame number:
+ * no automatic record is generated for every grapheme or visual frame.
+ *
+ * The actual envelope is still a complete VM snapshot, so it contains flags
+ * (normal and persistent), read state, settings, chapter/CG unlocks, trace,
+ * and the exact semantic route. This signature only decides *when* to write.
+ */
+function autosaveFingerprint(view: UiViewModel): string {
+  const dialogue = view.dialogue;
+  return JSON.stringify({
+    route: routeName(view.route),
+    routeStack: view.route_stack.map(routeName),
+    locale: view.game.locale,
+    dialogue: dialogue
+      ? [dialogue.page_id, dialogue.page_number, dialogue.page_count, dialogue.complete, dialogue.awaiting_advance]
+      : null,
+    choices: view.choices.map((choice) => [choice.id, choice.selected]),
+    settings: view.settings,
+    chapters: view.chapters.map((chapter) => [chapter.id, chapter.unlocked, chapter.progress]),
+    gallery: view.gallery.map((item) => [item.id, item.unlocked, item.selected]),
+    galleryViewer: view.gallery_viewer,
+    interludeFirstVisit: view.interlude?.first_visit ?? null,
+    confirmation: view.confirmation
+      ? [view.confirmation.action, view.confirmation.resume_id]
+      : null,
+    backlogTotal: view.backlog_total,
+    autoMode: view.auto_mode,
+    skipMode: view.skip_mode,
+  });
 }
 
 function saveSummary(slot: number, generation: SaveGeneration): SaveSlotSummary {
@@ -454,6 +550,20 @@ export async function bootPresentation(
   const ensureAllPaks = async () => {
     await Promise.all(packs.map((pack) => ensurePack(pack)));
   };
+  const ensureAudioPaks = async (commands: unknown[]) => {
+    const assets = new Set<string>();
+    for (const command of commands) {
+      if (!command || typeof command !== "object") continue;
+      const play = command as { kind?: unknown; asset?: unknown };
+      if (play.kind === "play" && typeof play.asset === "string" && play.asset.length > 0) {
+        assets.add(play.asset);
+      }
+    }
+    // A stop or volume change needs no archive work. A future commissioned
+    // cue therefore mounts only its own declared pack instead of waking every
+    // optional image/font pack at the first BGM command.
+    await Promise.all([...assets].map((asset) => ensurePackForAsset(asset)));
+  };
   const readAsset = (path: string): Uint8Array => {
     const preferred = assetPack.get(path);
     const candidates = preferred
@@ -514,10 +624,15 @@ export async function bootPresentation(
   const audio = new audioModule.WebAudioAdapter(readAsset);
   audio.installUnlock(document);
   const saves = await createSaveStore(bundle.save_namespace, saveModule.IndexedDbSaveStore);
+  await purgeLegacySaveNamespaces(
+    saves,
+    bundle.save_namespace,
+    bundle.legacy_save_namespaces ?? [],
+  );
 
   const refreshSaveSlots = async () => {
-    const records = await Promise.all(Array.from({ length: 10 }, async (_, index) => {
-      const slot = index + 1;
+    const slots = Array.from({ length: 10 }, (_, index) => index + 1);
+    const records = await Promise.all(slots.map(async (slot) => {
       const generation = await saves.latest(bundle.save_namespace, slot);
       return generation ? saveSummary(slot, generation) : null;
     }));
@@ -534,6 +649,7 @@ export async function bootPresentation(
   let disposed = false;
   let frameRequest = 0;
   let timerRequest: number | null = null;
+  let gamepadPollTimer: number | null = null;
   let ticking = false;
   let wakeRequested = false;
   let sequence = 0;
@@ -545,6 +661,102 @@ export async function bootPresentation(
   let lastViewPublish = 0;
   let sceneNeedsDraw = sceneRendererEnabled;
   let readingFaceReady = !presentationOwnsStage || bundle.font_assets.length === 0;
+  let lastArchiveRoute = "";
+  let lastAutosaveFingerprint = "";
+  let autosaveRequested = false;
+  let autosaveInFlight = false;
+  let autosaveTimer: number | null = null;
+  // A scene may intentionally switch to the dialogue surface one VM
+  // instruction before it emits its first page. Keep at most one one-shot
+  // bootstrap frame for that boundary: a reader never lands on a blank band,
+  // but an authored empty wait can still remain genuinely idle afterwards.
+  let blankDialogueBootstrapQueued = false;
+
+  const inputFor = (deltaMs: number, intents: UiIntent[]) => ({
+    sequence: ++sequence,
+    delta_ms: deltaMs,
+    pressed: [],
+    held: [],
+    pointer: null,
+    scroll_delta_y: 0,
+    viewport,
+    intents,
+  });
+  const stepRuntime = (deltaMs: number, intents: UiIntent[]) => (
+    JSON.parse(runtime.step(JSON.stringify(inputFor(deltaMs, intents)))) as AriaStepOutput
+  );
+
+  // The public Japanese release begins at the title. Keeping this first VM
+  // output intact makes first light identical to later launches.
+  let prefetchedOutput: AriaStepOutput | null = stepRuntime(0, []);
+  assertViewModel(prefetchedOutput.view);
+
+  const flushAutosave = async (): Promise<void> => {
+    if (autosaveInFlight || disposed) return;
+    autosaveInFlight = true;
+    try {
+      while (autosaveRequested && !disposed) {
+        autosaveRequested = false;
+        try {
+          // Save a single validated VM envelope. This is the same format as
+          // manual records, including normal/persistent flags, read text,
+          // settings, unlocks, and the replay trace.
+          const envelope = runtime.save_envelope_json(BigInt(Date.now()));
+          await saves.put(bundle.save_namespace, AUTO_SAVE_SLOT, envelope);
+          const route = activeOutput ? routeName(activeOutput.view.route) : "";
+          // The archive table is only materialized while it can be seen.
+          // Ordinary reading never creates a UI update for a background save.
+          if (route === "save" || route === "load") await refreshSaveSlots();
+        } catch (cause) {
+          // A nonessential automatic write must not interrupt the novel or
+          // turn a transient IndexedDB/WebView error into a fatal screen.
+          console.warn("Unable to write automatic save", cause);
+          lastAutosaveFingerprint = "";
+        }
+      }
+    } finally {
+      autosaveInFlight = false;
+      if (autosaveRequested && !disposed) void flushAutosave();
+    }
+  };
+
+  const queueAutosave = (view: UiViewModel, force = false) => {
+    const route = routeName(view.route);
+    const typing = Boolean(view.dialogue && !view.dialogue.complete);
+    // The record table is an operation *on* a checkpoint, never a new
+    // checkpoint itself. Otherwise opening LOAD could overwrite AUTO with a
+    // load-sheet snapshot and make AUTO LOAD return straight to that same
+    // sheet. Other semantic overlays remain saveable as designed.
+    if (route === "setup" || route === "save" || route === "load" || (typing && !force)) return;
+    const fingerprint = autosaveFingerprint(view);
+    if (!force && fingerprint === lastAutosaveFingerprint) return;
+    lastAutosaveFingerprint = fingerprint;
+    autosaveRequested = true;
+    if (force) {
+      if (autosaveTimer !== null) {
+        window.clearTimeout(autosaveTimer);
+        autosaveTimer = null;
+      }
+      void flushAutosave();
+      return;
+    }
+    if (autosaveTimer === null) {
+      // Coalesce quick setting changes and page transitions without ever
+      // coupling writes to the typewriter or the render clock.
+      autosaveTimer = window.setTimeout(() => {
+        autosaveTimer = null;
+        void flushAutosave();
+      }, 120);
+    }
+  };
+
+  const saveBeforeExit = () => {
+    // A short-lived page or native WebView should still start one final write
+    // for its current semantic checkpoint. The store itself keeps validated
+    // generations, so an interrupted newest write safely falls back.
+    if (activeOutput) queueAutosave(activeOutput.view, true);
+  };
+  window.addEventListener("pagehide", saveBeforeExit);
 
   const connectedGamepads = () => [...(navigator.getGamepads?.() || [])]
     .filter((pad): pad is Gamepad => Boolean(pad?.connected));
@@ -564,14 +776,27 @@ export async function bootPresentation(
     // typewriter tick made the record feel as though the whole native window
     // was running at 30 fps, even though its static scene was idle.  Auto/skip
     // remain paced lower; a waiting screen stays completely idle until an
-    // input, resize, or gamepad event wakes it.
+    // input or resize wakes it. Gamepad buttons are polled independently so
+    // they do not turn a static VM into a perpetual render clock.
     if (sceneIsAnimating(output.scene)) return 16;
     if (output.view.dialogue && !output.view.dialogue.complete) return 16;
+    // An interlude is the one non-typewriter surface with an authored VM
+    // delay. Keep its clock deliberately coarse and bounded; once it moves to
+    // the next route this branch disappears and the static UI sleeps again.
+    if (routeName(output.view.route) === "interlude") return 32;
     if (output.view.actions.some((action) => (
       action.active && (action.id === "menu.auto" || action.id === "menu.skip")
     ))) return 32;
-    if (hasConnectedGamepad()) return 33;
     return null;
+  };
+  const needsBlankDialogueBootstrap = (output: AriaStepOutput) => {
+    const route = routeName(output.view.route);
+    const dialogue = output.view.dialogue;
+    return (
+      (route === "dialogue" || route === "chapter_select")
+      && (!dialogue || dialogue.page_id.length === 0)
+      && output.view.choices.length === 0
+    );
   };
   const clearScheduledTick = () => {
     if (frameRequest) {
@@ -581,6 +806,12 @@ export async function bootPresentation(
     if (timerRequest !== null) {
       window.clearTimeout(timerRequest);
       timerRequest = null;
+    }
+  };
+  const clearGamepadPolling = () => {
+    if (gamepadPollTimer !== null) {
+      window.clearTimeout(gamepadPollTimer);
+      gamepadPollTimer = null;
     }
   };
   const scheduleTick = (delay = 0) => {
@@ -615,7 +846,11 @@ export async function bootPresentation(
     wake();
   };
   window.addEventListener("resize", resize);
-  const onGamepadConnection = () => wake();
+  let syncGamepadPolling = () => {};
+  const onGamepadConnection = () => {
+    syncGamepadPolling();
+    wake();
+  };
   window.addEventListener("gamepadconnected", onGamepadConnection);
   window.addEventListener("gamepaddisconnected", onGamepadConnection);
 
@@ -623,7 +858,11 @@ export async function bootPresentation(
     if (event.defaultPrevented || isEditableTarget(event.target)) return;
     const view = activeOutput?.view;
     const activeRoute = view ? routeName(view.route) : "";
-    const readingRoute = activeRoute === "dialogue"
+    const dayCardRoute = activeRoute === "day_card";
+    const interludeRoute = activeRoute === "interlude";
+    const readingRoute = dayCardRoute
+      || interludeRoute
+      || activeRoute === "dialogue"
       || (activeRoute === "chapter_select" && Boolean(view?.dialogue) && view?.choices.length === 0);
     const galleryViewer = activeRoute === "gallery" && Boolean(view?.gallery_viewer);
     const visibleChromeControl = event.target instanceof Element
@@ -646,8 +885,18 @@ export async function bootPresentation(
       event.preventDefault();
       event.stopPropagation();
       if (!event.repeat) {
-        queued.push({ kind: "activate", id: "dialogue.advance" });
-        wake();
+        // A day card is deliberately a choice-shaped pause, not a dialogue
+        // page. Its sole action enters the chapter; sending dialogue.advance
+        // would leave keyboard users on a silent card.
+        const advanceId = dayCardRoute
+          ? view?.choices[0]?.id
+          : interludeRoute
+            ? "interlude.advance"
+            : "dialogue.advance";
+        if (advanceId) {
+          queued.push({ kind: "activate", id: advanceId });
+          wake();
+        }
       }
       return;
     }
@@ -690,15 +939,44 @@ export async function bootPresentation(
   document.addEventListener("selectstart", preventTextExtraction, true);
 
   const previousPadPresses = new Set<string>();
-  const pollGamepad = () => {
+  const pollGamepad = (pads = connectedGamepads()) => {
+    const readingAdvanceAction = () => {
+      const view = activeOutput?.view;
+      if (!view) return null;
+      const route = routeName(view.route);
+      if (route === "day_card") return view.choices[0]?.id ?? null;
+      if (route === "interlude") return "interlude.advance";
+      if (route === "dialogue" || (route === "chapter_select" && Boolean(view.dialogue) && view.choices.length === 0)) {
+        return "dialogue.advance";
+      }
+      return null;
+    };
+    const isReadingRoute = () => readingAdvanceAction() !== null;
     const galleryViewerActive = () => {
       const view = activeOutput?.view;
       return Boolean(view && routeName(view.route) === "gallery" && view.gallery_viewer);
     };
-    for (const pad of connectedGamepads()) {
+    const focusedAction = () => {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement
+        && active.matches("[data-aria-focusable][data-aria-action]:not(:disabled)")) {
+        return active.getAttribute("data-aria-action");
+      }
+      // Focus menus retain a visual first selection until the player moves
+      // it. Treat that deterministic selection as the controller's initial
+      // target, so A can begin a title, menu, or demo endpoint without a
+      // preceding D-pad press.
+      return document.querySelector<HTMLElement>(
+        ".focus-menu-item.is-focused[data-aria-action]:not(:disabled)",
+      )?.getAttribute("data-aria-action") ?? null;
+    };
+    for (const pad of pads) {
       const commands: Array<[number, () => void]> = [
-        [0, () => queued.push({ kind: "activate", id: "dialogue.advance" })],
-        [1, () => queued.push({ kind: "dismiss" })],
+        [0, () => {
+          const id = readingAdvanceAction() ?? focusedAction();
+          if (id) queued.push({ kind: "activate", id });
+        }],
+        [1, () => queued.push({ kind: "activate", id: isReadingRoute() ? "chrome.menu" : "dismiss" })],
         [3, () => queued.push({ kind: "activate", id: "chrome.backlog" })],
         [9, () => queued.push({ kind: "activate", id: "chrome.menu" })],
         [12, () => {
@@ -723,6 +1001,37 @@ export async function bootPresentation(
         if (pressed) previousPadPresses.add(key);
         else previousPadPresses.delete(key);
       }
+    }
+  };
+
+  // A connected controller must be polled because browsers do not emit a
+  // button-down event. It does *not* mean that the VM needs to serialize a
+  // fresh scene and view model thirty times per second while a title/menu is
+  // motionless. This matters on analogue keyboards that are exposed as a
+  // Gamepad by WebKit: the former clock kept the entire WebView awake even
+  // though nobody was pressing a control.
+  const GAMEPAD_POLL_INTERVAL_MS = 33;
+  const scheduleGamepadPoll = (delay = GAMEPAD_POLL_INTERVAL_MS) => {
+    if (disposed || gamepadPollTimer !== null) return;
+    gamepadPollTimer = window.setTimeout(() => {
+      gamepadPollTimer = null;
+      const pads = connectedGamepads();
+      if (!pads.length) {
+        previousPadPresses.clear();
+        return;
+      }
+      const queuedBefore = queued.length;
+      pollGamepad(pads);
+      if (queued.length > queuedBefore) wake();
+      scheduleGamepadPoll();
+    }, delay);
+  };
+  syncGamepadPolling = () => {
+    if (hasConnectedGamepad()) {
+      scheduleGamepadPoll(0);
+    } else {
+      clearGamepadPolling();
+      previousPadPresses.clear();
     }
   };
 
@@ -765,28 +1074,35 @@ export async function bootPresentation(
     try {
       const delta = Math.min(250, Math.max(0, Math.round(now - previous)));
       previous = now;
-      pollGamepad();
       const intents = queued;
       queued = [];
-      const input = {
-        sequence: ++sequence,
-        delta_ms: delta,
-        pressed: [],
-        held: [],
-        pointer: null,
-        scroll_delta_y: 0,
-        viewport,
-        intents,
-      };
-      const output = JSON.parse(runtime.step(JSON.stringify(input))) as AriaStepOutput;
+      let appliedIntents = intents;
+      let output: AriaStepOutput;
+      if (prefetchedOutput) {
+        // Keep the initial title output atomic. Inputs received in the first
+        // animation frame are retained for the following VM step.
+        output = prefetchedOutput;
+        prefetchedOutput = null;
+        if (intents.length > 0) queued = [...intents, ...queued];
+        appliedIntents = [];
+      } else {
+        output = stepRuntime(delta, intents);
+      }
       assertViewModel(output.view);
       activeOutput = output;
+      const outputRoute = routeName(output.view.route);
+      if ((outputRoute === "save" || outputRoute === "load") && outputRoute !== lastArchiveRoute) {
+        void refreshSaveSlots().catch((cause) => {
+          console.warn("Unable to enumerate save records", cause);
+        });
+      }
+      lastArchiveRoute = outputRoute;
       if (!readingFaceReady && output.view.dialogue) {
         await bundledFonts.ensure(0);
         readingFaceReady = true;
       }
       if (output.audio.length > 0) {
-        await ensureAllPaks();
+        await ensureAudioPaks(output.audio);
         await audio.consume(output.audio);
       }
 
@@ -825,8 +1141,26 @@ export async function bootPresentation(
         // restored route instead of remaining on the load sheet until a
         // separate input or resize happens.
         wakeRequested = true;
+      } else {
+        // Intent-triggered snapshots also cover invisible script mutations
+        // such as a flag set immediately before a wait. Stable view changes
+        // cover auto/skip progression without touching the typewriter loop.
+        queueAutosave(output.view, appliedIntents.length > 0);
       }
-      if (!output.halted) nextDelay = nextTickDelay(output);
+      if (!output.halted) {
+        nextDelay = nextTickDelay(output);
+        if (appliedIntents.length > 0 || !needsBlankDialogueBootstrap(output)) {
+          blankDialogueBootstrapQueued = false;
+        }
+        if (nextDelay === null && needsBlankDialogueBootstrap(output) && !blankDialogueBootstrapQueued) {
+          blankDialogueBootstrapQueued = true;
+          // `scheduleTick(0)` is one rAF at a semantic transition, never a
+          // standing animation loop. It lets the following `narrate` or
+          // interlude instruction become visible without asking the reader
+          // for an accidental second click.
+          nextDelay = 0;
+        }
+      }
       else hooks.onStatus("The record has ended.");
     } catch (cause) {
       const error = cause instanceof Error ? cause : new Error(String(cause));
@@ -834,6 +1168,7 @@ export async function bootPresentation(
     } finally {
       ticking = false;
       if (disposed) return;
+      syncGamepadPolling();
       if (wakeRequested) {
         wakeRequested = false;
         scheduleTick();
@@ -853,11 +1188,21 @@ export async function bootPresentation(
       }
     },
     dispose() {
+      // Begin one final envelope write before marking the controller dead.
+      // `flushAutosave` captures the snapshot synchronously, then lets the
+      // host store finish its atomic generation write without another frame.
+      saveBeforeExit();
       disposed = true;
       clearScheduledTick();
+      clearGamepadPolling();
+      if (autosaveTimer !== null) {
+        window.clearTimeout(autosaveTimer);
+        autosaveTimer = null;
+      }
       window.removeEventListener("resize", resize);
       window.removeEventListener("gamepadconnected", onGamepadConnection);
       window.removeEventListener("gamepaddisconnected", onGamepadConnection);
+      window.removeEventListener("pagehide", saveBeforeExit);
       window.removeEventListener("keydown", onKeyDown, true);
       document.removeEventListener("copy", preventTextExtraction, true);
       document.removeEventListener("cut", preventTextExtraction, true);

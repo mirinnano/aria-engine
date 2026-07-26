@@ -32,7 +32,11 @@ asset_pack_roles = {
   "assets/fonts/NotoSansJP-Regular.ttf" = "hot",
   "assets/fonts/MPLUS1Code-wght.ttf" = "cold",
 }
-save_namespace = "umikaze-v3"
+# This manuscript revision intentionally invalidates earlier routes and
+# checkpoints. Only this exact predecessor is purged; other Aria games and
+# namespaces are never touched.
+save_namespace = "umikaze-v4"
+legacy_save_namespaces = ["umikaze-v3"]
 
 [presentation]
 frontend = "ui"

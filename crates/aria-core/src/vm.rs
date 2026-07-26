@@ -7,7 +7,7 @@ use crate::bytecode::{ByteOp, CompiledProgram, Constant, EncodedInstruction, Ope
 use crate::input::{InputAction, InputSnapshot};
 use crate::presentation::{
     ActionView, BacklogEntryView, ChapterView, ChoiceView, ConfirmationView, DialogueView,
-    GalleryItemView, GameView, UI_VIEW_MODEL_SCHEMA, UiIntent, UiRoute, UiViewModel,
+    GalleryItemView, GameView, InterludeView, UI_VIEW_MODEL_SCHEMA, UiIntent, UiRoute, UiViewModel,
 };
 use crate::presentation_state::{PendingConfirmation, UiRuntimeState, UiViewport};
 use crate::protocol::{
@@ -171,10 +171,19 @@ pub struct SettingsState {
     /// consumes them on both Web and Tauri.
     #[serde(default = "default_text_scale")]
     pub text_scale: f32,
+    /// Opacity of the fixed subtitle field. This is kept separate from
+    /// high-contrast mode: one is a reading preference, the other is an
+    /// accessibility override.
+    #[serde(default = "default_text_opacity")]
+    pub text_opacity: f32,
     #[serde(default)]
     pub high_contrast: bool,
     #[serde(default)]
     pub reduced_motion: bool,
+    /// Lets a reader retain the still photograph while suppressing the
+    /// optional atmospheric grade and finite screen-effect overlays.
+    #[serde(default = "default_stage_effects")]
+    pub stage_effects: bool,
     /// Preserve the commercial VN convention of letting a player decide
     /// whether Skip may cross unread text. This is a preference, not the
     /// transient on/off state of the Skip command itself.
@@ -184,6 +193,14 @@ pub struct SettingsState {
 
 const fn default_text_scale() -> f32 {
     1.0
+}
+
+const fn default_text_opacity() -> f32 {
+    1.0
+}
+
+const fn default_stage_effects() -> bool {
+    true
 }
 
 impl Default for SettingsState {
@@ -196,8 +213,10 @@ impl Default for SettingsState {
             voice_volume: 1.0,
             fullscreen: false,
             text_scale: 1.0,
+            text_opacity: 1.0,
             high_contrast: false,
             reduced_motion: false,
+            stage_effects: true,
             skip_unread: false,
         }
     }
@@ -494,6 +513,7 @@ impl Vm {
             snapshot.ui.gallery_viewer = None;
         }
         snapshot.settings.text_scale = snapshot.settings.text_scale.clamp(0.85, 1.35);
+        snapshot.settings.text_opacity = snapshot.settings.text_opacity.clamp(0.72, 1.0);
         let restored_audio = snapshot
             .bus_volumes
             .iter()
@@ -649,9 +669,14 @@ impl Vm {
             route_changed = true;
         }
 
+        // A custom story surface can be either a choice checkpoint (the day
+        // card) or a timed reading beat (the interlude). Only presentation
+        // overlays bypass the ordinary waiting-state update. Treating every
+        // non-dialogue route as UI used to freeze a `wait` authored on a
+        // story-owned surface indefinitely.
         if !route_changed
-            && (self.state.ui.route != DEFAULT_ROUTE
-                || self.state.execution == ExecutionState::WaitingForChoice)
+            && (self.state.execution == ExecutionState::WaitingForChoice
+                || (self.state.ui.route != DEFAULT_ROUTE && !self.is_reading_surface()))
         {
             if input.intents.is_empty() {
                 self.handle_direct_presentation_input(input)?;
@@ -740,8 +765,26 @@ impl Vm {
         match self.state.execution.clone() {
             ExecutionState::Running => {}
             ExecutionState::WaitingForDelay { remaining_ms } => {
-                let remaining = remaining_ms.saturating_sub(input.delta_ms);
-                if remaining == 0 || input.is_held(InputAction::Skip) {
+                let mut remaining = remaining_ms.saturating_sub(input.delta_ms);
+                // Auto preserves the interlude's pause but never makes a
+                // first-read 1.2s hold feel like a stalled auto route. A
+                // short revisit hold remains untouched; a longer one is
+                // capped to a quiet 320ms from the next VM update.
+                if self.state.ui.route == "interlude" && self.state.auto_mode == AutoMode::On {
+                    remaining = remaining.min(320);
+                }
+                // A cinematic beat may be skipped by the player's normal
+                // skip mode as well as a physically held skip input. Its text
+                // is already complete and recorded, so this never drops
+                // unread prose on the floor.
+                if remaining == 0
+                    || input.is_held(InputAction::Skip)
+                    || (self.state.ui.route == "interlude"
+                        && (self.state.skip_mode != SkipMode::Off
+                            || input.is_pressed(InputAction::Advance)
+                            || input.is_pressed(InputAction::Confirm)
+                            || input.pointer.is_some_and(|pointer| pointer.primary_pressed)))
+                {
                     self.state.execution = ExecutionState::Running;
                 } else {
                     self.state.execution = ExecutionState::WaitingForDelay {
@@ -807,7 +850,11 @@ impl Vm {
                 UiIntent::ToggleSetting { name } => {
                     if !matches!(
                         name.as_str(),
-                        "fullscreen" | "high_contrast" | "reduced_motion" | "skip_unread"
+                        "fullscreen"
+                            | "high_contrast"
+                            | "reduced_motion"
+                            | "stage_effects"
+                            | "skip_unread"
                     ) {
                         return Err(VmError::InvalidUiIntent(format!(
                             "invalid toggle setting '{name}'"
@@ -874,6 +921,19 @@ impl Vm {
             self.advance_dialogue();
             return Ok(false);
         }
+        if id == "interlude.advance" {
+            if self.state.ui.route != "interlude" {
+                return Err(VmError::InvalidUiIntent(
+                    "interlude advance is only valid on an interlude".to_owned(),
+                ));
+            }
+            // The interlude line was revealed and logged on entry. A reader's
+            // input only releases the authored held duration.
+            if matches!(self.state.execution, ExecutionState::WaitingForDelay { .. }) {
+                self.state.execution = ExecutionState::Running;
+            }
+            return Ok(false);
+        }
         if id == "chrome.menu" {
             self.open_screen("pause");
             return Ok(true);
@@ -893,6 +953,19 @@ impl Vm {
             let index = index
                 .parse::<usize>()
                 .map_err(|_| VmError::InvalidUiIntent(format!("invalid choice action '{id}'")))?;
+            // Presentation input is asynchronous: a second Enter/click can
+            // arrive after the first semantic choice has been queued but
+            // before React has committed the next story surface.  The first
+            // activation owns the choice; subsequent copies of that now-stale
+            // action must not turn a perfectly valid chapter transition into
+            // a fatal missing-choice error.  Keep malformed indices while a
+            // live choice exists diagnostic, but make a no-longer-live choice
+            // action an idempotent no-op.
+            if self.state.execution != ExecutionState::WaitingForChoice
+                || self.state.choice.is_none()
+            {
+                return Ok(false);
+            }
             self.select_choice(index)?;
             return Ok(false);
         }
@@ -906,12 +979,12 @@ impl Vm {
             self.open_screen(&resolved);
             return Ok(true);
         }
-        if let Some(slot) = presentation_slot(id, "save.slot.") {
+        if let Some(slot) = presentation_manual_save_slot(id) {
             self.pending_runtime.push(RuntimeCommand::Save { slot });
             self.close_all_screens();
             return Ok(true);
         }
-        if let Some(slot) = presentation_slot(id, "load.slot.") {
+        if let Some(slot) = presentation_load_slot(id) {
             self.pending_runtime.push(RuntimeCommand::Load { slot });
             return Ok(false);
         }
@@ -1026,9 +1099,20 @@ impl Vm {
     fn present_screen(&mut self, requested: &str) {
         let previous = self.state.ui.route.clone();
         self.state.ui.route = self.resolve_screen(requested);
+        // An interlude owns its one complete line.  Do not let that line
+        // briefly masquerade as a subtitle while a following day card,
+        // transition, or authored delay is being prepared.  Besides being a
+        // visual leak, retaining its text id would make a prose backlog
+        // target ambiguous during deterministic replay.
+        if previous == "interlude" && self.state.ui.route != "interlude" {
+            self.clear_text();
+        }
         self.state.ui.route_stack.clear();
         self.state.ui.confirmation = None;
         self.state.ui.gallery_viewer = None;
+        if self.state.ui.route != "interlude" {
+            self.state.ui.interlude_first_visit = false;
+        }
         let current = self.state.ui.route.clone();
         self.start_ui_transition(&previous, &current);
     }
@@ -1211,10 +1295,14 @@ impl Vm {
         let mut reached_target = false;
         for _ in 0..MAX_REPLAY_TURNS {
             if replay.state.text.text_id.as_deref() == Some(target.text_id.as_str())
-                && matches!(
+                && (matches!(
                     replay.state.execution,
                     ExecutionState::WaitingForAdvance { .. }
-                )
+                ) || (replay.state.ui.route == "interlude"
+                    && matches!(
+                        replay.state.execution,
+                        ExecutionState::WaitingForDelay { .. }
+                    )))
             {
                 replay.state.text.page_columns = target.page_columns.max(1);
                 let page_count = replay.subtitle_pages().len();
@@ -1296,6 +1384,13 @@ impl Vm {
 
     fn is_reading_surface(&self) -> bool {
         self.state.ui.route == DEFAULT_ROUTE
+            // Day cards are a held part of the story, not an overlay. Treat
+            // Cancel exactly like the dialogue surface so it opens RMenu and
+            // never dismisses the chapter checkpoint by accident.
+            || self.state.ui.route == "day_card"
+            // Interludes are story time, not an overlay. Cancel therefore
+            // opens RMenu and save/restore retains the exact held beat.
+            || self.state.ui.route == "interlude"
             || (self.state.ui.route == "chapter_select"
                 && self.state.choice.is_none()
                 && !self.state.text.full_text.is_empty())
@@ -1525,6 +1620,7 @@ impl Vm {
             "sound_effect_volume" => self.set_setting_volume_to(AudioBus::SoundEffect, value),
             "voice_volume" => self.set_setting_volume_to(AudioBus::Voice, value),
             "text_scale" => self.state.settings.text_scale = value.clamp(0.85, 1.35),
+            "text_opacity" => self.state.settings.text_opacity = value.clamp(0.72, 1.0),
             _ => {}
         }
     }
@@ -1537,6 +1633,9 @@ impl Vm {
             }
             "reduced_motion" => {
                 self.state.settings.reduced_motion = !self.state.settings.reduced_motion;
+            }
+            "stage_effects" => {
+                self.state.settings.stage_effects = !self.state.settings.stage_effects;
             }
             "skip_unread" => {
                 self.state.settings.skip_unread = !self.state.settings.skip_unread;
@@ -1667,6 +1766,15 @@ impl Vm {
                     ),
                     page_index: 0,
                 };
+                // Unlike a subtitle, an interlude is a complete short
+                // statement over a still frame. Reveal it atomically so it
+                // never starts a typewriter rAF loop, then place that exact
+                // page in the backlog before the authored hold begins.
+                if self.state.ui.route == "interlude" {
+                    self.state.text.visible_graphemes = self.current_page_grapheme_count();
+                    self.record_current_page_if_needed();
+                    self.mark_current_text_read();
+                }
             }
             ByteOp::WaitAdvance => {
                 let clear_page = self.boolean(self.operand(instruction, 0)?)?;
@@ -1675,6 +1783,13 @@ impl Vm {
             ByteOp::TextClear => self.clear_text(),
             ByteOp::Delay => {
                 let duration = self.integer(self.operand(instruction, 0)?)?.max(0) as u32;
+                // UmiKaze interludes use a long first hold and a short
+                // revisit hold. Capture that distinction at the semantic
+                // delay boundary so a save keeps the visual blank/fade rhythm
+                // without the host owning a second timer.
+                if self.state.ui.route == "interlude" {
+                    self.state.ui.interlude_first_visit = duration >= 600;
+                }
                 if duration > 0 {
                     self.state.execution = ExecutionState::WaitingForDelay {
                         remaining_ms: duration,
@@ -2407,6 +2522,9 @@ impl Vm {
                 ExecutionState::WaitingForAdvance { .. }
             ),
         });
+        let interlude = (self.state.ui.route == "interlude").then(|| InterludeView {
+            first_visit: self.state.ui.interlude_first_visit,
+        });
         let choices = self
             .state
             .choice
@@ -2494,6 +2612,7 @@ impl Vm {
             chapters,
             gallery,
             gallery_viewer: self.state.ui.gallery_viewer.clone(),
+            interlude,
             confirmation: self.state.ui.confirmation.as_ref().map(|confirmation| {
                 ConfirmationView {
                     action: confirmation.action.clone(),
@@ -2520,6 +2639,10 @@ impl Vm {
                 action("route:settings", false),
                 action("route:gallery", false),
             ],
+            // A demo endpoint is authored through explicit choices. It has
+            // no implicit menu action: the player can only replay the
+            // available record or return to its title.
+            UiRoute::DemoEnd => Vec::new(),
             UiRoute::Dialogue => vec![
                 action("chrome.menu", false),
                 action("chrome.backlog", false),
@@ -2542,6 +2665,9 @@ impl Vm {
                 .map(|slot| action(&format!("save.slot.{slot}"), false))
                 .chain(std::iter::once(action("dismiss", false)))
                 .collect(),
+            // The host-maintained automatic checkpoint is deliberately not a
+            // player-facing record. Archive UI contains only deliberate,
+            // named manual saves.
             UiRoute::Load => (1..=10)
                 .map(|slot| action(&format!("load.slot.{slot}"), false))
                 .chain(std::iter::once(action("dismiss", false)))
@@ -2599,6 +2725,25 @@ impl Vm {
                 action("confirm.accept", false),
                 action("confirm.cancel", false),
                 action("dismiss", false),
+            ],
+            // `day_card` is intentionally a project-specific route, rather
+            // than a layout baked into Core. It still exposes the two quiet
+            // reading affordances so keyboard, gamepad, and right-click are
+            // consistent while the chapter waits for its one semantic choice.
+            UiRoute::Custom(route) if route == "day_card" => vec![
+                action("chrome.menu", false),
+                action("chrome.backlog", false),
+            ],
+            // Interludes share the quiet controls with the reader. The
+            // semantic advance action is intentionally distinct from
+            // dialogue.advance: it releases a held silence rather than a
+            // subtitle page.
+            UiRoute::Custom(route) if route == "interlude" => vec![
+                action("chrome.menu", false),
+                action("chrome.backlog", false),
+                action("menu.auto", self.state.auto_mode == AutoMode::On),
+                action("menu.skip", self.state.skip_mode != SkipMode::Off),
+                action("interlude.advance", false),
             ],
             UiRoute::Custom(_) => vec![action("dismiss", false)],
         }
@@ -2760,8 +2905,13 @@ fn normalize_screen_name(value: &str) -> &str {
     }
 }
 
-fn presentation_slot(id: &str, prefix: &str) -> Option<u32> {
-    let slot = id.strip_prefix(prefix)?.parse::<u32>().ok()?;
+fn presentation_manual_save_slot(id: &str) -> Option<u32> {
+    let slot = id.strip_prefix("save.slot.")?.parse::<u32>().ok()?;
+    (1..=10).contains(&slot).then_some(slot)
+}
+
+fn presentation_load_slot(id: &str) -> Option<u32> {
+    let slot = id.strip_prefix("load.slot.")?.parse::<u32>().ok()?;
     (1..=10).contains(&slot).then_some(slot)
 }
 
@@ -2770,6 +2920,7 @@ fn is_standard_route(value: &str) -> bool {
         value,
         "setup"
             | "title"
+            | "demo_end"
             | "dialogue"
             | "pause"
             | "save"
@@ -2779,6 +2930,8 @@ fn is_standard_route(value: &str) -> bool {
             | "chapter_select"
             | "gallery"
             | "confirm"
+            | "day_card"
+            | "interlude"
     )
 }
 
@@ -2791,6 +2944,7 @@ fn is_setting_name(value: &str) -> bool {
             | "sound_effect_volume"
             | "voice_volume"
             | "text_scale"
+            | "text_opacity"
     )
 }
 
@@ -2961,6 +3115,228 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_choice_activation_is_ignored_after_the_first_selection() {
+        let mut vm = vm("aria;\nentry start;\n\
+             scene start { choice { \"海\" => sea; } }\n\
+             scene sea { screen dialogue; narrate \"進む。\"; await advance; end; }\n");
+        let _choice = vm.step(&InputSnapshot::idle(1, 16)).unwrap();
+
+        // A touch/click and a key can be placed in one host frame while the
+        // selection's next surface is still committing.  They must select
+        // once, never crash the VM because the first action cleared state.
+        let mut input = InputSnapshot::idle(2, 16);
+        input.intents.push(UiIntent::Activate {
+            id: "choice:0".to_owned(),
+        });
+        input.intents.push(UiIntent::Activate {
+            id: "choice:0".to_owned(),
+        });
+        let selected = vm.step(&input).unwrap();
+
+        assert_eq!(selected.view.route, UiRoute::Dialogue);
+        assert!(selected.view.choices.is_empty());
+        assert_eq!(
+            selected
+                .view
+                .dialogue
+                .as_ref()
+                .map(|line| line.full_text.as_str()),
+            Some("進む。")
+        );
+        assert_eq!(vm.state.narrative_trace.len(), 1);
+    }
+
+    #[test]
+    fn day_card_is_a_saveable_reading_checkpoint() {
+        let mut runtime = vm("aria;\n\
+             entry start;\n\
+             scene start { screen day_card; choice { \"DAY 1\\n9月21日・横浜\\n知らない街へ向かう朝。\" => chapter; } }\n\
+             scene chapter { screen dialogue; narrate \"海へ向かう。\"; await advance; end; }\n");
+        let card = runtime.step(&InputSnapshot::idle(1, 16)).unwrap();
+        assert_eq!(card.view.route, UiRoute::Custom("day_card".to_owned()));
+        assert!(
+            card.view
+                .actions
+                .iter()
+                .any(|action| action.id == "chrome.menu")
+        );
+        assert_eq!(card.view.choices[0].id, "choice:0");
+
+        // A save made while the day is held must restore that same pause, not
+        // skip straight into the chapter or fall back to dialogue.
+        let snapshot = runtime.snapshot();
+        let mut restored = Vm::new(runtime.program.clone(), SIZE).unwrap();
+        restored.restore(snapshot).unwrap();
+        let restored_card = restored.step(&InputSnapshot::idle(1, 16)).unwrap();
+        assert_eq!(
+            restored_card.view.route,
+            UiRoute::Custom("day_card".to_owned())
+        );
+        assert_eq!(
+            restored_card.view.choices[0].label,
+            "DAY 1\n9月21日・横浜\n知らない街へ向かう朝。"
+        );
+
+        let mut open_menu = InputSnapshot::idle(2, 16);
+        open_menu.intents.push(UiIntent::Activate {
+            id: "chrome.menu".to_owned(),
+        });
+        assert_eq!(
+            restored.step(&open_menu).unwrap().view.route,
+            UiRoute::Pause
+        );
+
+        let mut close_menu = InputSnapshot::idle(3, 16);
+        close_menu.intents.push(UiIntent::Dismiss);
+        assert_eq!(
+            restored.step(&close_menu).unwrap().view.route,
+            UiRoute::Custom("day_card".to_owned())
+        );
+
+        let mut begin = InputSnapshot::idle(4, 16);
+        begin.intents.push(UiIntent::Activate {
+            id: "choice:0".to_owned(),
+        });
+        let chapter = restored.step(&begin).unwrap();
+        assert_eq!(chapter.view.route, UiRoute::Dialogue);
+        assert_eq!(
+            chapter.view.dialogue.expect("chapter subtitle").full_text,
+            "海へ向かう。"
+        );
+    }
+
+    #[test]
+    fn interlude_is_logged_saveable_and_can_be_released_early() {
+        let mut runtime = vm("aria;\n\
+             entry start;\n\
+             state mut interlude_seen: Bool = false;\n\
+             scene start {\n\
+               screen interlude;\n\
+               clear dialogue;\n\
+               narrate \"窓の外の季節は、誰かの許しを待たずに進む。\";\n\
+               if interlude_seen { wait 220ms; } else { interlude_seen = true; wait 1200ms; }\n\
+               screen dialogue;\n\
+               narrate \"次の文章。\";\n\
+               await advance;\n\
+               end;\n\
+             }\n");
+
+        let beat = runtime.step(&InputSnapshot::idle(1, 16)).unwrap();
+        assert_eq!(beat.view.route, UiRoute::Custom("interlude".to_owned()));
+        let dialogue = beat.view.dialogue.expect("interlude text");
+        assert!(dialogue.complete);
+        assert_eq!(dialogue.text, dialogue.full_page_text);
+        assert_eq!(runtime.backlog().len(), 1);
+        assert!(runtime.snapshot().read_texts.contains("text-0"));
+        assert!(
+            beat.view
+                .actions
+                .iter()
+                .any(|action| action.id == "interlude.advance")
+        );
+
+        // A snapshot made inside the quiet hold restores the same semantic
+        // route rather than collapsing it into an ordinary dialogue page.
+        let snapshot = runtime.snapshot();
+        let mut restored = Vm::new(runtime.program.clone(), SIZE).unwrap();
+        restored.restore(snapshot).unwrap();
+        let restored_beat = restored.step(&InputSnapshot::idle(2, 16)).unwrap();
+        assert_eq!(
+            restored_beat.view.route,
+            UiRoute::Custom("interlude".to_owned())
+        );
+        assert_eq!(restored.backlog().len(), 1);
+
+        let mut advance = InputSnapshot::idle(3, 16);
+        advance.intents.push(UiIntent::Activate {
+            id: "interlude.advance".to_owned(),
+        });
+        let prose = restored.step(&advance).unwrap();
+        assert_eq!(prose.view.route, UiRoute::Dialogue);
+        assert_eq!(
+            prose.view.dialogue.expect("following subtitle").full_text,
+            "次の文章。"
+        );
+    }
+
+    #[test]
+    fn interlude_clears_before_the_next_surface_and_replays_past_a_day_card() {
+        let mut runtime = vm("aria;\n\
+             entry start;\n\
+             scene start {\n\
+               screen interlude;\n\
+               clear dialogue;\n\
+               narrate \"断章。\";\n\
+               wait 1200ms;\n\
+               screen day_card;\n\
+               choice { \"BEGIN\" => story; }\n\
+             }\n\
+             scene story {\n\
+               screen dialogue;\n\
+               wait 1ms;\n\
+               narrate \"本文。\";\n\
+               await advance;\n\
+               end;\n\
+             }\n");
+
+        let opening = runtime.step(&InputSnapshot::idle(1, 16)).unwrap();
+        assert_eq!(opening.view.route, UiRoute::Custom("interlude".to_owned()));
+        assert_eq!(runtime.backlog()[0].text, "断章。");
+
+        let mut release = InputSnapshot::idle(2, 16);
+        release.intents.push(UiIntent::Activate {
+            id: "interlude.advance".to_owned(),
+        });
+        let card = runtime.step(&release).unwrap();
+        assert_eq!(card.view.route, UiRoute::Custom("day_card".to_owned()));
+        assert!(card.view.dialogue.is_none());
+
+        let mut begin = InputSnapshot::idle(3, 16);
+        begin.intents.push(UiIntent::Activate {
+            id: "choice:0".to_owned(),
+        });
+        let pending_prose = runtime.step(&begin).unwrap();
+        assert_eq!(pending_prose.view.route, UiRoute::Dialogue);
+        assert!(pending_prose.view.dialogue.is_none());
+
+        let prose = runtime.step(&InputSnapshot::idle(4, 1)).unwrap();
+        assert_eq!(prose.view.dialogue.expect("prose text").full_text, "本文。");
+
+        let mut reveal = InputSnapshot::idle(5, 16);
+        reveal.intents.push(UiIntent::Activate {
+            id: "dialogue.advance".to_owned(),
+        });
+        runtime.step(&reveal).unwrap();
+        let prose_id = runtime
+            .backlog()
+            .last()
+            .expect("completed prose backlog row")
+            .id
+            .clone();
+        assert_eq!(runtime.backlog().len(), 2);
+
+        let mut open_backlog = InputSnapshot::idle(6, 16);
+        open_backlog.intents.push(UiIntent::Activate {
+            id: "chrome.backlog".to_owned(),
+        });
+        runtime.step(&open_backlog).unwrap();
+        let mut choose_prose = InputSnapshot::idle(7, 16);
+        choose_prose.intents.push(UiIntent::Activate {
+            id: format!("backlog:{prose_id}"),
+        });
+        runtime.step(&choose_prose).unwrap();
+        let mut accept = InputSnapshot::idle(8, 16);
+        accept.intents.push(UiIntent::Activate {
+            id: "confirm.accept".to_owned(),
+        });
+        let resumed = runtime.step(&accept).unwrap();
+        let dialogue = resumed.view.dialogue.expect("resumed prose");
+        assert_eq!(resumed.view.route, UiRoute::Dialogue);
+        assert_eq!(dialogue.page_id, prose_id);
+        assert_eq!(dialogue.text, dialogue.full_page_text);
+    }
+
+    #[test]
     fn viewport_drives_scene_canvas_but_is_not_saved_as_ui_layout_state() {
         let mut vm = Vm::new(CompiledProgram::empty("jp.example.test"), SIZE).unwrap();
         let output = vm
@@ -2997,18 +3373,78 @@ mod tests {
             name: "text_scale".to_owned(),
             value: 1.25,
         });
+        input.intents.push(UiIntent::SetSetting {
+            name: "text_opacity".to_owned(),
+            value: 0.76,
+        });
         input.intents.push(UiIntent::ToggleSetting {
             name: "high_contrast".to_owned(),
         });
         input.intents.push(UiIntent::ToggleSetting {
             name: "skip_unread".to_owned(),
         });
+        input.intents.push(UiIntent::ToggleSetting {
+            name: "stage_effects".to_owned(),
+        });
         let output = vm.step(&input).unwrap();
         assert_eq!(output.view.route, UiRoute::Settings);
         assert_eq!(output.view.settings.text_scale, 1.25);
+        assert_eq!(output.view.settings.text_opacity, 0.76);
         assert!(output.view.settings.high_contrast);
         assert!(output.view.settings.skip_unread);
+        assert!(!output.view.settings.stage_effects);
         assert!(output.scene.commands.is_empty());
+    }
+
+    #[test]
+    fn automatic_checkpoint_is_not_a_player_facing_record() {
+        let mut vm = Vm::new(CompiledProgram::empty("jp.example.autosave"), SIZE).unwrap();
+        vm.state.ui.route = "load".to_owned();
+        let load = vm.step(&InputSnapshot::idle(1, 16)).unwrap();
+        assert!(
+            load.view
+                .actions
+                .iter()
+                .all(|action| action.id != "load.slot.0")
+        );
+
+        let mut automatic = InputSnapshot::idle(2, 16);
+        automatic.intents.push(UiIntent::Activate {
+            id: "load.slot.0".to_owned(),
+        });
+        assert!(matches!(
+            vm.step(&automatic),
+            Err(VmError::InvalidUiIntent(message)) if message.contains("load.slot.0")
+        ));
+
+        let mut manual = Vm::new(CompiledProgram::empty("jp.example.autosave"), SIZE).unwrap();
+        let mut forbidden = InputSnapshot::idle(1, 16);
+        forbidden.intents.push(UiIntent::Activate {
+            id: "save.slot.0".to_owned(),
+        });
+        assert!(matches!(
+            manual.step(&forbidden),
+            Err(VmError::InvalidUiIntent(message)) if message.contains("save.slot.0")
+        ));
+    }
+
+    #[test]
+    fn snapshots_retain_reading_preferences_and_both_flag_scopes() {
+        let mut vm = Vm::new(CompiledProgram::empty("jp.example.snapshot"), SIZE).unwrap();
+        vm.state.flags.insert("tide_seen".to_owned(), true);
+        vm.state
+            .persistent_flags
+            .insert("chapter_unlocked".to_owned(), true);
+        vm.state.read_texts.insert("line-001".to_owned());
+        vm.state.settings.text_opacity = 0.84;
+        vm.state.settings.stage_effects = false;
+
+        let snapshot = vm.snapshot();
+        assert!(snapshot.flags["tide_seen"]);
+        assert!(snapshot.persistent_flags["chapter_unlocked"]);
+        assert!(snapshot.read_texts.contains("line-001"));
+        assert_eq!(snapshot.settings.text_opacity, 0.84);
+        assert!(!snapshot.settings.stage_effects);
     }
 
     #[test]

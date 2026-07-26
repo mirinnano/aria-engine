@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -49,6 +49,11 @@ pub struct RuntimeManifest {
     #[serde(default)]
     pub asset_pack_roles: BTreeMap<String, String>,
     pub save_namespace: String,
+    /// Save namespaces that this release deliberately retires before opening
+    /// the current namespace.  This remains opt-in: a project cannot erase a
+    /// record merely by changing its current save name.
+    #[serde(default)]
+    pub legacy_save_namespaces: Vec<String>,
 }
 
 /// Project-local frontend source. The directory must contain the game UI's
@@ -230,6 +235,26 @@ impl ProjectManifest {
         if self.runtime.save_namespace.contains(['/', '\\']) {
             problems.push("runtime.save_namespace must be a single logical name".to_owned());
         }
+        let mut legacy_save_namespaces = BTreeSet::new();
+        for namespace in &self.runtime.legacy_save_namespaces {
+            if namespace.trim().is_empty() || namespace.contains(['/', '\\']) {
+                problems.push(
+                    "runtime.legacy_save_namespaces must contain single logical names".to_owned(),
+                );
+                continue;
+            }
+            if namespace == &self.runtime.save_namespace {
+                problems.push(
+                    "runtime.legacy_save_namespaces must not include runtime.save_namespace"
+                        .to_owned(),
+                );
+            }
+            if !legacy_save_namespaces.insert(namespace.clone()) {
+                problems.push(format!(
+                    "runtime.legacy_save_namespaces contains duplicate namespace '{namespace}'"
+                ));
+            }
+        }
         validate_canonical_logical_path(
             "presentation.frontend",
             &self.presentation.frontend,
@@ -312,6 +337,7 @@ mod tests {
                 fonts: Vec::new(),
                 asset_pack_roles: BTreeMap::new(),
                 save_namespace: "umikaze-v3".to_owned(),
+                legacy_save_namespaces: Vec::new(),
             },
             presentation: PresentationManifest {
                 frontend: "ui".to_owned(),

@@ -47,6 +47,8 @@ pub struct NativePlayerConfig {
     /// Parent directory; `AtomicSaveStore` adds `save_namespace` beneath it.
     pub save_root: PathBuf,
     pub save_namespace: String,
+    /// Exact retired namespaces to clear before this Player opens a save.
+    pub legacy_save_namespaces: Vec<String>,
     /// Ordered, exact logical font assets from `aria.toml`/bundle metadata.
     /// No platform font discovery is permitted by the Native Player.
     pub font_assets: Vec<String>,
@@ -62,6 +64,7 @@ impl std::fmt::Debug for NativePlayerConfig {
             .field("logical_size", &self.logical_size)
             .field("save_root", &self.save_root)
             .field("save_namespace", &self.save_namespace)
+            .field("legacy_save_namespaces", &self.legacy_save_namespaces)
             .field("font_assets", &self.font_assets)
             .field("assets", &self.assets)
             .finish()
@@ -205,6 +208,7 @@ impl NativeApplication {
             logical_size,
             save_root,
             save_namespace,
+            legacy_save_namespaces,
             font_assets,
             assets,
         } = config;
@@ -279,6 +283,9 @@ impl NativeApplication {
             &output.scene,
             RenderSurfaceSize::new(size.width.max(1), size.height.max(1), window.scale_factor()),
         );
+        for namespace in &legacy_save_namespaces {
+            AtomicSaveStore::purge_namespace(&save_root, namespace)?;
+        }
         let save_store = AtomicSaveStore::new(save_root, save_namespace)?;
         let audio = match KiraAudioAdapter::new(".") {
             Ok(audio) => Some(audio),

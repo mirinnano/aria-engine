@@ -15,10 +15,14 @@ type MenuDescription = {
 };
 
 type Copy = {
-  eyebrow: string;
   title: string;
   subtitle: string;
   opening: string;
+  openingRecord: string;
+  demoComplete: string;
+  demoLead: string;
+  demoReplay: string;
+  demoReturn: string;
   begin: string;
   menu: string;
   history: string;
@@ -66,9 +70,9 @@ type Copy = {
   reading: string;
   noEntries: string;
   locked: string;
-  progress: string;
   textSpeed: string;
   autoDelay: string;
+  subtitleOpacity: string;
   music: string;
   effects: string;
   voice: string;
@@ -76,6 +80,7 @@ type Copy = {
   fullscreen: string;
   contrast: string;
   reducedMotion: string;
+  stageEffects: string;
   skipUnread: string;
   startupIssue: string;
   reopenRecord: string;
@@ -86,10 +91,14 @@ type Copy = {
 
 const copy: Record<Locale, Copy> = {
   "ja-JP": {
-    eyebrow: "AUTUMN RECORD / 03",
     title: "海風",
     subtitle: "The Records of Autumn",
     opening: "波が静まるまで、ここに記しておく。",
+    openingRecord: "記録を開いています",
+    demoComplete: "体験版はここまでです。",
+    demoLead: "この先の記録は、まだ閉じられています。",
+    demoReplay: "公開されている章を読み返す",
+    demoReturn: "タイトル画面へ戻る",
     begin: "記録をはじめる",
     menu: "メニュー",
     history: "履歴",
@@ -122,7 +131,7 @@ const copy: Record<Locale, Copy> = {
     next: "次へ",
     saveSlot: (slot) => `記録 ${slot} に残す`,
     loadSlot: (slot) => `記録 ${slot} を開く`,
-    recordIndex: (slot) => `RECORD ${String(slot).padStart(2, "0")}`,
+    recordIndex: (slot) => String(slot).padStart(2, "0"),
     saveLead: "いま読んでいる場所を、ひとつの記録として残します。",
     loadLead: "残しておいた記録から、読む場所へ戻ります。",
     writeRecord: "この瞬間を残す",
@@ -137,9 +146,9 @@ const copy: Record<Locale, Copy> = {
     reading: "読書中",
     noEntries: "まだ読み返せる記録はありません。",
     locked: "まだ届かない記録",
-    progress: "進行",
     textSpeed: "文字速度",
     autoDelay: "オート待ち時間",
+    subtitleOpacity: "字幕の濃さ",
     music: "BGM",
     effects: "効果音",
     voice: "ボイス",
@@ -147,6 +156,7 @@ const copy: Record<Locale, Copy> = {
     fullscreen: "フルスクリーン",
     contrast: "高コントラスト",
     reducedMotion: "動きを抑える",
+    stageEffects: "背景演出",
     skipUnread: "未読もスキップ",
     startupIssue: "記録を開けませんでした。更新して、もう一度開きます。",
     reopenRecord: "更新して開き直す",
@@ -167,10 +177,14 @@ const copy: Record<Locale, Copy> = {
     valueMs: (value) => `${Math.round(value)} ms`,
   },
   "en-US": {
-    eyebrow: "AUTUMN RECORD / 03",
     title: "Umikaze",
     subtitle: "The Records of Autumn",
     opening: "I will leave this here, until the sea settles.",
+    openingRecord: "Opening the record",
+    demoComplete: "This is the end of the demo.",
+    demoLead: "The rest of this record remains closed.",
+    demoReplay: "Read the available chapters again.",
+    demoReturn: "Return to the title screen.",
     begin: "Begin the record",
     menu: "Menu",
     history: "History",
@@ -203,7 +217,7 @@ const copy: Record<Locale, Copy> = {
     next: "Next",
     saveSlot: (slot) => `Save to record ${slot}`,
     loadSlot: (slot) => `Open record ${slot}`,
-    recordIndex: (slot) => `RECORD ${String(slot).padStart(2, "0")}`,
+    recordIndex: (slot) => String(slot).padStart(2, "0"),
     saveLead: "Keep this exact place as a record to return to.",
     loadLead: "Return to a place you kept in the record.",
     writeRecord: "Keep this moment",
@@ -218,9 +232,9 @@ const copy: Record<Locale, Copy> = {
     reading: "Reading",
     noEntries: "There is no record to revisit yet.",
     locked: "A record still beyond the tide",
-    progress: "Progress",
     textSpeed: "Text speed",
     autoDelay: "Auto delay",
+    subtitleOpacity: "Subtitle opacity",
     music: "Music",
     effects: "Sound effects",
     voice: "Voice",
@@ -228,6 +242,7 @@ const copy: Record<Locale, Copy> = {
     fullscreen: "Fullscreen",
     contrast: "High contrast",
     reducedMotion: "Reduce motion",
+    stageEffects: "Stage effects",
     skipUnread: "Skip unread text",
     startupIssue: "The record could not be opened. Refresh it and try again.",
     reopenRecord: "Refresh the record",
@@ -248,10 +263,14 @@ const copy: Record<Locale, Copy> = {
     valueMs: (value) => `${Math.round(value)} ms`,
   },
   "zh-CN": {
-    eyebrow: "AUTUMN RECORD / 03",
     title: "海风",
     subtitle: "The Records of Autumn",
     opening: "在海浪平息之前，把它记在这里。",
+    openingRecord: "正在打开记录",
+    demoComplete: "体验版到此结束。",
+    demoLead: "之后的记录仍然封存着。",
+    demoReplay: "重新阅读已公开的章节。",
+    demoReturn: "回到标题画面。",
     begin: "开始阅读",
     menu: "菜单",
     history: "回顾",
@@ -284,7 +303,7 @@ const copy: Record<Locale, Copy> = {
     next: "下一页",
     saveSlot: (slot) => `保存到记录 ${slot}`,
     loadSlot: (slot) => `打开记录 ${slot}`,
-    recordIndex: (slot) => `RECORD ${String(slot).padStart(2, "0")}`,
+    recordIndex: (slot) => String(slot).padStart(2, "0"),
     saveLead: "将此刻阅读的位置留作一份记录。",
     loadLead: "从已经留下的记录回到阅读的位置。",
     writeRecord: "留下此刻",
@@ -299,9 +318,9 @@ const copy: Record<Locale, Copy> = {
     reading: "阅读中",
     noEntries: "还没有可以回看的记录。",
     locked: "尚未抵达的记录",
-    progress: "进度",
     textSpeed: "文字速度",
     autoDelay: "自动等待",
+    subtitleOpacity: "字幕不透明度",
     music: "音乐",
     effects: "音效",
     voice: "语音",
@@ -309,6 +328,7 @@ const copy: Record<Locale, Copy> = {
     fullscreen: "全屏",
     contrast: "高对比度",
     reducedMotion: "减少动态效果",
+    stageEffects: "背景演出",
     skipUnread: "跳过未读文本",
     startupIssue: "无法打开记录。请刷新后重新打开。",
     reopenRecord: "刷新并重新打开",
@@ -329,10 +349,14 @@ const copy: Record<Locale, Copy> = {
     valueMs: (value) => `${Math.round(value)} ms`,
   },
   "zh-TW": {
-    eyebrow: "AUTUMN RECORD / 03",
     title: "海風",
     subtitle: "The Records of Autumn",
     opening: "在海浪平息之前，把它記在這裡。",
+    openingRecord: "正在開啟記錄",
+    demoComplete: "體驗版到此結束。",
+    demoLead: "之後的記錄仍然封存著。",
+    demoReplay: "重新閱讀已公開的章節。",
+    demoReturn: "回到標題畫面。",
     begin: "開始閱讀",
     menu: "選單",
     history: "回顧",
@@ -365,7 +389,7 @@ const copy: Record<Locale, Copy> = {
     next: "下一頁",
     saveSlot: (slot) => `儲存到記錄 ${slot}`,
     loadSlot: (slot) => `開啟記錄 ${slot}`,
-    recordIndex: (slot) => `RECORD ${String(slot).padStart(2, "0")}`,
+    recordIndex: (slot) => String(slot).padStart(2, "0"),
     saveLead: "將此刻閱讀的位置留作一份記錄。",
     loadLead: "從已經留下的記錄回到閱讀的位置。",
     writeRecord: "留下此刻",
@@ -380,9 +404,9 @@ const copy: Record<Locale, Copy> = {
     reading: "閱讀中",
     noEntries: "還沒有可以回看的記錄。",
     locked: "尚未抵達的記錄",
-    progress: "進度",
     textSpeed: "文字速度",
     autoDelay: "自動等待",
+    subtitleOpacity: "字幕不透明度",
     music: "音樂",
     effects: "音效",
     voice: "語音",
@@ -390,6 +414,7 @@ const copy: Record<Locale, Copy> = {
     fullscreen: "全螢幕",
     contrast: "高對比度",
     reducedMotion: "減少動態效果",
+    stageEffects: "背景演出",
     skipUnread: "跳過未讀文本",
     startupIssue: "無法開啟記錄。請重新整理後再開啟。",
     reopenRecord: "重新整理並再開啟",

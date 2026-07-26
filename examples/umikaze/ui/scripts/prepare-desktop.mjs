@@ -24,6 +24,14 @@ const presentationStamp = resolve(repository, "target/aria-presentation-tauri.fi
 const release = process.env.ARIA_RELEASE === "true";
 const profile = process.env.ARIA_PAK_PROFILE || (release ? "signed" : "dev");
 const force = process.env.ARIA_FORCE_REBUILD === "true";
+const editionArgument = process.argv.indexOf("--edition");
+const edition = editionArgument >= 0
+  ? process.argv[editionArgument + 1]
+  : (process.env.ARIA_UMIKAZE_EDITION || "full");
+
+if (!['full', 'demo'].includes(edition)) {
+  throw new Error("edition must be 'full' or 'demo'");
+}
 
 // npm does not necessarily retain ~/.cargo/bin on PATH. Prefer the user's
 // rustup proxies so this script honors rust-toolchain.toml and can find the
@@ -36,6 +44,12 @@ function rustTool(name, configured = undefined) {
 
 const cargo = rustTool("cargo", process.env.CARGO);
 const wasmBindgen = rustTool("wasm-bindgen");
+// Tauri may set CARGO_TARGET_DIR to keep full and demo desktop bundles apart.
+// The preparatory Aria/Web compiler has deliberate, repository-relative cache
+// paths below `target/`; do not let the desktop shell's final-binary directory
+// redirect those intermediate artifacts and make its own expected paths lie.
+const ariaCargoEnvironment = { ...process.env };
+delete ariaCargoEnvironment.CARGO_TARGET_DIR;
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { cwd: repository, stdio: "inherit", ...options });
@@ -75,7 +89,7 @@ function stampMatches(path, value) {
 function ensureFrontend() {
   const publicKeyId = process.env.ARIA_PAK_VERIFICATION_KEY_ID || "";
   const publicKeyHex = process.env.ARIA_PAK_VERIFICATION_KEY_HEX || "";
-  const value = fingerprint(`umikaze-presentation:${process.env.ARIA_PRESENTATION_SOURCEMAP === "true"}:${publicKeyId}:${publicKeyHex}`, [
+  const value = fingerprint(`umikaze-presentation:${edition}:${process.env.ARIA_PRESENTATION_SOURCEMAP === "true"}:${publicKeyId}:${publicKeyHex}`, [
     [uiRoot, "src"],
     [uiRoot, "public"],
     [uiRoot, "index.html"],
@@ -97,12 +111,52 @@ function ensureFrontend() {
       ARIA_PRESENTATION_OUT_DIR: presentationCache,
       VITE_ARIA_PAK_VERIFICATION_KEY_ID: publicKeyId,
       VITE_ARIA_PAK_VERIFICATION_KEY_HEX: publicKeyHex,
+      VITE_UMIKAZE_EDITION: edition,
     },
   });
   if (!existsSync(resolve(presentationCache, "index.html"))) {
     throw new Error(`presentation build did not produce ${presentationCache}/index.html`);
   }
   writeFileSync(presentationStamp, `${value}\n`);
+}
+
+// A demo build is a publishing boundary, not merely a title-screen label.
+// Keep a small, independent assertion here because `prepare:demo` is the
+// common path for Pages, WebView previewing, and the signed release package.
+// This catches an accidental static import of an unreleased chapter before it
+// can become a recoverable string or image URL in the browser artifact.
+function assertDemoPresentationBoundary() {
+  if (edition !== "demo") return;
+  const assets = resolve(presentationCache, "assets");
+  const files = sourceFiles(presentationCache);
+  const contains = (text) => files.some((file) => readFileSync(file).includes(Buffer.from(text)));
+  const forbiddenText = [
+    "強い雨が、進む理由を足止めする。",
+    "終点を知らない列車",
+  ];
+  const forbiddenAssets = [
+    "blue-twilight-v1-",
+    "bridge-understructure-v1-",
+    "mist-window-rail-v1-",
+    "neon-alley-v1-",
+    "night-window-motion-v1-",
+    "passage-sunset-v1-",
+    "rail-platform-dawn-v1-",
+    "rain-street-evening-v1-",
+    "understructure-evening-v1-",
+  ];
+  for (const text of forbiddenText) {
+    if (contains(text)) throw new Error(`demo presentation leaks later chapter text: ${text}`);
+  }
+  if (!contains("9月24日・松江")) {
+    throw new Error("demo presentation omitted the final playable chapter preview");
+  }
+  const assetNames = existsSync(assets) ? readdirSync(assets) : [];
+  for (const prefix of forbiddenAssets) {
+    if (assetNames.some((name) => name.startsWith(prefix))) {
+      throw new Error(`demo presentation leaks later chapter asset: ${prefix}`);
+    }
+  }
 }
 
 // The view-model schema is compiled into this WASM module. A content
@@ -124,7 +178,9 @@ if (stampMatches(runtimeStamp, runtimeFingerprint) && runtimeReady) {
 } else {
   rmSync(runtime, { recursive: true, force: true });
   mkdirSync(runtime, { recursive: true });
-  run(cargo, ["build", "--release", "-p", "aria-web", "--target", "wasm32-unknown-unknown"]);
+  run(cargo, ["build", "--release", "-p", "aria-web", "--target", "wasm32-unknown-unknown"], {
+    env: ariaCargoEnvironment,
+  });
   run(wasmBindgen, [
     "--target", "web",
     "--out-dir", runtime,
@@ -135,15 +191,25 @@ if (stampMatches(runtimeStamp, runtimeFingerprint) && runtimeReady) {
 }
 
 ensureFrontend();
+assertDemoPresentationBoundary();
 
 const buildArgs = [
-  "run", "--release", "-p", "aria-cli", "--", "build", gameRoot,
+  // The Tauri shell consumes a Web data bundle, not Aria's standalone native
+  // Player. Avoid linking WGPU/audio/windowing just to compile scripts and
+  // package a PAK; it makes local iteration and CI materially slower.
+  "run", "--release", "--no-default-features", "-p", "aria-cli", "--", "build", gameRoot,
   "--target", "web", "--out", output, "--profile", profile,
 ];
+if (edition === "demo") {
+  // Keep the full scenario modules out of the compiled import closure and
+  // save independently from the commercial edition. The manifest on disk is
+  // never modified by a build invocation.
+  buildArgs.push("--entry", "scripts/main-demo.aria", "--save-namespace", "umikaze-demo-v1");
+}
 if (release) buildArgs.push("--release");
 run(cargo, buildArgs, {
   env: {
-    ...process.env,
+    ...ariaCargoEnvironment,
     ARIA_WEB_RUNTIME_DIR: runtime,
     ARIA_PRESENTATION_PREBUILT_DIR: presentationCache,
   },

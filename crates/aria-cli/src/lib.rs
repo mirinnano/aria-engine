@@ -76,6 +76,13 @@ enum Command {
         /// Path to a pre-built native Player binary (overrides auto-build and env).
         #[arg(long)]
         player: Option<PathBuf>,
+        /// Override the manifest entry for a content-limited build edition.
+        /// The value is a logical project path such as `scripts/main-demo.aria`.
+        #[arg(long)]
+        entry: Option<String>,
+        /// Use a dedicated save namespace for a content-limited build edition.
+        #[arg(long)]
+        save_namespace: Option<String>,
     },
     /// Benchmark the VM hot loop with scripted advance/choice input.
     Bench {
@@ -85,11 +92,11 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Convert a directory of authored Markdown chapters into an Aria story module.
+    /// Convert canonical Markdown chapters into Aria, or verify an existing Aria import.
     ImportNovel {
         /// Directory containing the canonical Markdown chapter files.
         source: PathBuf,
-        /// Aria library source to create or replace.
+        /// Aria library file to create, or output directory when --layout chapters is used.
         #[arg(long)]
         out: PathBuf,
         /// Scene used for the generated chapter catalogue.
@@ -98,6 +105,18 @@ enum Command {
         /// Locale applied when an imported chapter begins.
         #[arg(long, default_value = "ja-JP")]
         locale: String,
+        /// Exact Markdown filenames to include (comma-separated; default: every chapter).
+        #[arg(long, value_delimiter = ',')]
+        include: Vec<String>,
+        /// Optional project-owned presentation rules for the generated scenario.
+        #[arg(long, value_enum, default_value_t = import_novel::NovelPresentation::Plain)]
+        presentation: import_novel::NovelPresentation,
+        /// Write index.aria plus one chapter-NN.aria file per selected chapter.
+        #[arg(long, value_enum, default_value_t = import_novel::NovelImportLayout::Single)]
+        layout: import_novel::NovelImportLayout,
+        /// Validate existing output against Markdown without changing files.
+        #[arg(long)]
+        verify: bool,
     },
     /// Package a built bundle directory into a distributable zip (and NSIS installer on Windows).
     Package {
@@ -153,7 +172,9 @@ where
             release,
             build_player,
             player,
-        } => build::command_with_profile(
+            entry,
+            save_namespace,
+        } => build::command_with_profile_and_runtime_overrides(
             &project,
             target,
             out.as_deref(),
@@ -163,6 +184,8 @@ where
             encryption_key.as_deref(),
             build_player,
             player.as_deref(),
+            entry.as_deref(),
+            save_namespace.as_deref(),
         ),
         Command::Bench {
             project,
@@ -174,7 +197,20 @@ where
             out,
             chapter_select,
             locale,
-        } => import_novel::command(&source, &out, &chapter_select, &locale),
+            include,
+            presentation,
+            layout,
+            verify,
+        } => import_novel::command(
+            &source,
+            &out,
+            &chapter_select,
+            &locale,
+            &include,
+            presentation,
+            layout,
+            verify,
+        ),
         Command::Package {
             bundle,
             out,
