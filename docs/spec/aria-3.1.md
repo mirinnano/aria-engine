@@ -187,7 +187,7 @@ storage transport saves outside the language with two valid generations.
 
 ~~~sh
 aria check my-game --release
-ARIA_PAK_SIGNING_KEY=publisher:<64-hex-bytes> \
+ARIA_PAK_SIGNING_KEY=publisher:<64-hex-characters> \
   aria build my-game --target windows-x64 --profile signed --release
 ~~~
 

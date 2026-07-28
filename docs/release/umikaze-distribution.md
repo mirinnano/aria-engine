@@ -9,19 +9,25 @@ deduplication stable across targets.
 
 `prepare-desktop.mjs` fingerprints the Aria VM/runtime and the presentation.
 Unchanged runs reuse `target/aria-web-runtime-tauri` and
-`target/aria-presentation-tauri`; set `ARIA_FORCE_REBUILD=true` when diagnosing
-toolchain changes. The normal development command remains:
+`target/aria-presentation-tauri/{full,demo}`; set `ARIA_FORCE_REBUILD=true`
+when diagnosing toolchain changes. The normal development command remains:
 
 ```sh
 npm --prefix examples/umikaze/ui run prepare:desktop
 ```
+
+The full game and demo never share a mutable Web directory: their build roots
+are `examples/umikaze/dist/build/full/web` and
+`examples/umikaze/dist/build/demo/web`. Both can stay available for a local
+server, Tauri shell, or smoke test at the same time. `prepare-desktop.mjs`
+also accepts `--out <directory>` for an explicitly isolated diagnostic build.
 
 It uses an unsigned `dev` PAK. A WebView release uses a `signed` PAK (the
 public verification key is safe to ship; the private key stays in CI):
 
 ```sh
 ARIA_PAK_PROFILE=signed \
-ARIA_PAK_SIGNING_KEY='publisher:<64-byte-hex-key>' \
+ARIA_PAK_SIGNING_KEY='publisher:<32-byte-private-key-hex>' \
 ARIA_PAK_VERIFICATION_KEY_ID=publisher \
 ARIA_PAK_VERIFICATION_KEY_HEX='<32-byte-public-key-hex>' \
 npm --prefix examples/umikaze/ui run release:desktop
@@ -30,7 +36,10 @@ npm --prefix examples/umikaze/ui run release:desktop
 The script selects `deb` on Linux, `dmg` on macOS, and `nsis` on Windows. Set
 `ARIA_TAURI_BUNDLES` to override the platform default (for example,
 `deb,appimage` when `appimagetool` is installed). Platform signing and macOS
-notarization happen after the unsigned Tauri bundle is created.
+notarization happen after the unsigned Tauri bundle is created. Release
+commands fail before compiling if the signing key, verification key ID, or
+32-byte public verification key is absent/mismatched; their values are never
+printed.
 
 ## CLI installers
 
@@ -38,9 +47,9 @@ For a native `aria build` bundle, the CLI can produce the portable archive and
 installers without a GUI:
 
 ```sh
-cargo run --release -p aria-cli -- build examples/umikaze \
+cargo run --release --locked -p aria-cli -- build examples/umikaze \
   --target linux-x64 --profile signed --release --out dist/umikaze-linux
-cargo run --release -p aria-cli -- package dist/umikaze-linux \
+cargo run --release --locked -p aria-cli -- package dist/umikaze-linux \
   --format auto --out dist/releases/linux
 ```
 
@@ -58,7 +67,7 @@ system-integrated option for distributions that ship `dpkg-deb`.
 
 ```sh
 ARIA_PAK_PROFILE=signed \
-ARIA_PAK_SIGNING_KEY='publisher:<64-byte-hex-key>' \
+ARIA_PAK_SIGNING_KEY='publisher:<32-byte-private-key-hex>' \
 ARIA_PAK_VERIFICATION_KEY_ID=publisher \
 ARIA_PAK_VERIFICATION_KEY_HEX='<32-byte-public-key-hex>' \
 npm --prefix examples/umikaze/ui run release:web
@@ -68,15 +77,23 @@ The result is a static PWA archive plus `web-release.json`, `_headers`,
 `release-manifest.json`, and `checksums.sha256`. Deploy the archive contents to
 any static host. Immutable runtime/PAK files receive a one-year immutable
 cache policy; `index.html`, the manifest, and the service worker are always
-revalidated. The service worker keeps the first-load path small by fetching
-the hot pack only when the reader needs it.
+revalidated. The release command verifies the manifest, checksum table, PAK
+split, save namespace, and copied Web contract before it reports success. The
+service worker keeps the first-load path small by fetching the hot pack only
+when the reader needs it.
 
 The GitHub Actions workflow `.github/workflows/umikaze-release.yml` builds the
 Web artifact and the three native installer families from the same tag. It
 expects the production PAK signing key in the `ARIA_PAK_SIGNING_KEY` secret;
 the matching public verification key is supplied through
 `ARIA_PAK_VERIFICATION_KEY_ID` and `ARIA_PAK_VERIFICATION_KEY_HEX`. No private
-key is stored in the repository.
+key is stored in the repository. A tag named `umikaze-v*` assembles a **draft**
+GitHub Release with the installers, Web archives, manifests, and checksums;
+publishing it remains an explicit human decision after platform signing and
+notarization review. Desktop release commands also write a checksum manifest
+beside their Tauri bundle. If Windows code signing or macOS notarization
+changes an installer afterward, regenerate that manifest only after the final
+platform-signing step.
 
 ## Demo edition
 
@@ -101,7 +118,7 @@ npm --prefix examples/umikaze/ui run prepare:demo
 
 # Signed static archive: dist/releases/demo-web
 ARIA_PAK_PROFILE=signed \
-ARIA_PAK_SIGNING_KEY='publisher:<64-byte-hex-key>' \
+ARIA_PAK_SIGNING_KEY='publisher:<32-byte-private-key-hex>' \
 ARIA_PAK_VERIFICATION_KEY_ID=publisher \
 ARIA_PAK_VERIFICATION_KEY_HEX='<32-byte-public-key-hex>' \
 npm --prefix examples/umikaze/ui run release:demo:web
@@ -111,10 +128,10 @@ npm --prefix examples/umikaze/ui run release:demo:desktop
 ```
 
 Before publishing, CI runs the demo-only integration test with
-`UMIKAZE_DEMO=true` against `prepare:demo`. That build also rejects known
-post-DAY-4 preview text and scene filenames from the generated presentation
-artifact. The normal presentation suite runs against the full bundle and
-remains the regression gate for the complete game.
+`UMIKAZE_DEMO=true` against `prepare:demo`. That build treats its scene
+photographs as an allowlist and rejects DAY 5–10 text or any unapproved visual
+from the generated presentation artifact. The normal presentation suite runs
+against the full bundle and remains the regression gate for the complete game.
 
 ### GitHub Pages demo host
 

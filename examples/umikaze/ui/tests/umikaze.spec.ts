@@ -117,13 +117,16 @@ test("title and transparent RMenu use English commands with a stable localized d
   await expect(page.getByRole("button", { name: "CONFIG" })).toBeVisible();
   await expect(page.getByRole("button", { name: "EXIT" })).toBeVisible();
   const titleStage = page.locator(".record-title-screen--home");
-  await expect(titleStage.locator(".record-stage-photograph--window")).toHaveAttribute("src", /train-window-summer-v1-/);
+  await expect(titleStage.locator(".record-stage-photograph--night-motion")).toHaveAttribute("src", /night-window-motion-v1-/);
   await expect(titleStage.locator(".title-record-card, .record-stage-slip, .title-opening")).toHaveCount(0);
   const titleTypeface = await titleStage.getByRole("heading", { name: "海風" }).evaluate((element) => getComputedStyle(element).fontFamily);
   expect(titleTypeface).toContain("UmikazeTitle");
-  await expect(titleStage.locator(".record-stage-fragment--tractatus-silence")).toContainText("Wovon man nicht sprechen kann");
-  await expect(titleStage.locator(".record-stage-fragment--yodaka")).toHaveText("よだかは、実にみにくい鳥です。");
-  await expect(titleStage.locator(".record-stage-fragment")).toHaveCount(3);
+  await expect(titleStage.locator(".record-stage-quotation--tractatus-silence"))
+    .toContainText("語ることのできないものについては、沈黙しなければならない。");
+  await expect(titleStage.locator(".record-stage-quotation--yodaka-plain"))
+    .toHaveText("よだかは、実にみにくい鳥です。");
+  await expect(titleStage.locator(".record-stage-quotation")).toHaveCount(360);
+  await expect(titleStage.locator(".title-subtitle")).toHaveCount(0);
   await expect(titleStage.getByText("AUTUMN RECORD / 03", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "LOAD" }).focus();
   const loadNote = page.getByText("保存した記録を開く", { exact: true });
@@ -134,16 +137,18 @@ test("title and transparent RMenu use English commands with a stable localized d
     const noteBox = note.getBoundingClientRect();
     const commandBox = commandLabel?.getBoundingClientRect();
     const stage = document.querySelector<HTMLElement>(".record-title-screen--home");
-    const fragments = stage?.querySelector<HTMLElement>(".record-stage-fragments");
+    const quotations = stage?.querySelector<HTMLElement>(".record-stage-quotations");
     return {
       noteBelowCommand: Boolean(commandBox && noteBox.top >= commandBox.bottom),
       dividerWidth: command ? getComputedStyle(command).borderBottomWidth : "missing",
-      fragmentAnimation: fragments ? getComputedStyle(fragments).animationName : "missing",
+      quotationAnimation: quotations ? getComputedStyle(quotations).animationName : "missing",
+      quotationCount: quotations?.querySelectorAll(".record-stage-quotation").length || 0,
     };
   });
   expect(titleLayout.noteBelowCommand).toBe(true);
   expect(titleLayout.dividerWidth).toBe("0px");
-  expect(titleLayout.fragmentAnimation).toBe("none");
+  expect(titleLayout.quotationAnimation).toBe("none");
+  expect(titleLayout.quotationCount).toBe(360);
 
   await page.getByRole("button", { name: "LOAD" }).click();
   await expect(page.getByRole("dialog", { name: "LOAD" }).locator(".record-stage-photograph--understructure")).toHaveAttribute("src", /understructure-evening-v1-/);
@@ -210,7 +215,10 @@ test("title EXIT confirms safely, and RMenu arrows move the focused command", as
   await page.keyboard.press("Escape");
 
   const menu = page.getByRole("dialog", { name: "メニュー" });
-  await menu.getByRole("button", { name: "RESUME" }).focus();
+  // Opening through Escape must give DOM focus to the same command that is
+  // visibly selected; a player should be able to press a direction
+  // immediately, without first tabbing or clicking the transparent menu.
+  await expect(menu.getByRole("button", { name: "RESUME" })).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await expect(menu.getByRole("button", { name: "AUTO" })).toBeFocused();
   await expect(menu.getByText("文章を自動で送る", { exact: true })).toBeVisible();
@@ -376,6 +384,39 @@ test("an interlude is a dark logged story beat and every reading input releases 
   await expect(page.getByRole("region", { name: "読書中" })).toBeVisible();
 });
 
+test("an automatic statement owns its duration while preserving log and menu escape hatches", async ({ page }) => {
+  test.setTimeout(45_000);
+  await beginFirstChapter(page);
+  const statement = page.locator(".statement-screen");
+
+  // The prologue reaches its one automatic central line through ordinary
+  // reading input. Once it arrives, do not send a second kind of control to
+  // release it: the story, rather than the reader, owns this interval.
+  for (let input = 0; input < 180 && !await statement.isVisible().catch(() => false); input += 1) {
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(8);
+  }
+  await expect(statement).toBeVisible();
+  await expect(statement.getByText("白い。", { exact: true })).toBeVisible();
+  await expect(statement.locator("button")).toHaveCount(0);
+  await expect(page.locator(".scene-photograph")).toHaveCount(0);
+
+  await page.keyboard.press("Enter");
+  await page.mouse.click(14, 14);
+  await page.waitForTimeout(90);
+  await expect(statement).toBeVisible();
+
+  await page.keyboard.press("h");
+  const backlog = page.getByRole("dialog", { name: "LOG" });
+  await expect(backlog).toBeVisible();
+  await expect(backlog.getByText("白い。", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(statement).toBeVisible();
+
+  await expect(page.getByRole("region", { name: "読書中" })).toBeVisible({ timeout: 3_500 });
+  await expect(page.locator(".dialogue-text")).toHaveText("いつの間にか、寝ていた。");
+});
+
 test("a story scene selects its deterministic photograph after the chapter interlude", async ({ page }) => {
   const card = await openChapterCard(page, "DAY 1");
   await card.getByRole("button", { name: "次へ" }).click();
@@ -383,8 +424,8 @@ test("a story scene selects its deterministic photograph after the chapter inter
   await expect(page.locator(".interlude-screen")).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("region", { name: "読書中" })).toBeVisible();
-  await expect(page.locator(".scene-photograph--station img"))
-    .toHaveAttribute("src", /station-night-pass-v1-/);
+  await expect(page.locator(".scene-photograph--north-platform img"))
+    .toHaveAttribute("src", /platform-sea-dawn-v1-/);
 });
 
 test("subtitle content and Next are separate, fixed-grid controls", async ({ page }) => {
@@ -439,9 +480,23 @@ test("every ordinary reading surface, Enter, and a downward wheel gesture advanc
   await expect(band).not.toHaveAttribute("data-page-id", enterPage || "");
 
   await waitForCompletedPage(page);
+  const spacePage = await band.getAttribute("data-page-id");
+  await page.keyboard.press("Space");
+  await expect(band).not.toHaveAttribute("data-page-id", spacePage || "");
+
+  await waitForCompletedPage(page);
   const wheelPage = await band.getAttribute("data-page-id");
   await page.mouse.wheel(0, 120);
   await expect(band).not.toHaveAttribute("data-page-id", wheelPage || "");
+});
+
+test("the title supplies its own icon instead of causing a browser fallback request", async ({ page }) => {
+  await beginJapaneseRecord(page);
+  const icon = page.locator('link[rel="icon"]');
+  await expect(icon).toHaveAttribute("href", "./favicon.svg");
+  const iconResponse = await page.request.get(new URL("favicon.svg", page.url()).toString());
+  expect(iconResponse.ok()).toBe(true);
+  expect(iconResponse.headers()["content-type"]).toContain("image/svg+xml");
 });
 
 test("H opens history and a history page resumes through an OK / NG confirmation", async ({ page }) => {
