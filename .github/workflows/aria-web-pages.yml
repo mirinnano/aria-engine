@@ -30,6 +30,11 @@ jobs:
   build:
     name: Build signed demo site
     runs-on: ubuntu-latest
+    # The signing material is stored as Environment secrets, not repository
+    # secrets. Bind the build job to the same protected environment as the
+    # deployment so the packager can sign without ever printing key values.
+    environment:
+      name: github-pages
     env:
       ARIA_PAK_PROFILE: signed
       ARIA_PAK_SIGNING_KEY: ${{ secrets.ARIA_PAK_SIGNING_KEY }}
