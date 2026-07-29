@@ -67,9 +67,10 @@ activation. `UiViewport` does travel with replay input so scene projection is
 deterministic across Web and Native, but it is host-ephemeral and never saved.
 
 Routes are standard semantic names: `dialogue`, `title`, `pause`, `save`,
-`load`, `settings`, `backlog`, `chapter_select`, and `gallery`. A `screen`
-statement or a semantic route intent changes a route; the React package decides
-whether it appears as a rail, side sheet, dialog, or mobile bottom sheet.
+`load`, `settings`, `backlog`, `chapter_select`, `gallery`, and `confirm`. A
+`screen` statement or a semantic route intent changes a route; the React
+package decides whether it appears as a rail, index, held proposition, or
+another host-native surface.
 
 ## Author language
 
@@ -95,6 +96,27 @@ scene opening {
   end;
 }
 ```
+
+A story-owned binary confirmation is ordinary Aria control flow. It uses the
+`confirm` route, one prompt, and exactly two choices:
+
+```aria
+scene open_record {
+  screen confirm;
+  narrate "この記録を開く。";
+  choice {
+    "OK" => accepted;
+    "NG" => rejected;
+  }
+}
+```
+
+The first choice is affirmative and the second is negative. Escape, secondary
+click, `Dismiss`, and gamepad B select the negative path rather than silently
+closing the route. The live prompt and choice targets are part of the VM
+snapshot, so save and restore retain the same result. Engine-owned reset,
+quit, and backlog-resume confirmations remain structured actions; scripts do
+not recreate those privileged operations.
 
 `ui_theme`, `ui_screen`, and `ui_transition` are retired syntax. The parser
 retains only their source span so V3.2 reports E108 at the declaration; none

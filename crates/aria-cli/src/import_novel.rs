@@ -29,6 +29,17 @@ const BACKGROUND_TONES: [&str; 9] = [
     "#6d6b57", // autumn
 ];
 
+/// A statement is intentionally slower than an ordinary subtitle. The line
+/// arrives without input, remains fully visible long enough to be read once,
+/// then leaves on its own. Keep this in lockstep with the Umikaze UI's
+/// opacity cycle.
+const UMIKAZE_STATEMENT_HOLD_MS: u32 = 2_400;
+
+/// Chapter headings are full-screen temporal coordinates rather than fast
+/// subtitles. Their UI spends this single authored hold on a fade-in, a
+/// readable still interval, and a fade-out.
+const UMIKAZE_INTERLUDE_HOLD_MS: u32 = 3_600;
+
 /// The generated source can either be a neutral prose library or use the
 /// deliberately restrained presentation rules owned by the Umikaze sample.
 ///
@@ -772,18 +783,31 @@ fn chapter_label(stem: &str) -> String {
 struct UmikazeChapterStyle {
     source_name: &'static str,
     day: &'static str,
+    numeral: &'static str,
+    proposition: &'static str,
     date: &'static str,
     synopsis: &'static str,
     background: &'static str,
 }
 
-// These are navigation metadata rather than new story text. Each line names
-// only a place, weather, or motion already present in that chapter; the
-// actual prose always comes directly from the canonical Markdown below.
+impl UmikazeChapterStyle {
+    fn choice_label(&self) -> String {
+        format!(
+            "{}\n{}\n{}\n{}\n{}",
+            self.day, self.numeral, self.proposition, self.date, self.synopsis
+        )
+    }
+}
+
+// These are navigation metadata rather than new story text. Each proposition
+// names a relation already enacted in its chapter without disclosing a later
+// event; the actual prose always comes from the canonical Markdown below.
 const UMIKAZE_CHAPTER_STYLES: [UmikazeChapterStyle; 11] = [
     UmikazeChapterStyle {
         source_name: "00_init.md",
         day: "PROLOGUE",
+        numeral: "P",
+        proposition: "幸福は、世界のなかの事実ではない。",
         date: "春から九月",
         synopsis: "季節だけが先に進む窓辺で、まだ名もない願いが揺れている。",
         background: "#3d4655",
@@ -791,6 +815,8 @@ const UMIKAZE_CHAPTER_STYLES: [UmikazeChapterStyle; 11] = [
     UmikazeChapterStyle {
         source_name: "01_start.md",
         day: "DAY 1",
+        numeral: "I",
+        proposition: "幸福は、理由ではなく現在に示される。",
         date: "9月21日・横浜駅",
         synopsis: "西へ向かう最初の列車が、朝のホームを離れる。",
         background: "#506473",
@@ -798,6 +824,8 @@ const UMIKAZE_CHAPTER_STYLES: [UmikazeChapterStyle; 11] = [
     UmikazeChapterStyle {
         source_name: "02_day2.md",
         day: "DAY 2",
+        numeral: "II",
+        proposition: "幸福の可能性は、行くことのうちにある。",
         date: "9月22日・三ノ宮",
         synopsis: "雨の気配が近づく街で、二人は次の行き先を探している。",
         background: "#4f4b53",
@@ -805,6 +833,8 @@ const UMIKAZE_CHAPTER_STYLES: [UmikazeChapterStyle; 11] = [
     UmikazeChapterStyle {
         source_name: "03_day3.md",
         day: "DAY 3",
+        numeral: "III",
+        proposition: "幸福は、苦痛の不在を意味しない。",
         date: "9月23日・岡山",
         synopsis: "遠ざかる景色の先で、言葉にできないものと向き合う。",
         background: "#4f4b53",
@@ -812,6 +842,8 @@ const UMIKAZE_CHAPTER_STYLES: [UmikazeChapterStyle; 11] = [
     UmikazeChapterStyle {
         source_name: "04_day4.md",
         day: "DAY 4",
+        numeral: "IV",
+        proposition: "記録されるのは、幸福の痕跡だけである。",
         date: "9月24日・松江",
         synopsis: "残そうとする音が、静かな海辺へ続く道を指している。",
         background: "#244e5a",
@@ -819,6 +851,8 @@ const UMIKAZE_CHAPTER_STYLES: [UmikazeChapterStyle; 11] = [
     UmikazeChapterStyle {
         source_name: "05_day5.md",
         day: "DAY 5",
+        numeral: "V",
+        proposition: "幸福への問いは、答えがなくとも消えない。",
         date: "9月25日・益田",
         synopsis: "強い雨が、進む理由を足止めする。",
         background: "#394857",
@@ -826,6 +860,8 @@ const UMIKAZE_CHAPTER_STYLES: [UmikazeChapterStyle; 11] = [
     UmikazeChapterStyle {
         source_name: "06_day6.md",
         day: "DAY 6",
+        numeral: "VI",
+        proposition: "幸福は、目的地に着くことを意味しない。",
         date: "晴れた移動の途中",
         synopsis: "夜の駅を越え、海の気配へ向かう。",
         background: "#607979",
@@ -833,6 +869,8 @@ const UMIKAZE_CHAPTER_STYLES: [UmikazeChapterStyle; 11] = [
     UmikazeChapterStyle {
         source_name: "07_day7.md",
         day: "DAY 7",
+        numeral: "VII",
+        proposition: "幸福は、像の限界においてのみ示される。",
         date: "始発前の待合室",
         synopsis: "海を渡るあいだ、記録の外側が近づいてくる。",
         background: "#607979",
@@ -840,6 +878,8 @@ const UMIKAZE_CHAPTER_STYLES: [UmikazeChapterStyle; 11] = [
     UmikazeChapterStyle {
         source_name: "08_day8.md",
         day: "DAY 8",
+        numeral: "VIII",
+        proposition: "他者の幸福を、ひとは決定できない。",
         date: "山あいの居間",
         synopsis: "遠い場所の映像が、静かな朝を占めていく。",
         background: "#6d6b57",
@@ -847,6 +887,8 @@ const UMIKAZE_CHAPTER_STYLES: [UmikazeChapterStyle; 11] = [
     UmikazeChapterStyle {
         source_name: "09_day9.md",
         day: "DAY 9",
+        numeral: "IX",
+        proposition: "帰る場所から、幸福の存在は帰結しない。",
         date: "北へ向かう列車",
         synopsis: "足元の地図を離れ、線路だけが先へ続いている。",
         background: "#4e5c66",
@@ -854,6 +896,8 @@ const UMIKAZE_CHAPTER_STYLES: [UmikazeChapterStyle; 11] = [
     UmikazeChapterStyle {
         source_name: "10_day10.md",
         day: "DAY 10",
+        numeral: "X",
+        proposition: "幸福とは、なお次を選びうることである。",
         date: "終点を知らない列車",
         synopsis: "灰色の海のそばを、降りる理由のないまま進む。",
         background: "#4e5c66",
@@ -990,7 +1034,7 @@ fn render_umikaze_module(
     for (chapter, style) in chapters.iter().zip(&styles) {
         output.push_str(&format!(
             "    \"{}\" => {};\n",
-            escape_string(style.day),
+            escape_string(&style.choice_label()),
             chapter.scene
         ));
     }
@@ -1038,10 +1082,8 @@ fn render_umikaze_chapter_content(
     output.push_str("  screen day_card;\n");
     output.push_str("  choice {\n");
     output.push_str(&format!(
-        "    \"{}\\n{}\\n{}\" => {};\n",
-        escape_string(style.day),
-        escape_string(style.date),
-        escape_string(style.synopsis),
+        "    \"{}\" => {};\n",
+        escape_string(&style.choice_label()),
         story_scene
     ));
     output.push_str("  }\n");
@@ -1119,7 +1161,7 @@ fn render_umikaze_chapter_layout(
     for (chapter, style) in chapters.iter().zip(&styles) {
         index.push_str(&format!(
             "    \"{}\" => {};\n",
-            escape_string(style.day),
+            escape_string(&style.choice_label()),
             chapter.scene
         ));
     }
@@ -1544,7 +1586,8 @@ fn verify_automatic_statements(
             Some(StatementKind::Narrate { text: actual }) if actual == text
         ) && matches!(
             following.get(3).map(|statement| &statement.kind),
-            Some(StatementKind::Wait { duration_ms }) if *duration_ms == 1600
+            Some(StatementKind::Wait { duration_ms })
+                if *duration_ms == UMIKAZE_STATEMENT_HOLD_MS
         ) && following
             .get(4)
             .is_some_and(|statement| is_any_background_fade(statement, 360))
@@ -1993,7 +2036,7 @@ fn render_umikaze_beat(
                 field.asset()
             ));
             output.push_str(&format!("  narrate \"{}\";\n", escape_string(text)));
-            output.push_str("  wait 1600ms;\n");
+            output.push_str(&format!("  wait {UMIKAZE_STATEMENT_HOLD_MS}ms;\n"));
             output.push_str(&format!(
                 "  background asset(\"{}\") with fade(360ms);\n",
                 current_background
@@ -2006,7 +2049,7 @@ fn render_umikaze_beat(
             output.push_str("  clear dialogue;\n");
             output.push_str("  screen interlude;\n");
             output.push_str(&format!("  narrate \"{}\";\n", escape_string(text)));
-            output.push_str("  wait 880ms;\n");
+            output.push_str(&format!("  wait {UMIKAZE_INTERLUDE_HOLD_MS}ms;\n"));
             output.push_str("  screen dialogue;\n");
             output.push_str("  clear dialogue;\n");
             output.push_str("  wait 220ms;\n");
@@ -2270,7 +2313,7 @@ mod tests {
 
         let generated = fs::read_to_string(output.join("chapter-00.aria")).unwrap();
         assert!(generated.contains(
-            "clear dialogue;\n  screen statement;\n  background asset(\"#6d706f\") with fade(260ms);\n  narrate \"白い。\";\n  wait 1600ms;\n  background asset(\"#3d4655\") with fade(360ms);\n  screen dialogue;\n  clear dialogue;\n  wait 180ms;"
+            "clear dialogue;\n  screen statement;\n  background asset(\"#6d706f\") with fade(260ms);\n  narrate \"白い。\";\n  wait 2400ms;\n  background asset(\"#3d4655\") with fade(360ms);\n  screen dialogue;\n  clear dialogue;\n  wait 180ms;"
         ));
         assert!(!generated.contains("narrate \"白い。\";\n  await advance;"));
     }
@@ -2320,6 +2363,7 @@ mod tests {
         assert!(generated.contains("module umikaze.scenario.ja.canonical;"));
         assert!(generated.contains("screen day_card;"));
         assert!(generated.contains("screen interlude;"));
+        assert!(generated.contains("wait 3600ms;"));
         assert!(generated.contains("narrate \"9月18日　保健室\";"));
         assert!(generated.contains("background asset(\"#05070b\") with fade(2000ms);"));
         assert!(generated.contains("background asset(\"#ded7c9\") with fade(420ms);"));

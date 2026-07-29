@@ -3,7 +3,7 @@
 aria;
 module umikaze.scenario.ja.chapter_03;
 
-// Source: 03_day3.md — 121 player-visible beats
+// Source: 03_day3.md — 126 player-visible beats
 scene novel_chapter_03 {
   locale "ja-JP";
   persistent flag "canonical_chapter_03_seen" = true;
@@ -11,7 +11,7 @@ scene novel_chapter_03 {
   background asset("#4f4b53") with fade(260ms);
   screen day_card;
   choice {
-    "DAY 3\n9月23日・岡山\n遠ざかる景色の先で、言葉にできないものと向き合う。" => novel_chapter_03_story;
+    "DAY 3\nIII\n幸福は、苦痛の不在を意味しない。\n9月23日・岡山\n遠ざかる景色の先で、言葉にできないものと向き合う。" => novel_chapter_03_story;
   }
 }
 
@@ -22,7 +22,7 @@ scene novel_chapter_03_story {
   clear dialogue;
   screen interlude;
   narrate "9月23日 岡山のビジネスホテル 10:00";
-  wait 880ms;
+  wait 3600ms;
   screen dialogue;
   clear dialogue;
   wait 220ms;
@@ -78,8 +78,6 @@ scene novel_chapter_03_story {
   await advance;
   narrate "見ると、ミオが床にへたり込み、割れた皿の破片があたりに散乱していた。";
   await advance;
-  narrate "立ちくらみでも起こしたんだろう。";
-  await advance;
   narrate "俺は無言で席を立ち、ミオの元へ歩み寄った。";
   await advance;
   narrate "「大丈夫か」";
@@ -105,6 +103,24 @@ scene novel_chapter_03_story {
   wait 720ms;
   background asset("#4f4b53") with fade(360ms);
   wait 180ms;
+  narrate "「今日は、ここで休む」";
+  await advance;
+  narrate "「松江に行く」";
+  await advance;
+  narrate "「さっき、倒れただろ」";
+  await advance;
+  narrate "「皿を落としただけ」";
+  await advance;
+  narrate "「床に座ってただろ」";
+  await advance;
+  narrate "ミオはベッドの端に座り、靴の先を見ていた。";
+  await advance;
+  narrate "「倒れたからって、行きたい場所がなくなるわけじゃない」";
+  await advance;
+  narrate "俺は返事をしなかった。";
+  await advance;
+  clear dialogue;
+  wait 1000ms;
   narrate "チェックアウトの時間は迫っている。";
   await advance;
   narrate "俺たちは無言で荷物をまとめ、部屋を出た。";
@@ -176,25 +192,21 @@ scene novel_chapter_03_story {
   narrate "俺は肩に伝わる小さな頭の重みを感じながら、陽が完全に沈みきるまで、ただ無言で湖を眺めていた。";
   await advance;
   clear dialogue;
+  wait 620ms;
+  clear dialogue;
   background asset("#4f4b53") with fade(360ms);
   wait 280ms;
-  narrate "すっかり暗くなった街を歩き、今夜の宿を探す。";
-  await advance;
-  narrate "駅から数分歩いた路地裏に、『ビジネスホテル〇〇』というネオンが一部切れかけた看板を見つけた。";
+  narrate "駅裏の路地で、ネオンが一部切れた『ビジネスホテル』の看板を見つけた。";
   await advance;
   narrate "「今日は節約のためにビジホだ。我慢しろよ」";
   await advance;
   narrate "「別にいいけど」";
   await advance;
-  narrate "フロントでは、おじさんが気怠そうにテレビの野球中継を眺めていた。";
-  await advance;
-  narrate "年齢も身分証も求められず、六千円の前払いで鍵を渡される。";
+  narrate "六千円を払い、年齢も名前も聞かれないまま鍵を受け取った。";
   await advance;
   narrate "405号室。";
   await advance;
-  narrate "部屋は質素で狭く、タバコとカビが混ざったような匂いが染み付いていた。";
-  await advance;
-  narrate "部屋の大部分を占領する古びたダブルベッド。小さな冷蔵庫とユニットバス。";
+  narrate "タバコの匂いが染みついた、狭いダブルベッドの部屋だった。";
   await advance;
   narrate "ベッドに鞄を放り投げ、ふと財布を開く。";
   await advance;
@@ -249,6 +261,8 @@ scene novel_chapter_03_story {
   narrate "いつの間にか、店内に残っているのは隅の席でうたた寝している浮浪者と、俺たちだけになっていた。";
   await advance;
   narrate "帰る場所のない俺たちも、あの浮浪者と大して変わらない。";
+  await advance;
+  narrate "ミオの丼には、米と玉ねぎが少し残っていた。";
   await advance;
   narrate "「行こっか」";
   await advance;

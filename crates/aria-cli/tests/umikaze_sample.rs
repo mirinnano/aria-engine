@@ -90,6 +90,7 @@ fn umikaze_japanese_scenario_runs_canonical_day_zero_to_ten_chapter_modules() {
     let chapter_five = std::fs::read_to_string(scenario.join("chapter-05.aria")).unwrap();
     let chapter_ten = std::fs::read_to_string(scenario.join("chapter-10.aria")).unwrap();
     assert!(chapter_zero.contains("screen interlude;"));
+    assert!(chapter_zero.contains("wait 3600ms;"));
     assert!(chapter_five.contains("background asset(\"#05070b\") with fade(2000ms);"));
     assert!(chapter_ten.contains("effect tint \"#05070b\" amount 64 over 520ms;"));
     assert!(!chapter_ten.contains("day10 end"));
@@ -141,14 +142,15 @@ fn canonical_route_holds_on_day_cards_before_entering_the_source_text() {
     assert_eq!(card.view.route, UiRoute::Custom("day_card".to_owned()));
     assert_eq!(
         card.view.choices[0].label,
-        "PROLOGUE\n春から九月\n季節だけが先に進む窓辺で、まだ名もない願いが揺れている。"
+        "PROLOGUE\nP\n幸福は、世界のなかの事実ではない。\n春から九月\n季節だけが先に進む窓辺で、まだ名もない願いが揺れている。"
     );
     let opening_hold = activate(&mut prologue, 4, "choice:0");
     assert_eq!(opening_hold.view.route, UiRoute::Dialogue);
     let opening = prologue.step(&InputSnapshot::idle(5, 200)).unwrap();
+    assert_eq!(opening.view.route, UiRoute::Custom("interlude".to_owned()));
     assert_eq!(
         opening.view.dialogue.unwrap().full_page_text,
-        "病室の窓から見える景色は、毎日少しずつ変わっていく。"
+        "春から秋　ミオ"
     );
 
     let mut day_ten = Vm::new(program, size).unwrap();
@@ -159,14 +161,60 @@ fn canonical_route_holds_on_day_cards_before_entering_the_source_text() {
     assert_eq!(card.view.route, UiRoute::Custom("day_card".to_owned()));
     assert_eq!(
         card.view.choices[0].label,
-        "DAY 10\n終点を知らない列車\n灰色の海のそばを、降りる理由のないまま進む。"
+        "DAY 10\nX\n幸福とは、なお次を選びうることである。\n終点を知らない列車\n灰色の海のそばを、降りる理由のないまま進む。"
     );
     let _ = activate(&mut day_ten, 4, "choice:0");
-    let opening = day_ten.step(&InputSnapshot::idle(5, 200)).unwrap();
+    let location_hold = day_ten.step(&InputSnapshot::idle(5, 200)).unwrap();
+    assert!(location_hold.view.dialogue.is_none());
+    assert_eq!(location_hold.view.timed_hold_remaining_ms, Some(280));
+    let opening = day_ten.step(&InputSnapshot::idle(6, 280)).unwrap();
     assert_eq!(
         opening.view.dialogue.unwrap().full_page_text,
         "硬いベンチで目を覚ますと、待合室に朝の光が差し込んでいた。"
     );
+}
+
+#[test]
+fn every_canonical_chapter_reaches_the_catalogue_after_authored_holds() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/umikaze");
+    let project = LoadedProject::load(&root).unwrap();
+    let program = project.compile().unwrap().program.unwrap();
+    let size = LogicalSize {
+        width: project.manifest.runtime.logical_width,
+        height: project.manifest.runtime.logical_height,
+    };
+
+    for chapter in 0..=10 {
+        let mut vm = Vm::new(program.clone(), size).unwrap();
+        let _ = vm.step(&InputSnapshot::idle(1, 16)).unwrap();
+        let catalogue = activate(&mut vm, 2, "choice:0");
+        assert_eq!(catalogue.view.route, UiRoute::ChapterSelect);
+        let card = activate(&mut vm, 3, &format!("choice:{chapter}"));
+        assert_eq!(card.view.route, UiRoute::Custom("day_card".to_owned()));
+        let mut output = activate(&mut vm, 4, "choice:0");
+
+        for sequence in 5..10_000 {
+            if output.view.route == UiRoute::ChapterSelect && output.view.choices.len() == 11 {
+                break;
+            }
+            if output.view.route == UiRoute::Custom("interlude".to_owned()) {
+                output = activate(&mut vm, sequence, "interlude.advance");
+            } else if let Some(remaining_ms) = output.view.timed_hold_remaining_ms {
+                output = vm
+                    .step(&InputSnapshot::idle(sequence, remaining_ms.max(1)))
+                    .unwrap();
+            } else {
+                output = activate(&mut vm, sequence, "dialogue.advance");
+            }
+        }
+
+        assert_eq!(
+            output.view.route,
+            UiRoute::ChapterSelect,
+            "DAY {chapter} did not return to the chapter catalogue"
+        );
+        assert_eq!(output.view.choices.len(), 11);
+    }
 }
 
 #[test]
@@ -204,7 +252,7 @@ fn demo_variant_compiles_only_the_opening_arc_and_closes_after_day_four() {
             .view
             .choices
             .iter()
-            .map(|choice| choice.label.as_str())
+            .map(|choice| choice.label.lines().next().unwrap_or_default())
             .collect::<Vec<_>>(),
         vec!["PROLOGUE", "DAY 1", "DAY 2", "DAY 3", "DAY 4"]
     );
@@ -212,9 +260,9 @@ fn demo_variant_compiles_only_the_opening_arc_and_closes_after_day_four() {
     let card = activate(&mut vm, 3, "choice:4");
     assert_eq!(card.view.route, UiRoute::Custom("day_card".to_owned()));
     let mut output = activate(&mut vm, 4, "choice:0");
-    // Timed breaths are story-owned time, not extra reader inputs.  Drive
-    // those holds forward in one bounded idle step; otherwise this test would
-    // mistake intentional 170ms silences for hundreds of missing advances.
+    // Timed pauses are story-owned time, not extra reader inputs. Drive those
+    // holds forward in bounded idle steps so the test does not mistake
+    // intentional silence for hundreds of missing advances.
     for sequence in 5..1_500 {
         if output.view.route == UiRoute::DemoEnd {
             break;

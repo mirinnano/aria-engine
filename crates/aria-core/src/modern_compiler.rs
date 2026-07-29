@@ -2329,6 +2329,11 @@ fn is_presentation_route(route: &str) -> bool {
             | "backlog"
             | "chapter_select"
             | "gallery"
+            // A two-choice confirmation is ordinary story control flow.
+            // Core owns the affirmative/negative semantics while the host
+            // presentation decides whether they appear as words, keys, or
+            // another accessible binary surface.
+            | "confirm"
             // An interlude is a story-owned held surface. It deliberately
             // remains layout-free in Core, but is a standard semantic route
             // so strict scripts can save, log, and replay its silence.

@@ -178,7 +178,11 @@ function assertDemoPresentationBoundary() {
   for (const text of forbiddenText) {
     if (contains(text)) throw new Error(`demo presentation leaks later chapter text: ${text}`);
   }
-  if (!contains("9月24日・松江")) {
+  // Chapter prose and navigation copy now live in Aria. The presentation
+  // boundary therefore proves only that its edition-specific image map still
+  // reaches the last public key; expecting the date here would reintroduce a
+  // second textual authority in TSX.
+  if (!contains("DAY 4")) {
     throw new Error("demo presentation omitted the final playable chapter preview");
   }
   const assetNames = existsSync(assets) ? readdirSync(assets) : [];

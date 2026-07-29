@@ -25,6 +25,26 @@ pub const VM_SNAPSHOT_SCHEMA: u32 = 9;
 const DEFAULT_ROUTE: &str = "dialogue";
 const MAX_INSTRUCTIONS_PER_TICK: usize = 100_000;
 const BACKLOG_WINDOW_SIZE: usize = 48;
+/// Releasing a full-screen interlude shortens its hold to this final interval
+/// instead of removing the surface in the same frame. Presentation hosts use
+/// the remaining time as the deterministic fade-out phase.
+const INTERLUDE_EXIT_FADE_MS: u32 = 320;
+/// Long establishing interludes reserve a complete fade-out rather than
+/// jumping from their entry phase into a near-finished frame.
+const INTERLUDE_LONG_EXIT_FADE_MS: u32 = 1_200;
+/// A long field must finish revealing its location before ordinary advance
+/// input may shorten it. Skip mode remains the explicit fast path.
+const INTERLUDE_RELEASE_READY_REMAINING_MS: u32 = 2_300;
+
+fn released_interlude_remaining(remaining_ms: u32) -> u32 {
+    if remaining_ms > INTERLUDE_RELEASE_READY_REMAINING_MS {
+        remaining_ms
+    } else if remaining_ms > INTERLUDE_LONG_EXIT_FADE_MS {
+        INTERLUDE_LONG_EXIT_FADE_MS
+    } else {
+        remaining_ms.min(INTERLUDE_EXIT_FADE_MS)
+    }
+}
 /// A malformed bytecode program must not turn an unbounded recursive Call
 /// cycle into host-memory exhaustion. Aria rejects recursive calls at
 /// compile time; this is the matching runtime guard for untrusted .ariac.
@@ -492,7 +512,16 @@ impl Vm {
                             .as_ref()
                             .is_some_and(|id| snapshot.backlog_targets.contains_key(id)))
             });
-        if snapshot.ui.route == "confirm" && !confirmation_is_valid {
+        let scripted_confirmation_is_valid = snapshot.ui.confirmation.is_none()
+            && snapshot.execution == ExecutionState::WaitingForChoice
+            && snapshot
+                .choice
+                .as_ref()
+                .is_some_and(|choice| choice.options.len() == 2);
+        if snapshot.ui.route == "confirm"
+            && !confirmation_is_valid
+            && !scripted_confirmation_is_valid
+        {
             snapshot.ui.route = snapshot
                 .ui
                 .route_stack
@@ -657,7 +686,11 @@ impl Vm {
             self.open_screen("pause");
             route_changed = true;
         } else if !route_changed && input.is_pressed(InputAction::Cancel) {
-            if self.screen_dismisses_on_cancel() {
+            if self.select_scripted_confirmation_choice(1)?.is_some() {
+                // A story-authored NG path is narrative control flow, not a
+                // sheet dismissal. Leave `route_changed` false so its target
+                // scene can execute in this same deterministic step.
+            } else if self.screen_dismisses_on_cancel() {
                 self.close_screen();
                 route_changed = true;
             } else if self.is_reading_surface() {
@@ -780,17 +813,20 @@ impl Vm {
                 // reader-releasable; a statement is not. Its normal advance,
                 // confirm, pointer, and gamepad-A inputs are ignored until
                 // the authored duration has elapsed.
+                let release_interlude = self.state.ui.route == "interlude"
+                    && (input.is_pressed(InputAction::Advance)
+                        || input.is_pressed(InputAction::Confirm)
+                        || input.pointer.is_some_and(|pointer| pointer.primary_pressed));
                 if remaining == 0
                     || input.is_held(InputAction::Skip)
                     || ((self.state.ui.route == "interlude" || self.state.ui.route == "statement")
                         && self.state.skip_mode != SkipMode::Off)
-                    || (self.state.ui.route == "interlude"
-                        && (input.is_pressed(InputAction::Advance)
-                            || input.is_pressed(InputAction::Confirm)
-                            || input.pointer.is_some_and(|pointer| pointer.primary_pressed)))
                 {
                     self.state.execution = ExecutionState::Running;
                 } else {
+                    if release_interlude {
+                        remaining = released_interlude_remaining(remaining);
+                    }
                     self.state.execution = ExecutionState::WaitingForDelay {
                         remaining_ms: remaining,
                     };
@@ -932,9 +968,10 @@ impl Vm {
                 ));
             }
             // The interlude line was revealed and logged on entry. A reader's
-            // input only releases the authored held duration.
-            if matches!(self.state.execution, ExecutionState::WaitingForDelay { .. }) {
-                self.state.execution = ExecutionState::Running;
+            // input enters its deterministic exit fade; it never tears the
+            // full-screen field out in the same rendered frame.
+            if let ExecutionState::WaitingForDelay { remaining_ms } = &mut self.state.execution {
+                *remaining_ms = released_interlude_remaining(*remaining_ms);
             }
             return Ok(false);
         }
@@ -947,6 +984,9 @@ impl Vm {
             return Ok(true);
         }
         if id == "dismiss" {
+            if let Some(changed) = self.select_scripted_confirmation_choice(1)? {
+                return Ok(changed);
+            }
             if self.screen_dismisses_on_cancel() {
                 self.close_screen();
                 return Ok(true);
@@ -1020,8 +1060,16 @@ impl Vm {
                 self.open_confirmation("quit", None);
                 return Ok(true);
             }
-            "confirm.accept" => return self.confirm_pending_action(),
+            "confirm.accept" => {
+                if let Some(changed) = self.select_scripted_confirmation_choice(0)? {
+                    return Ok(changed);
+                }
+                return self.confirm_pending_action();
+            }
             "confirm.cancel" => {
+                if let Some(changed) = self.select_scripted_confirmation_choice(1)? {
+                    return Ok(changed);
+                }
                 self.state.ui.confirmation = None;
                 self.close_screen();
                 return Ok(true);
@@ -1186,6 +1234,37 @@ impl Vm {
             resume_id,
         });
         self.open_screen("confirm");
+    }
+
+    /// A script can author its complete confirmation in Aria:
+    /// `screen confirm; narrate "..."; choice { "OK" => yes; "NG" => no; }`.
+    ///
+    /// Built-in destructive actions keep their structured pending state.
+    /// When that state is absent, exactly two live choices become the
+    /// affirmative and negative paths rendered by a host TSX confirmation.
+    fn select_scripted_confirmation_choice(
+        &mut self,
+        requested: usize,
+    ) -> Result<Option<bool>, VmError> {
+        if self.state.ui.route != "confirm"
+            || self.state.ui.confirmation.is_some()
+            || self.state.execution != ExecutionState::WaitingForChoice
+        {
+            return Ok(None);
+        }
+        let option_count = self
+            .state
+            .choice
+            .as_ref()
+            .map_or(0, |choice| choice.options.len());
+        if option_count != 2 {
+            return Err(VmError::InvalidUiIntent(
+                "a scripted confirmation requires exactly affirmative and negative choices"
+                    .to_owned(),
+            ));
+        }
+        self.select_choice(requested)?;
+        Ok(Some(false))
     }
 
     fn confirm_pending_action(&mut self) -> Result<bool, VmError> {
@@ -3315,7 +3394,63 @@ mod tests {
         advance.intents.push(UiIntent::Activate {
             id: "interlude.advance".to_owned(),
         });
-        let prose = restored.step(&advance).unwrap();
+        let fading = restored.step(&advance).unwrap();
+        assert_eq!(fading.view.route, UiRoute::Custom("interlude".to_owned()));
+        assert_eq!(
+            fading.view.timed_hold_remaining_ms,
+            Some(INTERLUDE_EXIT_FADE_MS - 16)
+        );
+        let prose = restored
+            .step(&InputSnapshot::idle(4, INTERLUDE_EXIT_FADE_MS - 16))
+            .unwrap();
+        assert_eq!(prose.view.route, UiRoute::Dialogue);
+        assert_eq!(
+            prose.view.dialogue.expect("following subtitle").full_text,
+            "次の文章。"
+        );
+    }
+
+    #[test]
+    fn long_interlude_finishes_its_entry_before_a_complete_exit_fade() {
+        let mut runtime = vm("aria;\n\
+             entry start;\n\
+             scene start {\n\
+               screen interlude;\n\
+               narrate \"9月21日　横浜駅 6:00\";\n\
+               wait 3600ms;\n\
+               screen dialogue;\n\
+               narrate \"次の文章。\";\n\
+               await advance;\n\
+               end;\n\
+             }\n");
+
+        let opening = runtime.step(&InputSnapshot::idle(1, 0)).unwrap();
+        assert_eq!(opening.view.timed_hold_remaining_ms, Some(3_600));
+
+        let guarded = runtime
+            .step(&InputSnapshot::pressed(2, 16, InputAction::Advance))
+            .unwrap();
+        assert_eq!(guarded.view.timed_hold_remaining_ms, Some(3_584));
+
+        let ready = runtime.step(&InputSnapshot::idle(3, 1_284)).unwrap();
+        assert_eq!(
+            ready.view.timed_hold_remaining_ms,
+            Some(INTERLUDE_RELEASE_READY_REMAINING_MS)
+        );
+
+        let mut release = InputSnapshot::idle(4, 16);
+        release.intents.push(UiIntent::Activate {
+            id: "interlude.advance".to_owned(),
+        });
+        let fading = runtime.step(&release).unwrap();
+        assert_eq!(
+            fading.view.timed_hold_remaining_ms,
+            Some(INTERLUDE_LONG_EXIT_FADE_MS - 16)
+        );
+
+        let prose = runtime
+            .step(&InputSnapshot::idle(5, INTERLUDE_LONG_EXIT_FADE_MS - 16))
+            .unwrap();
         assert_eq!(prose.view.route, UiRoute::Dialogue);
         assert_eq!(
             prose.view.dialogue.expect("following subtitle").full_text,
@@ -3431,11 +3566,19 @@ mod tests {
         release.intents.push(UiIntent::Activate {
             id: "interlude.advance".to_owned(),
         });
-        let card = runtime.step(&release).unwrap();
+        let fading = runtime.step(&release).unwrap();
+        assert_eq!(fading.view.route, UiRoute::Custom("interlude".to_owned()));
+        assert_eq!(
+            fading.view.timed_hold_remaining_ms,
+            Some(INTERLUDE_EXIT_FADE_MS - 16)
+        );
+        let card = runtime
+            .step(&InputSnapshot::idle(3, INTERLUDE_EXIT_FADE_MS - 16))
+            .unwrap();
         assert_eq!(card.view.route, UiRoute::Custom("day_card".to_owned()));
         assert!(card.view.dialogue.is_none());
 
-        let mut begin = InputSnapshot::idle(3, 16);
+        let mut begin = InputSnapshot::idle(4, 16);
         begin.intents.push(UiIntent::Activate {
             id: "choice:0".to_owned(),
         });
@@ -3443,10 +3586,10 @@ mod tests {
         assert_eq!(pending_prose.view.route, UiRoute::Dialogue);
         assert!(pending_prose.view.dialogue.is_none());
 
-        let prose = runtime.step(&InputSnapshot::idle(4, 1)).unwrap();
+        let prose = runtime.step(&InputSnapshot::idle(5, 1)).unwrap();
         assert_eq!(prose.view.dialogue.expect("prose text").full_text, "本文。");
 
-        let mut reveal = InputSnapshot::idle(5, 16);
+        let mut reveal = InputSnapshot::idle(6, 16);
         reveal.intents.push(UiIntent::Activate {
             id: "dialogue.advance".to_owned(),
         });
@@ -3459,17 +3602,17 @@ mod tests {
             .clone();
         assert_eq!(runtime.backlog().len(), 2);
 
-        let mut open_backlog = InputSnapshot::idle(6, 16);
+        let mut open_backlog = InputSnapshot::idle(7, 16);
         open_backlog.intents.push(UiIntent::Activate {
             id: "chrome.backlog".to_owned(),
         });
         runtime.step(&open_backlog).unwrap();
-        let mut choose_prose = InputSnapshot::idle(7, 16);
+        let mut choose_prose = InputSnapshot::idle(8, 16);
         choose_prose.intents.push(UiIntent::Activate {
             id: format!("backlog:{prose_id}"),
         });
         runtime.step(&choose_prose).unwrap();
-        let mut accept = InputSnapshot::idle(8, 16);
+        let mut accept = InputSnapshot::idle(9, 16);
         accept.intents.push(UiIntent::Activate {
             id: "confirm.accept".to_owned(),
         });
@@ -3716,6 +3859,73 @@ mod tests {
             after_accept
                 .runtime
                 .contains(&RuntimeCommand::ReturnToTitle)
+        );
+    }
+
+    #[test]
+    fn an_aria_scene_can_own_a_saveable_two_choice_confirmation() {
+        let source = "aria;\n\
+            entry start;\n\
+            scene start {\n\
+              screen confirm;\n\
+              narrate \"この記録を開く。\";\n\
+              choice { \"OK\" => accepted; \"NG\" => rejected; }\n\
+            }\n\
+            scene accepted { screen dialogue; narrate \"開いた。\"; await advance; end; }\n\
+            scene rejected { screen dialogue; narrate \"閉じた。\"; await advance; end; }\n";
+        let mut runtime = vm(source);
+        let confirm = runtime.step(&InputSnapshot::idle(1, 16)).unwrap();
+        assert_eq!(confirm.view.route, UiRoute::Confirm);
+        assert_eq!(
+            confirm
+                .view
+                .dialogue
+                .expect("scripted prompt")
+                .full_page_text,
+            "この記録を開く。"
+        );
+        assert_eq!(
+            confirm
+                .view
+                .choices
+                .iter()
+                .map(|choice| choice.label.as_str())
+                .collect::<Vec<_>>(),
+            ["OK", "NG"]
+        );
+        assert_eq!(confirm.view.confirmation, None);
+
+        let snapshot = runtime.snapshot();
+        let mut restored = Vm::new(runtime.program.clone(), SIZE).unwrap();
+        restored.restore(snapshot).unwrap();
+        let mut accept = InputSnapshot::idle(2, 16);
+        accept.intents.push(UiIntent::Activate {
+            id: "confirm.accept".to_owned(),
+        });
+        let accepted = restored.step(&accept).unwrap();
+        assert_eq!(accepted.view.route, UiRoute::Dialogue);
+        assert_eq!(
+            accepted
+                .view
+                .dialogue
+                .expect("affirmative branch")
+                .full_page_text,
+            "開いた。"
+        );
+
+        let mut cancelled = vm(source);
+        let _ = cancelled.step(&InputSnapshot::idle(1, 16)).unwrap();
+        let rejected = cancelled
+            .step(&InputSnapshot::pressed(2, 16, InputAction::Cancel))
+            .unwrap();
+        assert_eq!(rejected.view.route, UiRoute::Dialogue);
+        assert_eq!(
+            rejected
+                .view
+                .dialogue
+                .expect("negative branch")
+                .full_page_text,
+            "閉じた。"
         );
     }
 

@@ -3,7 +3,7 @@
 aria;
 module umikaze.scenario.ja.chapter_01;
 
-// Source: 01_start.md — 273 player-visible beats
+// Source: 01_start.md — 268 player-visible beats
 scene novel_chapter_01 {
   locale "ja-JP";
   persistent flag "canonical_chapter_01_seen" = true;
@@ -11,7 +11,7 @@ scene novel_chapter_01 {
   background asset("#506473") with fade(260ms);
   screen day_card;
   choice {
-    "DAY 1\n9月21日・横浜駅\n西へ向かう最初の列車が、朝のホームを離れる。" => novel_chapter_01_story;
+    "DAY 1\nI\n幸福は、理由ではなく現在に示される。\n9月21日・横浜駅\n西へ向かう最初の列車が、朝のホームを離れる。" => novel_chapter_01_story;
   }
 }
 
@@ -22,7 +22,7 @@ scene novel_chapter_01_story {
   clear dialogue;
   screen interlude;
   narrate "9月21日　横浜駅 6:00";
-  wait 880ms;
+  wait 3600ms;
   screen dialogue;
   clear dialogue;
   wait 220ms;
@@ -54,7 +54,7 @@ scene novel_chapter_01_story {
   await advance;
   narrate "降りてくる少しばかりの人を避け、乗り込む。";
   await advance;
-  narrate "たかだか数十センチの車両の段差を越えるだけで、ミオの細い肩が微かに上下した。";
+  narrate "たかだか数十センチの車両の段差を越えるだけで、ミオの肩が微かに上下した。";
   await advance;
   narrate "「家に帰りたい...」";
   await advance;
@@ -84,7 +84,7 @@ scene novel_chapter_01_story {
   await advance;
   narrate "「......うん。何日分か」";
   await advance;
-  narrate "それだけ聞いて、俺は窓の外に目を戻した。 ";
+  narrate "それだけ聞いて、俺は窓の外に目を戻した。";
   await advance;
   narrate "会話は長く続かず……車窓だけが楽しみのこの電車。";
   await advance;
@@ -155,15 +155,13 @@ scene novel_chapter_01_story {
   await advance;
   narrate "「……綺麗じゃん」";
   await advance;
+  clear dialogue;
+  wait 520ms;
   narrate "「まあな」";
   await advance;
-  narrate "電車は神奈川県を抜け、熱海へと到着した。";
+  narrate "熱海で乗り換え、長いトンネルを抜ける。";
   await advance;
-  narrate "ここからはJR東海だ。";
-  await advance;
-  narrate "長い丹那トンネルを抜け、ついにこの電車の終点・沼津に着いた。";
-  await advance;
-  narrate "俺たちは電車を降り、ホームのキヨスクへと向かう。";
+  narrate "沼津で列車を降り、ホームのキヨスクへ向かった。";
   await advance;
   narrate "視界の端を、制服姿の警察官が通り過ぎていく。";
   await advance;
@@ -207,7 +205,7 @@ scene novel_chapter_01_story {
   await advance;
   clear dialogue;
   wait 620ms;
-  narrate "静岡で乗り換え。浜松で乗り換え。";
+  narrate "静岡で乗り換え。";
   await advance;
   narrate "ただただ、レールの上を西へ向かって滑っていく。";
   await advance;
@@ -308,17 +306,15 @@ scene novel_chapter_01_story {
   await advance;
   narrate "俺たちは急いで荷物をまとめ、列車を降りた。";
   await advance;
+  narrate "浜松で乗り換えた。";
+  await advance;
   clear dialogue;
   wait 260ms;
-  narrate "愛知県に入ってからも、無機質な移動は続いた。";
+  narrate "豊橋。名古屋。駅名だけが変わり、";
   await advance;
-  narrate "豊橋で特別快速に乗り換え、名古屋という馬鹿でかいターミナルを通過する。";
+  narrate "ビル群はまた田園へ戻った。";
   await advance;
-  narrate "窓の外の景色はビル群に変わり、そしてまたすぐに田園風景に戻っていった。";
-  await advance;
-  narrate "西へ向かうにつれて、窓の外の景色が茜色に染まり始めた。";
-  await advance;
-  narrate "太陽が沈んでいく。俺たちの最初の一日目が、終わろうとしていた。";
+  narrate "西へ向かうにつれて、窓の外が茜色に染まり始めた。";
   await advance;
   narrate "列車の中は混み合っていて、俺たちは座ることができたが、周りには立っている客がたくさんいた。";
   await advance;
@@ -428,12 +424,8 @@ scene novel_chapter_01_story {
   narrate "靴を脱ぐことすら忘れて。";
   await advance;
   clear dialogue;
-  wait 360ms;
+  wait 620ms;
   narrate "俺はミオの靴をそっと脱がせ、ベッドの下に置いた。";
-  await advance;
-  narrate "足が細い。";
-  await advance;
-  narrate "骨の形がわかるぐらいに。";
   await advance;
   narrate "俺も隣のベッドに転がり、天井を見上げる。";
   await advance;
@@ -544,7 +536,7 @@ scene novel_chapter_01_story {
   await advance;
   narrate "ミオは、メロンソーダをストローで少しだけ飲む。";
   await advance;
-  narrate "毒々しい緑色の液体が、ミオの青白い肌とは対照的だった。";
+  narrate "毒々しい緑色の液体が、けばけばしい照明の下で光っていた。";
   await advance;
   narrate "けばけばしい壁紙の密室。";
   await advance;

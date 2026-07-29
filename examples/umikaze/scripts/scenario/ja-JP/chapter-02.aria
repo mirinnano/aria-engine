@@ -11,7 +11,7 @@ scene novel_chapter_02 {
   background asset("#4f4b53") with fade(260ms);
   screen day_card;
   choice {
-    "DAY 2\n9月22日・三ノ宮\n雨の気配が近づく街で、二人は次の行き先を探している。" => novel_chapter_02_story;
+    "DAY 2\nII\n幸福の可能性は、行くことのうちにある。\n9月22日・三ノ宮\n雨の気配が近づく街で、二人は次の行き先を探している。" => novel_chapter_02_story;
   }
 }
 
@@ -22,7 +22,7 @@ scene novel_chapter_02_story {
   clear dialogue;
   screen interlude;
   narrate "9月22日 三ノ宮のラブホテル 7:00";
-  wait 880ms;
+  wait 3600ms;
   screen dialogue;
   clear dialogue;
   wait 220ms;
@@ -204,7 +204,7 @@ scene novel_chapter_02_story {
   screen statement;
   background asset("#244e5a") with fade(260ms);
   narrate "マイクの先で、風が鳴った。";
-  wait 1600ms;
+  wait 2400ms;
   background asset("#244e5a") with fade(360ms);
   screen dialogue;
   clear dialogue;
@@ -220,7 +220,7 @@ scene novel_chapter_02_story {
   narrate "潮の香りはどんどんと薄れてゆく。";
   await advance;
   clear dialogue;
-  wait 240ms;
+  wait 680ms;
   narrate "ユニクロで適当に安い服を選んだ。";
   await advance;
   narrate "ミオは白いカットソーとベージュのスカート。俺は無地のTシャツとカーゴパンツ。";
@@ -449,6 +449,8 @@ scene novel_chapter_02_story {
   await advance;
   narrate "窓の外では、いつの間にか雨が完全に上がっているようだった。";
   await advance;
+  clear dialogue;
+  wait 900ms;
   narrate "俺は空になったカップ麺の容器をゴミ箱に放り投げ、再びベッドへと潜り込んだ。";
   await advance;
   chapter "canonical_chapter_02" progress 100;

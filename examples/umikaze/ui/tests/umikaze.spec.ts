@@ -32,6 +32,15 @@ async function beginFirstChapter(page: import("@playwright/test").Page) {
   const card = await openChapterCard(page, /PROLOGUE/);
   await card.getByRole("button", { name: "次へ" }).click();
   await expect(card).toBeHidden();
+  const interlude = page.locator(".interlude-screen");
+  // The card first yields to a brief authored blank, then to the 3.6-second
+  // interlude. Wait for that semantic surface instead of sampling it once:
+  // a fast DOM commit can otherwise observe the 180 ms blank and make the
+  // following five-second assertion race the entire interlude.
+  await expect(interlude).toBeVisible();
+  await expect(interlude.getByText("春から秋　ミオ", { exact: true })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(interlude).toBeHidden();
   const band = page.locator(".reading-band");
   // The card's semantic choice changes the route first; the VM emits the
   // first subtitle on its following deterministic tick. Wait for the actual
@@ -205,6 +214,22 @@ test("title EXIT confirms safely, and RMenu arrows move the focused command", as
   const confirm = page.getByRole("dialog", { name: "CONFIRM" });
   await expect(confirm).toBeVisible();
   await expect(confirm.getByText("アプリケーションを終了しますか？", { exact: true })).toBeVisible();
+  await expect(confirm.getByRole("button", { name: "NG" })).toBeFocused();
+  const confirmationMaterial = await confirm.evaluate((element) => ({
+    width: element.getBoundingClientRect().width,
+    viewport: window.innerWidth,
+    background: getComputedStyle(element).backgroundColor,
+    cancelBackground: getComputedStyle(
+      element.querySelector('[data-aria-action="confirm.cancel"]')!,
+    ).backgroundColor,
+  }));
+  expect(confirmationMaterial.width).toBe(confirmationMaterial.viewport);
+  expect(confirmationMaterial.background).toBe("rgb(6, 8, 12)");
+  expect(confirmationMaterial.cancelBackground).toBe("rgba(0, 0, 0, 0)");
+  await page.keyboard.press("ArrowLeft");
+  await expect(confirm.getByRole("button", { name: "OK" })).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(confirm.getByRole("button", { name: "NG" })).toBeFocused();
   await confirm.locator('[data-aria-action="confirm.cancel"]').click();
   await expect(page.getByRole("button", { name: "START" })).toBeVisible();
 
@@ -294,15 +319,28 @@ test("chapter focus changes only the preview until a command is confirmed", asyn
   const dayOne = catalogue.getByRole("button", { name: "DAY 1", exact: true });
   await dayOne.focus();
   await expect(dayOne).toHaveClass(/is-preview/);
+  const indexMaterial = await dayOne.evaluate((element) => ({
+    border: getComputedStyle(element).borderBottomWidth,
+    background: getComputedStyle(element).backgroundColor,
+    propositionTypeface: getComputedStyle(
+      element.querySelector(".chapter-index-proposition")!,
+    ).fontFamily,
+  }));
+  expect(indexMaterial.border).toBe("0px");
+  expect(indexMaterial.background).toBe("rgba(0, 0, 0, 0)");
+  expect(indexMaterial.propositionTypeface).toContain("UmikazeTitle");
   await expect(page.getByRole("button", { name: "次へ" })).toHaveCount(0);
   await expect(catalogue.locator(".chapter-preview-image")).not.toHaveAttribute("src", firstPreview || "");
   await expect(catalogue.locator(".chapter-preview-image")).toHaveAttribute("src", /station-night-pass-v1-/);
+  await expect(catalogue.locator(".chapter-preview-watermark")).toHaveText("I");
+  await expect(catalogue.locator(".chapter-preview-record").getByRole("heading"))
+    .toHaveText("幸福は、理由ではなく現在に示される。");
   await expect(catalogue.locator(".chapter-preview-date")).toHaveText("9月21日・横浜駅");
   await expect(catalogue.locator(".chapter-preview-description"))
     .toHaveText("西へ向かう最初の列車が、朝のホームを離れる。");
   await dayOne.press("Enter");
   await expect(page.locator(".day-card")).toBeVisible();
-  await expect(page.locator(".day-card").getByRole("heading", { name: "DAY 1" })).toBeVisible();
+  await expect(page.locator(".day-card").getByRole("heading", { name: "幸福は、理由ではなく現在に示される。" })).toBeVisible();
   await expect(catalogue.getByText(/^CHAPTER \d+$/)).toHaveCount(0);
 });
 
@@ -310,6 +348,23 @@ test("a chapter day card holds the place, weather, and spoiler-free invitation b
   const card = await openChapterCard(page, "DAY 1");
   await expect(card).toBeVisible();
   await expect(card.locator(".day-card-kicker")).toHaveCount(0);
+  await expect(card.locator(".day-card-key")).toHaveText("DAY 1");
+  await expect(card.locator(".day-card-watermark")).toHaveText("I");
+  const proposition = card.getByRole("heading", { name: "幸福は、理由ではなく現在に示される。" });
+  await expect(proposition).toBeVisible();
+  await expect(proposition).toHaveCSS("white-space", "nowrap");
+  const propositionLayout = await proposition.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      right: bounds.right,
+      height: bounds.height,
+      lineHeight: Number.parseFloat(style.lineHeight),
+      viewportWidth: window.innerWidth,
+    };
+  });
+  expect(propositionLayout.right).toBeLessThanOrEqual(propositionLayout.viewportWidth + 1);
+  expect(propositionLayout.height).toBeLessThanOrEqual(propositionLayout.lineHeight + 1);
   await expect(card.getByText("9月21日・横浜駅", { exact: true })).toBeVisible();
   await expect(card.getByText("西へ向かう最初の列車が、朝のホームを離れる。", { exact: true })).toBeVisible();
   await expect(card.getByRole("button", { name: "次へ" })).toBeVisible();
@@ -324,6 +379,31 @@ test("a chapter day card holds the place, weather, and spoiler-free invitation b
   await page.keyboard.press("Enter");
   await expect(card).toBeHidden();
   await expect(page.getByRole("region", { name: "読書中" })).toBeVisible();
+});
+
+test("a narrow chapter card keeps the proposition as one vertical measure without shrinking it", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const card = await openChapterCard(page, "DAY 1");
+  const proposition = card.getByRole("heading", { name: "幸福は、理由ではなく現在に示される。" });
+  const layout = await proposition.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const bounds = element.getBoundingClientRect();
+    return {
+      fontSize: style.fontSize,
+      whiteSpace: style.whiteSpace,
+      writingMode: style.writingMode,
+      top: bounds.top,
+      bottom: bounds.bottom,
+      viewportHeight: window.innerHeight,
+      overflow: document.documentElement.scrollWidth > window.innerWidth,
+    };
+  });
+  expect(layout.fontSize).toBe("32px");
+  expect(layout.whiteSpace).toBe("nowrap");
+  expect(layout.writingMode).toBe("vertical-rl");
+  expect(layout.top).toBeGreaterThanOrEqual(0);
+  expect(layout.bottom).toBeLessThanOrEqual(layout.viewportHeight + 1);
+  expect(layout.overflow).toBe(false);
 });
 
 test("a chapter day card advances from its open surface as well as BEGIN", async ({ page }) => {
@@ -369,8 +449,13 @@ test("an interlude is a dark logged story beat and every reading input releases 
   const interlude = page.locator(".interlude-screen");
   await expect(interlude).toBeVisible();
   await expect(interlude.getByText("9月21日　横浜駅 6:00", { exact: true })).toBeVisible();
-  await expect(page.locator(".scene-photograph")).toHaveCount(0);
-  await expect(interlude.locator(".interlude-line")).toHaveCSS("animation-delay", "0.2s");
+  // The selected scene is already composed beneath the black field so the
+  // field's final opacity phase can reveal it without a white/empty frame.
+  await expect(page.locator(".scene-photograph")).toHaveCount(1);
+  await expect(interlude).toHaveCSS("animation-name", "interlude-field-cycle");
+  await expect(interlude).toHaveCSS("animation-duration", "3.6s");
+  await expect(interlude.locator(".interlude-line")).toHaveCSS("animation-name", "interlude-line-cycle");
+  await expect(interlude.locator(".interlude-line")).toHaveCSS("animation-duration", "3.6s");
 
   await page.keyboard.press("h");
   const backlog = page.getByRole("dialog", { name: "LOG" });
@@ -397,7 +482,10 @@ test("an automatic statement owns its duration while preserving log and menu esc
     await page.waitForTimeout(8);
   }
   await expect(statement).toBeVisible();
-  await expect(statement.getByText("白い。", { exact: true })).toBeVisible();
+  const ownedLine = "「だって、人が死ぬとこなんて...わざわざ見る人なんていないもんね」";
+  await expect(statement.getByText(ownedLine, { exact: true })).toBeVisible();
+  const statementLine = statement.locator(".statement-line");
+  await expect(statementLine).toHaveCSS("animation-duration", "2.4s");
   await expect(statement.locator("button")).toHaveCount(0);
   await expect(page.locator(".scene-photograph")).toHaveCount(0);
 
@@ -409,12 +497,13 @@ test("an automatic statement owns its duration while preserving log and menu esc
   await page.keyboard.press("h");
   const backlog = page.getByRole("dialog", { name: "LOG" });
   await expect(backlog).toBeVisible();
-  await expect(backlog.getByText("白い。", { exact: true })).toBeVisible();
+  await expect(backlog.getByText(ownedLine, { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(statement).toBeVisible();
 
-  await expect(page.getByRole("region", { name: "読書中" })).toBeVisible({ timeout: 3_500 });
-  await expect(page.locator(".dialogue-text")).toHaveText("いつの間にか、寝ていた。");
+  await expect(statement).toBeHidden({ timeout: 3_500 });
+  await expect(page.getByRole("region", { name: "読書中" })).toBeVisible();
+  await expect(page.locator(".dialogue-text")).toHaveText("私はいつものように、窓のむこうを見る。");
 });
 
 test("a story scene selects its deterministic photograph after the chapter interlude", async ({ page }) => {

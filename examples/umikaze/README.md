@@ -6,8 +6,8 @@ are not an executable compatibility path: `aria migrate` and the legacy parser
 were removed. New scenario sources are compiled directly by the current Aria
 front end.
 
-The sample keeps the umikaze visual language (deep indigo, sea fog, pale
-paper, restrained gold, quiet panels, chapter cards, and non-colour-only
+The sample keeps the umikaze visual language (deep indigo, sea fog, oxidized
+signal colour, still photography, floating commands, and non-colour-only
 focus states) and exposes the shared runtime features: a Japanese-first public
 release flow; persistent chapter/CG progress; textbox and text-speed settings;
 tween and screen effects; choices; save/load; menu; backlog; auto; and skip
@@ -15,14 +15,13 @@ input. The Japanese route is a hand-directed Aria scenario rather than a
 one-line demo or an opaque prose import.
 
 Its React presentation package at [`ui`](ui) separates story data from the
-title rail, reading panel, right/bottom sheets, settings sliders, backlog,
-chapter cards, and gallery. The package receives only the semantic view model
+title command rail, subtitle reader, typographic system stages, settings
+rails, backlog, chapter index, and gallery. The package receives only the semantic view model
 from the shared WASM runtime and is also embedded by the Tauri desktop shell;
-there is no second native layout implementation. The text-free sea-fog,
-paper-grain, wave-divider, and chapter-ornament raster assets complement the
-existing seaside scene without baking any player-facing words into images.
-It deliberately uses color backgrounds and vector-like rectangles, so the
-project can be compiled and replayed without shipping the original artwork.
+there is no second native layout implementation. System screens reuse the
+project's still photographs and typography without baking player-facing words
+into images. They avoid browser sliders, drawers, frosted cards, looping
+noise, and decorative UI raster layers.
 The bundled Noto Sans JP UI face and M PLUS 1 Code reading face make the
 same project runnable on desktop and web without relying on a host font.
 M PLUS 1 Code is distributed under the SIL Open Font License; see
@@ -35,24 +34,21 @@ M PLUS 1 Code is distributed under the SIL Open Font License; see
 正典Markdownの対応する一章だけを埋め込んだ自己完結した生成物であり、ランタイムや
 配布pakが `Desktop/Novel` を読むことはない。本文の可視順序・話者・文字列はそのまま移され、
 演出は原稿に書かれた非言語の指示だけから生成する。Day 0の視点区切り1箇所、Day 5の既存
-演出指示、`pause ash <ms>`、およびDay 0〜4で明示したペーシング指示だけを画面転換へ翻訳
+演出指示、`pause ash <ms>`、およびDay 0〜10で明示したペーシング指示だけを画面転換へ翻訳
 している。
 
 演出規則は意図的に小さい。各日の開始はプレイヤーが進める日付カード、原稿内の太字
-日時は短い断章になる。通常の段落空きは、直前の文章をプレイヤーが送った**後**に字幕を
-消す170msの息継ぎへ変換する。文末が `…`／`...`／`――` の段落だけは320msに伸ばすため、
-読み進め操作を奪わず、言葉が消えた直後だけに余白が残る。単独の `...`／`……` は字幕を
-消した420msの沈黙になる。`pause ash <ms>` は原稿にだけ書ける明示指示で、灰色の無景色へ
-260msで退き、指定時間を保持したのち、その時点の背景へ360msで戻る。
+日時は短い断章になる。Day 0〜10はすべて先頭に `pacing explicit` を置き、Markdownの
+空行そのものは時間へ変換しない。作者が必要な箇所だけ `pause breath <ms>`／
+`pause drift <ms>`（字幕を消して自動で待つ）、
+`backdrop <ward|platform|hotel|shore|rail|rain|city>`（静かな背景遷移）、
+`pause ash <ms>`（灰色の無景色を保持して現在背景へ戻る）を記す。単独の
+`...`／`……` は字幕を消した420msの沈黙になる。
 
-Day 0〜4は先頭に `pacing explicit` を置く。この章ではMarkdownの空行を時間へ変換しない。
-代わりに、作者が必要な箇所だけ `pause breath <ms>`／`pause drift <ms>`（字幕を消して自動で
-待つ）、`backdrop <ward|platform|hotel|shore|rail|rain|city>`（静かな背景遷移）、
-`statement <ash|sea>` を記す。`statement` は直後の無話者の一行を、プレイヤーが送れない
-中央の単色フィールドへ一度だけ出す。本文はタイプライタにせず、フェードイン・保持・
-フェードアウトまで自動で終える。Day 5では原稿の暗転・待機・フェードインを暗い保持と
-病室色への遷移として保ち、Day 10末尾だけは暗い色をゆっくり残す。新しい地の文・台詞・
-事実は生成していない。
+`statement <ash|sea>` は直後の無話者の一行を、プレイヤーが送れない中央の単色フィールドへ
+一度だけ出す。本文はタイプライタにせず、2.4秒を使ってフェードイン・保持・フェードアウト
+まで自動で終える。Day 5では原稿の暗転・待機・フェードインを暗い保持と病室色への遷移として
+保ち、Day 10末尾だけは暗い色をゆっくり残す。新しい地の文・台詞・事実は生成していない。
 
 原文の更新を反映するときは、必ず本文レビュー後にDay 0〜10を明示指定する。まず
 `--verify` で既存Ariaを**書き換えずに**検証する。この検証はMarkdownとAria ASTの
@@ -72,6 +68,24 @@ cargo run -p aria-cli -- import-novel /path/to/Novel/src \
 再生成する。日付カードの短い紹介文はナビゲーション用メタデータであり、本文比較の対象外。
 地の文・台詞・見出しは比較対象に含まれる。原稿の章境界とAriaファイル境界を一致させるため、
 Day 11以降の草稿をこのコマンドの `--include` に加えてはいけない。
+
+章選択と章扉の表示文字もAriaを正本とする。章選択の各ラベルは
+`章キー\nローマ数字\n命題\n日付・場所\nネタバレしない導入` の5行で、TSXはこのレコードを
+解釈して組版するだけである。写真IDだけは配布エディションごとの
+`chapter-preview.*.ts` が担当する。題名や導入をTSXへ重複させてはならない。
+
+本文から独立した二択確認は次のようにAriaだけで記述できる。選択肢は必ず二つにし、
+一番目を肯定、二番目を否定にする。Escape、右クリック、ゲームパッドBも二番目へ進み、
+確認中の保存をロードしても同じ分岐になる。
+
+```aria
+screen confirm;
+narrate "この記録を開く。";
+choice {
+  "OK" => accepted;
+  "NG" => rejected;
+}
+```
 
 DAY 11–13は[`docs/story-map.md`](docs/story-map.md)で設計中であり、旧DAY 14と
 後日談は公開経路から外した草稿として[`docs/drafts/`](docs/drafts)に保管する。

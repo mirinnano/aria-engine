@@ -3,7 +3,7 @@
 aria;
 module umikaze.scenario.ja.chapter_00;
 
-// Source: 00_init.md — 265 player-visible beats
+// Source: 00_init.md — 267 player-visible beats
 scene novel_chapter_00 {
   locale "ja-JP";
   persistent flag "canonical_chapter_00_seen" = true;
@@ -11,7 +11,7 @@ scene novel_chapter_00 {
   background asset("#3d4655") with fade(260ms);
   screen day_card;
   choice {
-    "PROLOGUE\n春から九月\n季節だけが先に進む窓辺で、まだ名もない願いが揺れている。" => novel_chapter_00_story;
+    "PROLOGUE\nP\n幸福は、世界のなかの事実ではない。\n春から九月\n季節だけが先に進む窓辺で、まだ名もない願いが揺れている。" => novel_chapter_00_story;
   }
 }
 
@@ -19,6 +19,16 @@ scene novel_chapter_00_story {
   screen dialogue;
   background asset("#3d4655") with fade(360ms);
   wait 180ms;
+  clear dialogue;
+  screen interlude;
+  narrate "春から秋　ミオ";
+  wait 3600ms;
+  screen dialogue;
+  clear dialogue;
+  wait 220ms;
+  clear dialogue;
+  background asset("#3d4655") with fade(360ms);
+  wait 280ms;
   narrate "病室の窓から見える景色は、毎日少しずつ変わっていく。";
   await advance;
   narrate "けれど、私の一日はほとんど変わらない。";
@@ -41,8 +51,15 @@ scene novel_chapter_00_story {
   await advance;
   narrate "病人って、これが普通なんだろうけど。";
   await advance;
+  clear dialogue;
+  screen statement;
+  background asset("#6d706f") with fade(260ms);
   narrate "「だって、人が死ぬとこなんて...わざわざ見る人なんていないもんね」";
-  await advance;
+  wait 2400ms;
+  background asset("#3d4655") with fade(360ms);
+  screen dialogue;
+  clear dialogue;
+  wait 180ms;
   narrate "私はいつものように、窓のむこうを見る。";
   await advance;
   narrate "「きれいな桜...」";
@@ -111,15 +128,8 @@ scene novel_chapter_00_story {
   await advance;
   narrate "天井を見た。";
   await advance;
-  clear dialogue;
-  screen statement;
-  background asset("#6d706f") with fade(260ms);
   narrate "白い。";
-  wait 1600ms;
-  background asset("#3d4655") with fade(360ms);
-  screen dialogue;
-  clear dialogue;
-  wait 180ms;
+  await advance;
   narrate "いつの間にか、寝ていた。";
   await advance;
   narrate "そして、いつの間にか、目を覚ましていた。";
@@ -250,6 +260,13 @@ scene novel_chapter_00_story {
   await advance;
   narrate "嫌だなって。";
   await advance;
+  clear dialogue;
+  screen interlude;
+  narrate "9月18日　学校へ向かう道　ミオ";
+  wait 3600ms;
+  screen dialogue;
+  clear dialogue;
+  wait 220ms;
   narrate "「蝉が死んでる...」";
   await advance;
   narrate "秋の朝のこと。";
@@ -298,23 +315,21 @@ scene novel_chapter_00_story {
   await advance;
   narrate "職員室を出て、階段を登る。わたしの教室は最上階だ。";
   await advance;
-  narrate "手すりにつかまって息を整えながら、最上階へとたどり着く。";
+  narrate "手すりにつかまって息を整えながら、教室へたどり着く。";
   await advance;
-  narrate "でも、その先にも階段は続いてた。";
+  narrate "ロッカーに残っていた教科書を、手提げへ押し込んだ。";
   await advance;
-  narrate "...最上階の先から、金属を何度も揺らす音がした。";
+  narrate "立ったまま息を整えているところを先生に見つかり、";
   await advance;
-  narrate "ちょっと迷ったけれど、階段を登る。";
-  await advance;
-  narrate "そこには、人の影があった。";
+  narrate "保健室で休んでから帰るように言われた。";
   await advance;
   clear dialogue;
   background asset("#284b59") with fade(360ms);
   wait 360ms;
   clear dialogue;
   screen interlude;
-  narrate "9月18日　学校の保健室　昼休み";
-  wait 880ms;
+  narrate "9月18日　学校の保健室　昼休み　カズキ";
+  wait 3600ms;
   screen dialogue;
   clear dialogue;
   wait 220ms;
@@ -374,7 +389,9 @@ scene novel_chapter_00_story {
   await advance;
   narrate "「……分かりました」";
   await advance;
-  narrate "ミオはノートをベッドの上へ置き、ゆっくりと立ち上がる。";
+  narrate "ミオはノートへ一度目を落とした。";
+  await advance;
+  narrate "それから、俺が寝ていたベッドの上へ置き、ゆっくりと立ち上がる。";
   await advance;
   narrate "「じゃあ」";
   await advance;
@@ -382,6 +399,8 @@ scene novel_chapter_00_story {
   await advance;
   narrate "保健室のドアが閉まった。";
   await advance;
+  clear dialogue;
+  wait 960ms;
   narrate "少しして、ベッドの上に残されたノートへ目をやる。";
   await advance;
   narrate "「忘れてんじゃねえか」";
@@ -406,12 +425,14 @@ scene novel_chapter_00_story {
   await advance;
   narrate "最後の行には、海、とだけ書かれていた。";
   await advance;
+  clear dialogue;
+  wait 760ms;
   narrate "俺はノートを閉じ、自分の鞄の底へ押し込んだ。";
   await advance;
   clear dialogue;
   screen interlude;
   narrate "9月20日　学校　朝";
-  wait 880ms;
+  wait 3600ms;
   screen dialogue;
   clear dialogue;
   wait 220ms;
@@ -577,6 +598,11 @@ scene novel_chapter_00_story {
   await advance;
   narrate "ただ、この息の詰まる部屋から抜け出すための、言い訳が欲しかっただけ、なんだろう。";
   await advance;
+  clear dialogue;
+  background asset("#6d706f") with fade(260ms);
+  wait 1200ms;
+  background asset("#284b59") with fade(360ms);
+  wait 180ms;
   chapter "canonical_chapter_00" progress 100;
   clear dialogue;
   background asset("#05070b") with fade(480ms);
